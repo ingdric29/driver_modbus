@@ -20,6 +20,7 @@ public:
     }
     bool due(Time now = Clock::now()) const { return now >= next_; }
     Time next() const { return next_; }
+    void defer(double seconds, Time now = Clock::now()) { next_ = now + interval(seconds); }
     void advance(double seconds, Time now = Clock::now()) {
         auto period = interval(seconds);
         if (next_ == Time{}) next_ = now + period;

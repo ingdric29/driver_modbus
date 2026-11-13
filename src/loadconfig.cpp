@@ -2080,10 +2080,11 @@ int insertar_valor(struct stdatabase* db, string tabla, string* campo, string* v
 int insertar_inteligente(struct stdatabase* db, string tabla, int indice, string* campo, string* valor, int cantidad) {
 	int res = -1;
 	int rescmd = -1;
-	int resfinal = 0;
+	int resfinal = -1;
 	res = -1;
 	rescmd = -1;
 	res = buscarentabla(db, tabla, campo[indice], valor[indice]);
+	if (res < 0) return -1;
 	if (res > 0) {
 		//actualiza
 		rescmd = actualizar_valor(db, tabla, indice, &campo[0], &valor[0], cantidad);
@@ -2106,10 +2107,11 @@ int insertar_inteligente(struct stdatabase* db, string tabla, int indice, string
 int insertar_inteligente3(struct stdatabase* db, string tabla, int indice1, int indice2, int indice3, string* campo, string* valor, int cantidad) {
 	int res = -1;
 	int rescmd = -1;
-	int resfinal = 0;
+	int resfinal = -1;
 	res = -1;
 	rescmd = -1;
 	res = buscarentabla3(db, tabla, campo[indice1], campo[indice2], campo[indice3], valor[indice1], valor[indice2], valor[indice3]);
+	if (res < 0) return -1;
 	if (res > 0) {
 		//actualiza
 		rescmd = actualizar_valor3(db, tabla, indice1, indice2, indice3, &campo[0], &valor[0], cantidad);

@@ -37,3 +37,7 @@ pruebas de decodificación, con `-Isrc/include` y ASan/UBSan.
 `test_sample_window.cpp` comprueba un pico de voltaje seguido de recuperación,
 la fecha de adquisición del extremo, mínimo/último valor, modo desactivado,
 deduplicación y rechazo de NaN. Compilar con C++11 y `-Isrc/include`.
+
+`test_pending_batch.cpp` inyecta un fallo en la segunda de tres muestras:
+comprueba que el reintento guarda solo el sufijo pendiente y que un lote
+confirmado no se vuelve a enviar. No requiere SQL.

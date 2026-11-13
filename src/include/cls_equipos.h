@@ -105,6 +105,8 @@ public:
 
 	bool preservar_picos = false;
 	uint64_t sample_sequence = 0;
+	uint64_t change_revision = 0;
+	SampleValue latest_sample;
 	SampleWindow sample_window;
 	PeriodicDeadline read_deadline, instant_deadline, history_deadline, status_deadline;
 	double  periodo;

@@ -30,6 +30,8 @@ Hecha por: Javier Flores
 #include "include/estructuras.h"
 #include <chrono>
 #include "include/worker_group.h"
+#include "include/pending_batch.h"
+#include <map>
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -922,120 +924,103 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 
 
 
-// inserta en las bases de datos locales y externa
+namespace {
+struct HistoricalWrite {
+    PendingBatch pending;
+    std::string tag, name, trace;
+    int id = 0;
+    uint64_t revision = 0;
+    std::weak_ptr<std::recursive_mutex> generation;
+    PeriodicDeadline retry;
+};
+// Only the writer thread touches this map. It outlives configuration workers
+// so an acknowledged prefix or pending suffix survives a reload.
+std::map<std::string, HistoricalWrite> historical_pending;
+std::string sample_key(const cls_equipos& tag) {
+    return tag.protocolo + "\x1f" + tag.nombre + "\x1f" + tag.tag + "\x1f" + std::to_string(tag.id);
+}
+void flush_historical() {
+    for (auto it = historical_pending.begin(); it != historical_pending.end();) {
+        auto& write = it->second;
+        if (!write.retry.due()) { ++it; continue; }
+        const bool stored = write.pending.flush([&](const SampleValue& sample) {
+            return insertardb(sample.acquired, write.tag, sample.text, sample.value,
+                write.id, write.trace, GLOBAL_nombre_concentrador, write.name,
+                GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre,
+                GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores") > 0;
+        });
+        if (!stored) { write.retry.defer(1); ++it; continue; }
+        auto confirm = [&](cls_equipos* tags, int count) {
+            for (int i = 0; i < count; ++i) {
+                if (sample_key(tags[i]) != it->first || tags[i].state_mutex != write.generation.lock()) continue;
+                std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
+                tags[i].fueescritodb = tags[i].change_revision == write.revision;
+                tags[i].ultimo_insertar = time(nullptr);
+                tags[i].history_deadline.advance(std::max(tags[i].periodo, GLOBAL_periodo_minimo_escritura_tbvalores));
+            }
+        };
+        confirm(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
+        confirm(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
+        confirm(equipo_rs232, GLOBAL_contador_equipos_rs232);
+        it = historical_pending.erase(it);
+    }
+}
+}
+
 int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
-	/* ORDENES DE LECTURAS DE LOS DISPOSITIVOS SEGUN TABLECOM*/
-	double diferencia = 0.0;
-	double diferencia_instanteneos = 0.0;
-	double diferencia_tbdispositivo_sta = 0.0;
-	double diferencia_tbvalores = 0.0;
-	double diferencia_tbvalores_ex = 0.0;
-	int resultado = -1;
-	int res_insertardb = -1;
-	int res_insertardbext = -1;
-	int res_evaluar = -1;
-	bool res_leervalores = false;
-	int solocambios;
-	bool fueescrito;
-	string campost[6];
-	string valorst[6] = { "0","0" ,"0" ,"0" ,"0", "0" };
-	string campoin[10];
-	string valorin[10] = { "0","0" ,"0" ,"0" ,"0","0","0" ,"0" ,"0" ,"0" };
-
-	campost[0] = "nombre";
-	campost[1] = "errores";
-	campost[2] = "errores_acumulados";
-	campost[3] = "estado";
-	campost[4] = "fechatiempo";
-	campost[5] = "concentrador";
-	valorst[5] = GLOBAL_nombre_concentrador;
-
-	campoin[0] = "timedate";
-	campoin[1] = "fechatiempo";
-	campoin[2] = "tag";
-	campoin[3] = "valorstr";
-	campoin[4] = "valorfloat";
-	campoin[5] = "dispositivo";
-	campoin[6] = "rastro";
-	campoin[7] = "concentrador";
-	campoin[8] = "nombredispositivo";
-
-	try {
-		for (int i = 0; i < arge_cantidad; i++) {
-            std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
-
-			const auto now = PeriodicDeadline::Clock::now();
-			resultado = -1;
-			//cout << "diferencia - periodo " << diferencia << "\t" << equipo[i].periodo << endl;
-			if (equipo[i].instant_deadline.due(now)) {
-				resultado = equipo[i].resultadoleer_rc;
-				diferencia_tbdispositivo_sta = difftime(time(NULL), GLOBAL_tiempo_ultimaescritura_tbdispositivos_sta);
-				if (equipo[i].status_deadline.due(now)) {
-                    equipo[i].status_deadline.advance(GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
-					valorst[0] = equipo[i].nombre;
-					valorst[1] = cast_int_to_string(*equipo[i].pcontador_errores);
-					valorst[2] = cast_int_to_string(*equipo[i].pcontador_errores_acumulados);
-					valorst[3] = cast_bool_to_string(*equipo[i].pestadocomunicacion);
-					valorst[4] = cast_time_to_datetime(time(NULL));
-					// escribir conteo de errores
-					GLOBAL_tiempo_ultimaescritura_tbdispositivos_sta = time(NULL);
-					insertar_inteligente(&stdblocal, "tbdispositivos_sta", 0, &campost[0], &valorst[0], 6);
-					//cout << "ordenescrituratbinstantaneo | periodo equipo:" << equipo[i].nombre << "resultado: " << resultado;
-				}
-				if (equipo[i].resultado_leer) { // if 2
-					res_leervalores = true;
-					valorin[0] = cast_time_to_datetime(time(NULL)); 	//"timedate" ;
-					valorin[1] = valorin[0];							//"fechatiempo";
-					valorin[2] = equipo[i].tag;  						//"tag";
-					valorin[3] = equipo[i].clsvalorstr;  				//"valorstr";
-					valorin[4] = cast_double_to_string(equipo[i].clsvalorfloat); 	//"valorfloat";
-					valorin[5] = cast_int_to_string(equipo[i].id); 		//"dispositivo";
-					valorin[6] = equipo[i].rastro;						//"rastro";
-					valorin[7] = GLOBAL_nombre_concentrador; 			//"concentrador";
-					valorin[8] = equipo[i].nombre; 						//"nombredispositivo";
-					imprimir_mensaje("insertar bd local tabla tbinstantaneos: " + equipo[i].tag, negro);
-					res_insertardb = insertar_inteligente3(&stdblocal, "tbinstantaneos", 2, 7, 8, &campoin[0], &valorin[0], 9);
-					equipo[i].ultima_escritura_tbinstantaneo = time(NULL);
-                    equipo[i].instant_deadline.advance(equipo[i].periodo);
-
-				} // end del if 2 
-			} // end if 1 */
-			diferencia_tbvalores = difftime(time(NULL), equipo[i].ultimo_insertar);
-			if ((equipo[i].resultado_leer) && (equipo[i].registrable)) {
-				if (equipo[i].history_deadline.due(now)) { // if 3
-					imprimir_mensaje("insertar bd local tabla tbvalores: " + equipo[i].tag, negro);
-					if (habilitarescribir(equipo[i].fueescritodb, equipo[i].solocambios)) {
-						bool stored = true;
-                        for (const auto& sample : equipo[i].sample_window.samples(equipo[i].preservar_picos)) {
-                            res_insertardb = insertardb(sample.acquired, equipo[i].tag, sample.text, sample.value, equipo[i].id, equipo[i].rastro, GLOBAL_nombre_concentrador, equipo[i].nombre, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores");
-                            if (res_insertardb <= 0) { stored = false; break; }
-                        }
-                        if (!stored) continue;
-                        equipo[i].sample_window.clear();
-						equipo[i].ultimo_insertar = time(NULL);
-                        equipo[i].history_deadline.advance(std::max(GLOBAL_periodo_minimo_escritura_tbvalores, equipo[i].periodo));
-						equipo[i].fueescritodb = true;
-					}
-					if (res_insertardb == 0) {
-
-					}
-				} // if 3
-			}
-		} // end for
-		GLOBAL_estado_primera_ejecucion_programa = 3;
-		return res_insertardb;
-	}
-	catch (...) {
-		imprimir_mensaje("falla ordenescrituraequipos");
-
-		std::string mensajeError = std::string("DEBUG: ordenescrituraequipos fail!") +
-                               " | File: " + __FILE__ +
-                               " | Function: " + __FUNCTION__ +
-                               " | Line: " + std::to_string(__LINE__);
-
-    	logger_main.registrarError(mensajeError);
-		return -1;
-	}
+    int result = 0;
+    for (int i = 0; i < arge_cantidad; ++i) {
+        auto& tag = equipo[i];
+        SampleValue sample;
+        std::string name, tag_name, trace;
+        int id, errors, total_errors;
+        bool online, instant_due, status_due;
+        {
+            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
+            const auto now = PeriodicDeadline::Clock::now();
+            sample = tag.latest_sample;
+            name = tag.nombre; tag_name = tag.tag; trace = tag.rastro; id = tag.id;
+            errors = *tag.pcontador_errores; total_errors = *tag.pcontador_errores_acumulados;
+            online = *tag.pestadocomunicacion;
+            instant_due = tag.resultado_leer && tag.instant_deadline.due(now);
+            status_due = tag.status_deadline.due(now);
+            const auto key = sample_key(tag);
+            if (tag.resultado_leer && tag.registrable && tag.history_deadline.due(now)
+                && habilitarescribir(tag.fueescritodb, tag.solocambios)
+                && !tag.sample_window.empty() && historical_pending.count(key) == 0) {
+                HistoricalWrite write;
+                write.pending = PendingBatch(tag.sample_window.samples(tag.preservar_picos));
+                write.tag = tag.tag; write.name = tag.nombre; write.trace = tag.rastro;
+                write.id = tag.id; write.revision = tag.change_revision;
+                write.generation = tag.state_mutex;
+                historical_pending.emplace(key, std::move(write));
+                tag.sample_window.clear();
+            }
+        }
+        // Database I/O operates exclusively on immutable copies. Acquisition
+        // never waits for SQL while trying to publish a sample.
+        if (status_due) {
+            string fields[] = {"nombre", "errores", "errores_acumulados", "estado", "fechatiempo", "concentrador"};
+            string values[] = {name, std::to_string(errors), std::to_string(total_errors), online ? "1" : "0",
+                cast_time_to_datetime(time(nullptr)), GLOBAL_nombre_concentrador};
+            const int stored = insertar_inteligente(&stdblocal, "tbdispositivos_sta", 0, fields, values, 6);
+            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
+            if (stored == 0) tag.status_deadline.advance(GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
+            else { tag.status_deadline.defer(1); result = -1; }
+        }
+        if (instant_due) {
+            string fields[] = {"timedate", "fechatiempo", "tag", "valorstr", "valorfloat", "dispositivo", "rastro", "concentrador", "nombredispositivo"};
+            string values[] = {cast_time_to_datetime(time(nullptr)), cast_time_to_datetime(sample.acquired), tag_name,
+                sample.text, cast_double_to_string(sample.value), std::to_string(id), trace, GLOBAL_nombre_concentrador, name};
+            const int stored = insertar_inteligente3(&stdblocal, "tbinstantaneos", 2, 7, 8, fields, values, 9);
+            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
+            if (stored == 0) {
+                tag.ultima_escritura_tbinstantaneo = time(nullptr);
+                tag.instant_deadline.advance(tag.periodo);
+            } else { tag.instant_deadline.defer(1); result = -1; }
+        }
+    }
+    return result;
 }
 
 // Correccion: Habilitacion y deshabilitacion de la escritura en la base de datos cuando se pierde la comunicacion
@@ -1062,6 +1047,7 @@ int ordenescrituraequiposciclico() {
 			}
 		}
 		
+		flush_historical();
 		menor = funmenor(GLOBAL_periodo_minimo_escritura_tbvalores, GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
 //		cout << "esperar: " << menor << endl;
 		auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
@@ -1070,7 +1056,8 @@ int ordenescrituraequiposciclico() {
                 std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
                 if (!tags[i].resultado_leer) continue;
                 wake = std::min(wake, tags[i].instant_deadline.next());
-                if (tags[i].registrable && habilitarescribir(tags[i].fueescritodb, tags[i].solocambios))
+                if (tags[i].registrable && habilitarescribir(tags[i].fueescritodb, tags[i].solocambios)
+                    && historical_pending.count(sample_key(tags[i])) == 0)
                     wake = std::min(wake, tags[i].history_deadline.next());
             }
         };

@@ -197,6 +197,7 @@ int cls_equipos::leer() {
         sample.acquired = ultimo_muestreo;
         sample.value = clsvalorfloat;
         sample.text = clsvalorstr;
+        latest_sample = sample;
         sample_window.observe(sample);
 	}
 	else {
@@ -992,6 +993,7 @@ void cls_equipos::setvalorfloat(float nuevovalor) {
 		fuecambiado = false;
 	}
 	else {
+		++change_revision;
 		fuecambiado = true;
 	}
 
@@ -1025,6 +1027,7 @@ void cls_equipos::setvalorstring(string nuevovalorstr) {
 	}
 	else {
 		//cout << "fue cambiado! " << "viejo:\t" << oldclsvalorstr << "actual:\t" << clsvalorstr <<"nuevo:\t" << nuevovalorstr << endl;
+		++change_revision;
 		fuecambiado = true;
 		fueescritodb = false;
 	}
