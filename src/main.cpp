@@ -113,6 +113,7 @@ double GLOBAL_ultima_revision_alarmas;
 
 string GLOBAL_nombre_concentrador;
 string GLOBAL_picos_tags;
+long long GLOBAL_replicacion_inicial_id = -1;
 
 double GLOBAL_periodo_minimo_escritura_tbvalores;
 double GLOBAL_periodo_minimo_escritura_tbvalores_ex;

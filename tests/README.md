@@ -65,3 +65,11 @@ rollback de un lote parcial y rechazo de identificadores inválidos.
 Con esa misma instancia, `DRIVER_SQL_TEST=1 bash tests/run_state_test.sh`
 comprueba los wrappers reales de inserción/actualización y propagación de
 fallos mediante `generic_fixture`. Las pruebas ordinarias no requieren SQL.
+
+`test_alarm_expression.cpp` cubre precedencia, negación, números negativos y
+exponentes, y rechaza operandos ausentes, paréntesis inválidos y tokens extra.
+
+El runner de estado verifica búsqueda de eventos RTU/RS232 y referencias
+inexistentes. Con `DRIVER_SQL_TEST=1` requiere además `driver_test_replica`:
+replica fechas iguales en lotes 2/2/1, copia datos tardíos y comprueba rollback,
+checkpoint sin avance y recuperación posterior, usando `replication_fixture`.

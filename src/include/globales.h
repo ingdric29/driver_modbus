@@ -66,6 +66,7 @@ extern double GLOBAL_periodoext_muestreo_tbejecutar;
 
 extern string GLOBAL_nombre_concentrador;
 extern string GLOBAL_picos_tags;
+extern long long GLOBAL_replicacion_inicial_id;
 
 extern double GLOBAL_periodo_minimo_escritura_tbvalores;
 extern double GLOBAL_periodo_minimo_escritura_tbvalores_ex;

@@ -13,6 +13,7 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include "include/globales.h"
 #include "include/estructuras.h"
 #include <sstream>
+#include "include/alarm_expression.h"
 
 using namespace std;
 
@@ -40,70 +41,24 @@ cls_defalarmas::cls_defalarmas() {
 
 
 // reemplaza los simbolos por valores
-string cls_defalarmas:: reemplazar_simbolos(const string& cadena1){
-	size_t pos, pos_ant, inicio, fin;
-	string res = "";
-	string buscar = "";
-	string parametro = "";
-	string cadenasalida = "";
-	int res_leertag = -1;
-	pos = 0;
-	pos_ant = 0;
-	inicio = 0;
-	fin =0;
-	std::vector<string> vector_parametros;
-	stres valortag;
-	stringstream ss1;
-	
-	while( pos != std::string::npos) {
-		pos = cadena1.find("$(",pos_ant);
-		if (pos != std::string::npos) {
-			inicio = pos;
-			
-			fin = cadena1.find(")",inicio);
-			if (fin != std::string::npos) {
-				pos = fin;
-				cadenasalida += cadena1.substr(pos_ant, inicio - pos_ant); 
-				buscar = cadena1.substr(inicio+1,fin-inicio+1);
-				parametro = cadena1.substr(inicio+2,fin-inicio-2);
-				ss1 << "la cadena encontrada es:" << parametro;
-				imprimir_mensaje(ss1.str(),negro);
-				vector_parametros = split1(parametro, '.');
-				if (vector_parametros.size() == 2) {
-					
-					res_leertag = leertag2 (vector_parametros[0], vector_parametros[1], &valortag ); 
-					ss1.str("");
-					ss1 << "dispositivo: " << vector_parametros[0] << " | " << "tag: " <<
-					vector_parametros[1] << " | valor: " << valortag.valorfloat; 
-					imprimir_mensaje(ss1.str(),negro);
-					if (res_leertag == 0) {
-						cadenasalida += cast_double_to_string(valortag.valorfloat);
-					}
-					else {
-						imprimir_mensaje("revisar $(dispositivo.tag): el tag no existe!", rojo);
-					}
-					
-				}
-				else { 
-				imprimir_mensaje("no tiene formato correcto $(dispositivo.tag)");
-				return "0";}
-				
-			}
-				
-		}
-		pos_ant = pos+1;
-    } // while
-	
-	if (fin >0) {
-			cadenasalida += cadena1.substr(fin+1);
-	}
-	else
-	{
-			cadenasalida += cadena1.substr(fin);
-	}
-	
-	
-	return cadenasalida;
+string cls_defalarmas::reemplazar_simbolos(const string& expression) {
+    std::string output; size_t begin = 0;
+    while (begin < expression.size()) {
+        const size_t marker = expression.find("$(", begin);
+        if (marker == std::string::npos) { output += expression.substr(begin); break; }
+        output += expression.substr(begin, marker - begin);
+        const size_t end = expression.find(')', marker + 2);
+        if (end == std::string::npos) throw std::invalid_argument("unclosed alarm tag reference");
+        const auto reference = expression.substr(marker + 2, end - marker - 2);
+        const size_t dot = reference.find('.');
+        if (dot == std::string::npos || dot == 0 || dot + 1 == reference.size()) throw std::invalid_argument("invalid alarm tag reference");
+        stres sample{};
+        if (leertag2(reference.substr(0, dot), reference.substr(dot + 1), &sample) != 0)
+            throw std::invalid_argument("unknown or unavailable alarm tag");
+        output += cast_double_to_string(sample.valorfloat);
+        begin = end + 1;
+    }
+    return output;
 }
 
 // dado el dispositivo y el tag obtiene el valor
@@ -157,6 +112,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	  if (&clsequipo_mbtcp[i]) {	
 		if ((clsequipo_mbtcp[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbtcp[i].tag.compare(tag) ==0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_mbtcp[i].state_mutex);
+            if (!clsequipo_mbtcp[i].resultado_leer) return -1;
 			local->valorfloat = clsequipo_mbtcp[i].clsvalorfloat;
 			local->valorstr = clsequipo_mbtcp[i].clsvalorstr;
 			local->unidad = clsequipo_mbtcp[i].unidad;
@@ -175,6 +131,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	   if (&clsequipo_mbserial[i]) {	 
 		if ((clsequipo_mbserial[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbserial[i].tag.compare(tag) ==0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_mbserial[i].state_mutex);
+            if (!clsequipo_mbserial[i].resultado_leer) return -1;
 			local->valorfloat = clsequipo_mbserial[i].clsvalorfloat;
 			local->valorstr = clsequipo_mbserial[i].clsvalorstr;
 			local->indice = i;
@@ -196,6 +153,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 			if (&clsequipo_rs232[i]) {
 				if ((clsequipo_rs232[i].nombre.compare(dispositivo) == 0) && (clsequipo_rs232[i].tag.compare(tag) == 0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_rs232[i].state_mutex);
+            if (!clsequipo_rs232[i].resultado_leer) return -1;
 					local->valorfloat = clsequipo_rs232[i].clsvalorfloat;
 					local->valorstr = clsequipo_rs232[i].clsvalorstr;
 					local->indice = i;
@@ -236,117 +194,14 @@ int cls_defalarmas::prioridad(char op) {
 } 
 
 
-string cls_defalarmas::reordenar_antes_evaluar(string in) {
- stack<char> pila;
- string posf = "";
- for (uint16_t i=0; i < in.size(); i++) {
-  switch (in[i]) {
-   case '(':
-    pila.push('(');
-    break;
-   case ')':
-    while (!pila.empty() && pila.top() != '(') {
-     posf += string(1,pila.top()) + " ";
-     pila.pop();
-    }
-    pila.pop();
-    break;
-   case '!': // la negacion
-   case '&': // and logico
-   case '@': // and de bit a bit
-   case '|': // or logico
-   case '>': // mayor que
-   case '<': // menor que
-   case '=': // es igual
-   case '~': // es distinto
-   
-    while (!pila.empty() && prioridad(in[i]) <= prioridad(pila.top())) {
-     posf += string(1,pila.top()) + " ";
-     pila.pop();
-    }
-    pila.push(in[i]);
-    break;
-   default:
-    while (isdigit(in[i]) || in[i] == '.') 
-     posf += string(1, in[i++]);
-    posf += " ";
-    i--;
-  }
- }
- while (!pila.empty()) {
-  posf += string(1, pila.top()) + " ";
-  pila.pop();
- }
- return posf;
-}
+string cls_defalarmas::reordenar_antes_evaluar(string in) { return alarm_postfix(in); }
 
 
-int cls_defalarmas::evaluar1(string p) {
- stack<double> pila;
- uint16_t i;
- double op1, op2;
- try {
-	 for (i = 0; i < p.size(); i += 2) {
-		 switch (p[i]) {
-		 case '!':
-			 op1 = pila.top(); pila.pop();
-			 pila.push(!op1);
-			 break;
-		 case '&':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push(op1 && op2);
-			 break;
-		 case '@':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push((long)op1 & (long)op2);
-			 break;
-		 case '|':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push(op1 || op2);
-			 break;
-		 case '>':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push((op1 > op2) ? 1 : 0);
-			 break;
-		 case '<':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push((op1 < op2) ? 1 : 0);
-			 break;
-		 case '=':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push((op1 == op2) ? 1 : 0);
-			 break;
-		 case '~':
-			 op2 = pila.top(); pila.pop();
-			 op1 = pila.top(); pila.pop();
-			 pila.push((op1 != op2) ? 1 : 0);
-			 break;
-		 default:
-			 string aux = "";
-			 while (p[i] != ' ')
-				 aux += string(1, p[i++]);
-			 pila.push(atof(aux.c_str()));
-			 i--;
-		 }
-	 }
-	 return pila.top();
- }
- catch(...) {
-	 cout << "error definiciones alarmas:" << p << endl;
-	 cout << "posicion:" << i << endl;
-	 throw;
- }
-}
+int cls_defalarmas::evaluar1(string p) { return alarm_evaluate_postfix(p); }
 
 string cls_defalarmas::eliminar_espacios(string p) {
 	string pout = "";
-	for (uint16_t i =0; i<p.size(); i++)
+	for (size_t i =0; i<p.size(); i++)
 		if (p[i] != ' ') pout += p[i];
 return pout;
 

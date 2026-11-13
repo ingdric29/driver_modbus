@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include "sql_session.h"
+#include "cls_defeventos.h"
 #include "estructuras.h"
 #include <cstdlib>
 void serial_test() {
@@ -99,4 +100,57 @@ void generic_sql_test() {
     rows.reset(); ddl->execute("DROP TABLE generic_fixture");
     assert(insertar_inteligente3(&db, "generic_fixture", 0, 1, 2, fields, values, 4) == -1);
 }
-int main() { serial_test(); batch_period_test(); if (std::getenv("DRIVER_SQL_TEST")) generic_sql_test(); }
+
+void event_lookup_test() {
+    cls_equipos tcp[1], rtu[1], serial[1];
+    equipo_mbtcp = tcp; equipo_mbserial = rtu; equipo_rs232 = serial;
+    GLOBAL_contador_equipos_mbtcp = GLOBAL_contador_equipos_mbserial = GLOBAL_contador_equipos_rs232 = 1;
+    tcp[0].nombre = "tcp"; rtu[0].nombre = "rtu"; serial[0].nombre = "serial";
+    for (auto* tag : {tcp, rtu, serial}) { tag->tag = "status"; tag->clsvalor = 3; }
+    cls_defeventos event; event.tag = "status"; event.bit1 = 1;
+    event.nombredispositivo = "rtu";
+    assert(event.cargar_posicion() == 0 && event.pequipo == rtu && event.valoractual == 1);
+    event.nombredispositivo = "serial";
+    assert(event.cargar_posicion() == 0 && event.pequipo == serial);
+    event.nombredispositivo = "missing";
+    assert(event.cargar_posicion() == -1 && event.pequipo == nullptr);
+    equipo_mbtcp = equipo_mbserial = equipo_rs232 = nullptr;
+    GLOBAL_contador_equipos_mbtcp = GLOBAL_contador_equipos_mbserial = GLOBAL_contador_equipos_rs232 = 0;
+}
+void replication_test() {
+    stdatabase local, remote;
+    local.direccion = remote.direccion = "127.0.0.1"; local.puerto = remote.puerto = 33077;
+    local.usuario = remote.usuario = "root"; local.nombre = "driver_test"; remote.nombre = "driver_test_replica";
+    GLOBAL_habilitar_acceso_externo = 1; GLOBAL_ACCESO_EXTERNO = true;
+    GLOBAL_nombre_concentrador = "replica-test-" + std::to_string(getpid());
+    auto source = sql_connection("tcp://127.0.0.1:33077", "root", "", local.nombre);
+    auto destination = sql_connection("tcp://127.0.0.1:33077", "root", "", remote.nombre);
+    std::unique_ptr<sql::Statement> a(source->createStatement()), b(destination->createStatement());
+    a->execute("DROP TABLE IF EXISTS replication_fixture"); b->execute("DROP TABLE IF EXISTS replication_fixture");
+    std::string columns = " (id BIGINT AUTO_INCREMENT PRIMARY KEY,timedate TIMESTAMP NULL,fechatiempo DATETIME,tag TEXT,valorstr TEXT,valorfloat DOUBLE,dispositivo INT,rastro TEXT,concentrador TEXT,nombredispositivo TEXT) ENGINE=InnoDB";
+    a->execute("CREATE TABLE replication_fixture" + columns); b->execute("CREATE TABLE replication_fixture" + columns);
+    b->execute("ALTER TABLE replication_fixture ADD CHECK(valorfloat < 300)");
+    SampleValue value; value.acquired = 1700000000; value.value = 220; value.text = "same timestamp";
+    store_sample_batch(source, "replication_fixture", {value,value,value,value,value}, "voltage", 1, "trace", GLOBAL_nombre_concentrador, "meter");
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 2);
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 2);
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 1);
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 0);
+    value.acquired -= 100; // Late data must still replicate despite older timestamp.
+    store_sample_batch(source, "replication_fixture", {value}, "voltage", 1, "trace", GLOBAL_nombre_concentrador, "meter");
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 1);
+    SampleValue invalid = value; invalid.value = 999;
+    store_sample_batch(source, "replication_fixture", {value,invalid}, "voltage", 1, "trace", GLOBAL_nombre_concentrador, "meter");
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == -1);
+    std::unique_ptr<sql::ResultSet> rows(b->executeQuery("SELECT COUNT(*) FROM replication_fixture"));
+    assert(rows->next() && rows->getInt(1) == 6); rows.reset();
+    a->execute("UPDATE replication_fixture SET valorfloat=220 WHERE valorfloat=999");
+    assert(sincronizar_tablas(&local, &remote, "replication_fixture", 2) == 2);
+    rows.reset(b->executeQuery("SELECT COUNT(*) FROM replication_fixture"));
+    assert(rows->next() && rows->getInt(1) == 8); rows.reset();
+    a->execute("DROP TABLE replication_fixture"); b->execute("DROP TABLE replication_fixture");
+}
+int main() {
+    serial_test(); batch_period_test(); event_lookup_test();
+    if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); }
+}

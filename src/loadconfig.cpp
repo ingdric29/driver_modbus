@@ -21,6 +21,7 @@ cargar en memoria el archivo de configuracion
 #include <chrono>
 #include <memory>
 #include "include/sql_session.h"
+#include "include/replication_cursor.h"
 #include <thread>
 
 #include "include/cls_logger.h"
@@ -136,6 +137,7 @@ int loadconfigdb()
 		GLOBAL_periodoext_muestreo_tbejecutar = cast_string_to_double(reader.Get(*sectionsIt, "periodoext_muestreo_tbejecutar", "5"));
 
 		GLOBAL_picos_tags = reader.Get(*sectionsIt, "picos_tags", "");
+        GLOBAL_replicacion_inicial_id = reader.GetInteger(*sectionsIt, "replicacion_inicial_id", -1);
 		GLOBAL_nombre_concentrador = reader.Get(*sectionsIt, "nombre_concentrador", "raspi");
 
 		GLOBAL_periodo_minimo_escritura_tbvalores = cast_string_to_double(reader.Get(*sectionsIt, "periodo_minimo_escritura_tbvalores", "30"));
@@ -988,130 +990,47 @@ int borrar_registros(double dias, string direccion_db, int puerto_db, string nom
 // GLOBAL_nombre_concentrador
 // SELECT `id`, `timedate`, `fechatiempo`, `tag`, `valorstr`, `valorfloat`, `dispositivo`, `rastro`, `concentrador` FROM `tbvalores`
 // sincronizar tabla de dos bases de datos
-int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna, string nombre, int limitederegistros) {
-
-	if (dbexterna->direccion.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-
-
-	}
-
-	int id = 0;
-	int ind = 0;  // contador de comandos a ejecutar
-	int result_insertar;
-	string campo_id, campo_timedate, campo_fechatiempo, campo_tag, campo_valorstr, campo_rastro, campo_nombre_concentrador, query1;
-	string campo_nombre_dispositivo;
-	double campo_valorfloat;
-	int campo_dispositivo;
-	string cadena;
-	string direccionpuerto_ext;
-	string direccionpuerto;
-	string SQL_STR = "";
-	string fechatiempostr;
-	time_t fechaultima_externa; // ultimo valor introducido en tabla tbvalores
-	char arrSQL_ext[1024] = { 0 };
-	memset(arrSQL_ext, 0, 1024);
-
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
-
-	fechatiempostr = "2019-1-1 00:00:00";
-	direccionpuerto_ext = "tcp://" + (dbexterna->direccion) + ":" + cast_int_to_string(dbexterna->puerto);
-
-	query1 = "SELECT `fechatiempo`, `concentrador` FROM `tbvalores` WHERE `concentrador` = '%s' ORDER BY `fechatiempo` DESC LIMIT 1 ";
-	sprintf(arrSQL_ext, query1.c_str(), GLOBAL_nombre_concentrador.c_str());
-
-
-	try {
-		sql::Driver* driver;
-		std::shared_ptr<sql::Connection> con;
-		std::unique_ptr<sql::Statement> stmt;
-		std::unique_ptr<sql::ResultSet> res;
-
-		sql::Driver* driver_ext;
-		std::shared_ptr<sql::Connection> con_ext;
-		std::unique_ptr<sql::Statement> stmt_ext;
-		std::unique_ptr<sql::ResultSet> res_ext;
-
-		/* Crea una conexion con la base de datos externa */
-		driver_ext = get_driver_instance();
-		con_ext = database_session(dbexterna);
-		/* Conecta con la base de datos externa */
-		con_ext->setSchema((dbexterna->nombre).c_str());
-
-		stmt_ext.reset(con_ext->createStatement());
-		res_ext.reset(stmt_ext->executeQuery(arrSQL_ext));
-		ind = 0;
-		while (res_ext->next() && (ind < 1)) {
-			fechatiempostr = res_ext->getString("fechatiempo"); //
-			ind++;
-		}
-		// aqui se obstiene la fecha y tiempo del ultimo valor que este concentrador introdujo
-		// en la base de datos externa (nube)
-		fechaultima_externa = cast_datetime_to_time(fechatiempostr);
-
-		/* Crea una conexion con la base de datos local */
-		direccionpuerto = "tcp://" + (dblocal->direccion) + ":" + cast_int_to_string(dblocal->puerto);
-		driver = get_driver_instance();
-		con = database_session(dblocal);
-		/* Conecta con la base de datos local */
-		con->setSchema((dblocal->nombre).c_str());
-
-		query1 = "SELECT * FROM `%s` WHERE `fechatiempo` > '%s' ORDER BY `fechatiempo` ASC LIMIT %i ";
-		sprintf(arrSQL, query1.c_str(), nombre.c_str(), fechatiempostr.c_str(), limitederegistros);
-		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(arrSQL));
-		ind = 0;
-		while (res->next() && (ind < limitederegistros)) {
-			campo_id = res->getString("id");
-			campo_timedate = res->getString("timedate");
-			campo_fechatiempo = res->getString("fechatiempo");
-			campo_tag = res->getString("tag");
-			campo_valorstr = res->getString("valorstr");
-			campo_valorfloat = cast_string_to_double(res->getString("valorfloat"));
-			campo_dispositivo = res->getInt("dispositivo");
-			campo_rastro = res->getString("rastro");
-			campo_nombre_concentrador = res->getString("concentrador");
-			campo_nombre_dispositivo = res->getString("nombredispositivo");
-
-			result_insertar = insertardb(cast_datetime_to_time(campo_fechatiempo), campo_tag, campo_valorstr, campo_valorfloat, campo_dispositivo, campo_rastro, campo_nombre_concentrador, campo_nombre_dispositivo, dbexterna->direccion, dbexterna->puerto, dbexterna->nombre, dbexterna->usuario, dbexterna->clave, nombre);
-			ind++;
-		}
-
-
-
-
-
-
-
-
-
-		return (ind);
-
-	}
-	catch (sql::SQLException& e) {
-        sql_sessions().invalidate();
-		GLOBAL_ACCESO_EXTERNO = false;
-		imprimir_mensaje("falla en mysql: ", rojo);
-		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
+int sincronizar_tablas(stdatabase* local, stdatabase* remote, string table, int limit) {
+    if (!GLOBAL_habilitar_acceso_externo || !GLOBAL_ACCESO_EXTERNO) return 0;
+    if (limit <= 0 || limit > 10000) return -1;
+    if (local->direccion == remote->direccion && local->puerto == remote->puerto && local->nombre == remote->nombre) return -1;
+    try {
+        const auto identity = local->direccion + ":" + std::to_string(local->puerto) + "/" + local->nombre + "->"
+            + remote->direccion + ":" + std::to_string(remote->puerto) + "/" + remote->nombre + "/" + table + "/" + GLOBAL_nombre_concentrador;
+        const auto path = obtenerDirectorio("log") + "/" + replication_cursor_name(identity);
+        uint64_t cursor = 0;
+        auto destination = database_session(remote);
+        if (!read_replication_cursor(path, identity, cursor)) {
+            if (GLOBAL_replicacion_inicial_id >= 0) cursor = GLOBAL_replicacion_inicial_id;
+            else {
+                std::unique_ptr<sql::PreparedStatement> check(destination->prepareStatement("SELECT 1 FROM " + sql_identifier(table) + " WHERE concentrador=? LIMIT 1"));
+                check->setString(1, GLOBAL_nombre_concentrador);
+                std::unique_ptr<sql::ResultSet> existing(check->executeQuery());
+                if (existing->next()) throw std::runtime_error("replication destination already has data; configure replicacion_inicial_id or restore checkpoint");
+            }
+        }
+        auto source = database_session(local);
+        std::unique_ptr<sql::PreparedStatement> select(source->prepareStatement("SELECT * FROM " + sql_identifier(table) + " WHERE concentrador=? AND id>? ORDER BY id ASC LIMIT ?"));
+        select->setString(1, GLOBAL_nombre_concentrador); select->setUInt64(2, cursor); select->setInt(3, limit);
+        std::unique_ptr<sql::ResultSet> rows(select->executeQuery());
+        SqlTransaction transaction(destination);
+        std::unique_ptr<sql::PreparedStatement> insert(destination->prepareStatement("INSERT INTO " + sql_identifier(table)
+            + " (timedate,fechatiempo,tag,valorstr,valorfloat,dispositivo,rastro,concentrador,nombredispositivo) VALUES (?,?,?,?,?,?,?,?,?)"));
+        int copied = 0; uint64_t confirmed = cursor;
+        while (rows->next()) {
+            insert->setString(1, rows->getString("timedate")); insert->setString(2, rows->getString("fechatiempo"));
+            insert->setString(3, rows->getString("tag"));
+            if (rows->isNull("valorstr")) insert->setNull(4, sql::DataType::VARCHAR); else insert->setString(4, rows->getString("valorstr"));
+            if (rows->isNull("valorfloat")) insert->setNull(5, sql::DataType::DOUBLE); else insert->setDouble(5, rows->getDouble("valorfloat"));
+            insert->setInt(6, rows->getInt("dispositivo")); insert->setString(7, rows->getString("rastro"));
+            insert->setString(8, rows->getString("concentrador")); insert->setString(9, rows->getString("nombredispositivo"));
+            if (insert->executeUpdate() != 1) throw std::runtime_error("replication insert was not acknowledged");
+            confirmed = rows->getUInt64("id"); ++copied;
+        }
+        transaction.commit();
+        if (copied) write_replication_cursor(path, identity, confirmed);
+        return copied;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 
 

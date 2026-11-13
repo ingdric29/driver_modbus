@@ -15,6 +15,7 @@ cls_defeventos::cls_defeventos() {
 	valoranterior = 0;
 	tiempoactual = 0;
 	tiempoanterior = 0;
+	indiceenram = -1; pequipo = nullptr;
 }
 
 int cls_defeventos::cargar_en_memoriaram() {
@@ -26,43 +27,21 @@ int cls_defeventos::cargar_en_memoriaram() {
 // ubica el registro en la tabla de cls_equipos
 // de manera de ubicarlo mas rapido
 int cls_defeventos::cargar_posicion() {
-	int ind = 0;
-	indiceenram = -1;
-	while (ind < GLOBAL_contador_equipos_mbtcp) {
-		if ((nombredispositivo.compare(equipo_mbtcp[ind].nombre) == 0) &&
-			(tag.compare(equipo_mbtcp[ind].tag) == 0)) {
-			indiceenram = ind;
-			protocolo = "MBTCP";
-			if ((bit1>=0) && (bit1<=15)) {
-				valoractual = (equipo_mbtcp[ind].clsvalor >> bit1) & 0x1;
-			}
-			else {
-				valoractual = equipo_mbtcp[ind].clsvalor;
-			}
-			pequipo = &equipo_mbtcp[ind];
-			
-		}
-		ind++;
-	}
-	if (ind != -1) return indiceenram;
-	while (ind < GLOBAL_contador_equipos_mbserial) {
-		if ((nombredispositivo.compare(equipo_mbserial[ind].nombre) == 0) &&
-			(tag.compare(equipo_mbserial[ind].tag) == 0)) {
-			indiceenram = ind;
-			protocolo = "MBSERIAL";
-			if ((bit1 >= 0) && (bit1 <= 15)) {
-				valoractual = (equipo_mbtcp[ind].clsvalor >> bit1) & 0x1;
-				valoranterior = valoractual;
-			}
-			else {
-				valoractual = equipo_mbtcp[ind].clsvalor;
-				valoranterior = valoractual;
-			}
-			pequipo = &equipo_mbtcp[ind];
-		}
-		ind++;
-	}
-	return indiceenram;
+    indiceenram = -1; pequipo = nullptr;
+    auto find = [&](cls_equipos* tags, int count, const std::string& protocol) {
+        for (int i = 0; i < count; ++i) if (tags[i].nombre == nombredispositivo && tags[i].tag == tag) {
+            std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
+            indiceenram = i; pequipo = &tags[i]; protocolo = protocol;
+            valoractual = bit1 >= 0 && bit1 <= 15 ? (tags[i].clsvalor >> bit1) & 1 : tags[i].clsvalor;
+            valoranterior = valoractual;
+            return true;
+        }
+        return false;
+    };
+    if (!find(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp, "MBTCP")
+        && !find(equipo_mbserial, GLOBAL_contador_equipos_mbserial, "MBSERIAL"))
+        find(equipo_rs232, GLOBAL_contador_equipos_rs232, "RS232");
+    return indiceenram;
 }
 
 
@@ -85,7 +64,9 @@ int cls_defeventos::leer_valorenram() {
 	campost[7] = "mensaje";			
 	
 	if (indiceenram != -1 && pequipo) {
+        {
         std::lock_guard<std::recursive_mutex> state(*pequipo->state_mutex);
+        if (!pequipo->resultado_leer) return -1;
 		diferencia = difftime(time(NULL), tiempoanterior);
 		tiempoactual = time(NULL);
 		if ((bit1 >= 0) && (bit1 <= 15)) {
@@ -96,6 +77,7 @@ int cls_defeventos::leer_valorenram() {
 			valoractual = pequipo->clsvalor;
 		
 		}
+        } // Snapshot complete: SQL below does not hold the device mutex.
 		//esta instruccion solo se ejecuta una vez al iniciar programa
 		if ((diferencia > 86400.0) && (GLOBAL_estado_primera_ejecucion_programa==3)) {
 			valoranterior = valoractual;
