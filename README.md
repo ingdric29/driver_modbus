@@ -24,6 +24,136 @@ git branch --show-current
 git switch mejoras-driver-pasos-1-2
 ```
 
+## Guía paso a paso en Raspberry: instalación, pruebas y arranque
+
+Esta guía corresponde a `mejoras-driver-pasos-1-2`. Ejecutar cada paso en orden;
+si un comando falla, detenerse y revisar su salida antes de continuar.
+
+### 1. Preparar la instalación o actualizar una existente
+
+En una instalación existente, detener primero la instancia del driver mediante
+su mecanismo habitual. Si está en primer plano, usar Ctrl+C. Detener también el
+supervisor o servicio de autoinicio para que no vuelva a lanzarlo durante las
+pruebas. No iniciar una segunda instancia sobre los mismos equipos.
+
+Respaldar la configuración local antes de actualizar:
+
+```bash
+cd ~/driver_modbus
+cp -p configdb.cfg "$HOME/configdb.cfg.backup-$(date +%Y%m%d-%H%M%S)"
+git status --short
+git fetch origin --tags
+git switch mejoras-driver-pasos-1-2
+git pull --ff-only origin mejoras-driver-pasos-1-2
+```
+
+Si Git informa cambios incompatibles o conflictos, detenerse y conservarlos.
+No usar `reset --hard`, forzar el cambio de rama ni descartar `configdb.cfg`.
+El archivo local contiene el servidor SMTP que funciona y los ajustes del sitio.
+La copia de seguridad contiene credenciales: conservarla privada.
+
+Para una instalación nueva, instalar Git si hace falta y clonar la rama:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git
+git clone --branch mejoras-driver-pasos-1-2 \
+  https://github.com/ingdric29/driver_modbus.git ~/driver_modbus
+cd ~/driver_modbus
+```
+
+Preparar `configdb.cfg` con los valores autorizados de la instalación y disponer
+del esquema de datos compatible y la plantilla HTML antes del arranque real.
+No asumir que las credenciales o destinos versionados sirven para otro sitio.
+
+Comprobar qué revisión se descargó:
+
+```bash
+git branch --show-current
+git log -1 --oneline
+git describe --tags --always
+```
+
+La etiqueta `v1.2.0` identifica el commit de entrega `73c468c`. La punta de la
+rama puede incluir documentación o correcciones posteriores; en ese caso
+`git describe` puede mostrar `v1.2.0-N-gHASH`, sin indicar un error.
+
+### 2. Instalar dependencias
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential libmodbus-dev libmysqlcppconn-dev \
+  libcurl4-openssl-dev libboost-filesystem-dev libboost-system-dev \
+  python3 openssl ca-certificates
+```
+
+Si se usa MariaDB en la Raspberry, instalar además `mariadb-server mariadb-client`
+y preparar el servicio y el esquema de la instalación. En RTU, comprobar permisos
+del usuario sobre el puerto serie y su configuración. No se necesita Apache/PHP
+para el driver ni para el monitor SSH.
+
+### 3. Compilar y probar
+
+```bash
+cd ~/driver_modbus
+make clean && make -j2
+```
+
+Solo si termina correctamente, comprobar la identificación y ejecutar la suite:
+
+```bash
+./.build/automonitorv1 --version
+./.build/automonitorctl --version
+make test
+```
+
+En esta entrega ambos deben mostrar la versión de producto `1.2.0`; el driver
+muestra también commit y fecha UTC de compilación. Compilar como usuario normal,
+sin `sudo make`. La suite usa servidores locales y pseudoterminales: valida
+software, pero no sustituye las pruebas con equipos físicos.
+`make test-sql` es opcional y exige preparar las bases reservadas descritas en
+`tests/README.md`; no ejecutarlo contra producción.
+
+### 4. Arrancar el driver y abrir el monitor
+
+Después de resolver cualquier fallo de las pruebas, arrancar en primer plano:
+
+```bash
+cd ~/driver_modbus/.build
+./automonitorv1
+```
+
+Mantener esa terminal abierta. El directorio de trabajo debe ser `.build`, porque
+el driver busca configuración, plantilla y logs en su padre. En otra sesión SSH:
+
+```bash
+cd ~/driver_modbus
+./.build/automonitorctl
+```
+
+Para una consulta puntual sin interfaz interactiva:
+
+```bash
+./.build/automonitorctl --once
+```
+
+Verificar comunicación, actualización y antigüedad de tags, errores y alarmas.
+La tasa tags/s incluye fallos y omisiones; comprobar también la vigencia del dato.
+Probar una notificación mediante una alarma prevista o una condición de prueba
+segura: el envío debe registrar `codigo=0 smtp=250` y confirmar recepción aparte.
+No provocar cambios peligrosos en el proceso industrial para probar alarmas.
+
+### 5. Volver a operación supervisada
+
+Detener la instancia de prueba con Ctrl+C antes de reactivar el servicio habitual.
+Configurar su ejecutable como `~/driver_modbus/.build/automonitorv1` y su directorio
+de trabajo como `~/driver_modbus/.build` (usar rutas absolutas expandidas en la
+configuración del servicio). Los scripts históricos que apuntan a `bin` ejecutan
+el binario antiguo. No se instala ni habilita automáticamente un servicio con
+estos comandos; adaptar el supervisor existente y comprobar que solo haya una
+instancia del driver.
+
 ## Requisitos y dependencias
 
 El flujo de desarrollo documentado es Linux Debian/Raspberry Pi OS con C++11.
