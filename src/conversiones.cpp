@@ -6,6 +6,8 @@
 #include "include/conversiones.h"
 #include <string.h>
 #include <stdexcept>
+#include <iomanip>
+#include <locale>
 
 using namespace std;
 
@@ -111,28 +113,16 @@ string cast_double_to_string(double numerodouble) {
 }*/
 
 string cast_double_to_string(double numerodouble, int decimales) {
-    char buffer1[40];
-    memset(buffer1, 0, 40);
-    
-    // Usamos el especificador de formato dinámico para los decimales
-    char formato[10];
-    sprintf(formato, "%%.%df", decimales);
-    
-    sprintf(buffer1, formato, numerodouble);
-    string numerostr(buffer1);
-    return numerostr;
+    if (decimales < 0 || decimales > 100) throw std::invalid_argument("precision outside [0,100]");
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << std::fixed << std::setprecision(decimales) << numerodouble;
+    return out.str();
 }
 
 
 string cast_float_to_string(float numerofloat) {
-	char buffer1[40];
-	memset(buffer1, 0, 40);
-	sprintf(buffer1, "%f", numerofloat);
-	string numerostr(buffer1);
-	if (numerostr.length() == 0) {
-		numerostr = "0.0";
-	}
-	return numerostr;
+    return cast_double_to_string(numerofloat, 6);
 }
 
 
@@ -563,29 +553,31 @@ string fecha_para_emails_utc_es() {
 
 int imprimirmac_from_ifrname(char* if_name){
 	
-  struct ifreq ifr;
+  struct ifreq ifr = {};
   int s;
   if ((s = socket(AF_INET, SOCK_STREAM,0)) < 0) {
     perror("socket");
     return -1;
   }
   
-  strcpy(ifr.ifr_name, if_name);
+  if (!if_name || strlen(if_name) >= IFNAMSIZ) { close(s); return -1; }
+  memcpy(ifr.ifr_name, if_name, strlen(if_name) + 1);
   if (ioctl(s, SIOCGIFHWADDR, &ifr) < 0) {
     perror("ioctl");
+    close(s);
     return -1;
   }
   
   unsigned char *hwaddr = (unsigned char *)ifr.ifr_hwaddr.sa_data;
   printf("%02X:%02X:%02X:%02X:%02X:%02X\n", hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3], hwaddr[4], hwaddr[5]);
   close(s);
-	
+  return 0;
 }
 
 
 unsigned long long valormac_from_ifrname(char* if_name){
 	
-  struct ifreq ifr;
+  struct ifreq ifr = {};
   int s;
   unsigned long long valormac = 0;
   unsigned char mac[6];
@@ -595,9 +587,11 @@ unsigned long long valormac_from_ifrname(char* if_name){
     return -1;
   }
   
-  strcpy(ifr.ifr_name, if_name);
+  if (!if_name || strlen(if_name) >= IFNAMSIZ) { close(s); return -1; }
+  memcpy(ifr.ifr_name, if_name, strlen(if_name) + 1);
   if (ioctl(s, SIOCGIFHWADDR, &ifr) < 0) {
     perror("ioctl");
+    close(s);
     return -1;
   }
   
@@ -641,6 +635,7 @@ int listainterfaces() {
 
 	if(ioctl(s1, SIOCGIFCONF, &st_ifconf)!=0) {
 		perror("ioctl(SIOCGIFCONF)");
+		close(s1);
 		return 0;
 	}
 
@@ -679,6 +674,7 @@ int listainterfaces() {
 	}
 	
 	close(s1);
+	return 0;
 }
 
 
@@ -708,6 +704,7 @@ int check_key(long long key) {
 
 	if(ioctl(s1, SIOCGIFCONF, &st_ifconf)!=0) {
 		perror("ioctl(SIOCGIFCONF)");
+		close(s1);
 		return 0;
 	}
 
@@ -722,6 +719,7 @@ int check_key(long long key) {
 		valormac = valormac_from_ifrname(arrst_ifreq->ifr_name);
 		if( (valormac + key) == valormax)
 		{
+			close(s1);
 			return 1;
 		}
 
@@ -736,7 +734,7 @@ int check_key(long long key) {
 
 
 int probarclave(){
-	unsigned long long valormac;
+	unsigned long long valormac = 1;
 	printf("ingrese clave: ");
 
 	while(valormac!=0){

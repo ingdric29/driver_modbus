@@ -467,6 +467,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 						equipo_rs232[i].ptiempotranscurridoerrores = equipo_rs232[j].ptiempotranscurridoerrores;
 						equipo_rs232[i].ptiemporeset_cuenta_errores = equipo_rs232[j].ptiemporeset_cuenta_errores;
 						equipo_rs232[i].pultima_llamada_leer = equipo_rs232[j].pultima_llamada_leer;
+						equipo_rs232[i].buffer_owner = equipo_rs232[j].buffer_owner;
 						equipo_rs232[i].buf = equipo_rs232[j].buf;
 						equipo_rs232[i].p_n_buf = equipo_rs232[j].p_n_buf;
 						break;
@@ -2413,10 +2414,10 @@ int actualizar_smslist(struct stdatabase* db) {
 
 	void liberarmemoria(void) {
 	
-		delete equipo_mbtcp;
-		delete equipo_mbserial;
-		delete equipo_rs232;
-		delete equipo_rs232_distintos;
+		delete[] equipo_mbtcp;
+		delete[] equipo_mbserial;
+		delete[] equipo_rs232;
+		delete[] equipo_rs232_distintos;
 		return;
 	
 	}

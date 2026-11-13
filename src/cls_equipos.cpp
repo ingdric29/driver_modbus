@@ -25,6 +25,8 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include <thread>
 #include <chrono>
 #include <cmath>
+#include "include/modbus_decode.h"
+#include <limits>
 ////////////////////////////
 
 
@@ -40,13 +42,13 @@ using namespace std;
 
 string cls_equipos::static_clsnombre_mbserial = "";
 time_t cls_equipos::static_clsultimalectura_mbserial = time(NULL);
-int* cls_equipos::static_clsregistros_mbserial = new int[20];
-int* cls_equipos::static_clsdatosleidos_mbserial = new int[20];
+int cls_equipos::static_clsregistros_mbserial[20] = {};
+int cls_equipos::static_clsdatosleidos_mbserial[20] = {};
 
 string cls_equipos::static_clsnombre_mbtcp = "";
 time_t cls_equipos::static_clsultimalectura_mbtcp = time(NULL);
-int* cls_equipos::static_clsregistros_mbtcp = new int[20];
-int* cls_equipos::static_clsdatosleidos_mbtcp = new int[20];
+int cls_equipos::static_clsregistros_mbtcp[20] = {};
+int cls_equipos::static_clsdatosleidos_mbtcp[20] = {};
 
 /////////////////////////////////////
 Logger logger;
@@ -92,6 +94,11 @@ int actualizarValores() {
 
 cls_equipos::cls_equipos() {
 
+	id = 0; puerto = 502; direccion_esclavo = 1; velocidad = 9600;
+	bitsparada = 1; habilitar = false; registro = 0; escalamiento = 1;
+	muestreo = 0; periodo = 1; bit1 = -1; cantidad1 = 1;
+	solocambios = 0; registrable = 0; resultado_leer = false;
+	tiempotranscurridoerrores = 0; ultima_llamada_leer = 0; n_buf = 0;
 	ultimo_muestreo = 0; // ultimo muestreo para la lecturas y alarmas
 	ultimo_insertar = 0; // ultimo comando insertar en base de datos tbvalores
 	ultimo_insertar_ex = 0; // ultimo comando insertar en bd externa
@@ -116,7 +123,8 @@ cls_equipos::cls_equipos() {
 	controldeflujo = 0; // para www.teuniz.net/RS-232/. 0 es sin control de flujo
 	tamanoventana = 32;
 	tamanobuffer = (int) tamanoventana * 2;
-	buf = (unsigned char*) new char[tamanobuffer]; 
+	buffer_owner.reset(new unsigned char[tamanobuffer + 1](), std::default_delete<unsigned char[]>());
+	buf = buffer_owner.get();
 	p_n_buf = &n_buf;
 	fuecambiado = false;
 	fueescritodb = true;
@@ -198,292 +206,7 @@ int cls_equipos::leer() {
 }
 
 //---------------------------------------------------------------------
-/* void cls_equipos::leer_mbtcp(void) {
-		modbus_t* ctx_mbtcp = NULL;
-		bool conectadocondispositivo = true;
-		string mensajedeerror = "";
-		int intento = 0;
-		int intentosmax = 3;
-		uint16_t datos[20]; //reserva suficiente espacio para 10 registros long o 20 reg word
-		uint8_t datos8b[4];
-		float valor_float;
-		uint32_t valor_long;
-		uint16_t valor;
-		char buffer[4];
-		stringstream ssdatos;
-		int rc = -1;
 
-		static_clsnombre_mbtcp = nombre;
-		ctx_mbtcp = modbus_new_tcp(direccion_ip.c_str(), puerto);
-		rastro = nombre + ";" + direccion_ip + ":" + cast_int_to_string(puerto) + ";" + tag + ";" + "idslave=" + cast_int_to_string(direccion_esclavo) + ";reg=" + cast_int_to_string(registro);
-
-		if (ctx_mbtcp == NULL) {
-			fprintf(stderr, "=falla en iniciar libmodbus\n");
-			logger.registrarError("DEBUG: libmodbus fail start in: leer_mbtcp() : " + std::string(__FILE__));
-			conectadocondispositivo = false;
-			resultado_leer = false;
-			rc = -1;
-		}
-		if (direccion_esclavo == 0) direccion_esclavo = 1;
-		modbus_set_slave(ctx_mbtcp, direccion_esclavo);
-
-		if (modbus_connect(ctx_mbtcp) == -1) {
-			string smsmodbus = string(modbus_strerror(errno));
-			mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";
-			mensajedeerror += rastro;
-			imprimir_mensaje(mensajedeerror, rojo); //Loggin
-			logger.registrarError("WARN: Modbus TCP read fail."+smsmodbus+" "+rastro);
-			modbus_free(ctx_mbtcp);
-			conectadocondispositivo = false;
-			resultado_leer = false;
-			rc = -1;
-		}
-		// lee los holding registers
-		rc = -1;
-		intento = 0;
-		if (cantidad1 > 20) cantidad1 = 20;
-		//modbus_set_response_timeout(ctx_mbtcp, 0, 200000);
-
-		while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) { //while 1
-			  //cout << "la funcion es: " << funcion << endl;
-			  //cout << "la interpretacion es: " << interpretacion << endl;
-			intento++;
-			//cout << "leer:ln115" << endl;	
-			memset(datos, 0, 20 * sizeof(uint16_t));
-			memset(datos8b, 0, 4 * sizeof(uint8_t));
-			memset(buffer, 0, 4 * sizeof(char));
-			valor_float = 0.0;
-			valor_long = 0;
-			valor = 0;
-			if (intento > 1) { esperar(0.1); };
-
-			if (funcion.compare("hr") == 0) {
-
-				if (interpretacion.compare("float32abcd") == 0) {
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_abcd(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "1*";
-				}
-				else if (interpretacion.compare("float32badc") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_badc(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("float32cdab") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_cdab(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("float32dcba") == 0)
-				{
-
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					//cout << "dato_0:" << datos[0] << "   " << "dato_1:" << datos[1] << endl;
-					valor_float = cast_get_float_dcba(datos);
-					sprintf(buffer, "%f", valor_float);
-					//cout << (rc != -1)? string(buffer) : "0.0";
-					imprimir_mensaje("**"+cast_float_to_string(valor_float), negro);
-					//cout << "***" << valor_float << endl;
-
-				}
-				else if (interpretacion.compare("float32fp") == 0) // solo para los PM factor de potencia
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_dcba(datos);
-					valor_float = convert_float_fp(valor_float);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = (rc != -1)? string(buffer) : "0.0";
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("longle") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_long = datos[0] + (datos[1] << 16);
-					sprintf(buffer, "%f", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "3*";								
-				}
-
-				else if (interpretacion.compare("longle64") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 4, datos);
-					valor_long = datos[0] + (datos[1] << 16) + (datos[2] << 32) + (datos[3] << 48);
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "3*";								
-				}
-
-				else if (interpretacion.compare("longbe") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-					valor_long = datos[1] + (datos[0] << 16);
-					//cout << "valor long be:" << valor_long << endl;
-					sprintf(buffer, "%i", valor_long);
-					//cout << "valor buffer:" << buffer << endl;
-					//arr_valores[i] = string(buffer);
-					//cout << "4*";								
-				}
-
-				else if (interpretacion.compare("word") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbtcp, registro, cantidad1, datos);
-
-					if ((bit1 >= 0) && (bit1 <= 15)) {
-						valor = obtenervalorbit(datos[0], bit1);
-					}
-					else {
-						valor = datos[0];
-					}
-					sprintf(buffer, "%i", valor);
-					//arr_valores[i] = (rc != -1)? string(buffer) : "0";
-					//cout << "interpretado como word registro:" << registro << "valor: " << valor << endl;								
-				}
-				//
-				else
-				{
-					cout << "En \"" << nombre << "\" tipo no def!!: " << interpretacion << endl;
-
-
-				}
-			}
-
-			if (funcion.compare("rr") == 0) {
-				if (interpretacion.compare("float32abcd") == 0) {
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_abcd(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				else if (interpretacion.compare("float32badc") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_badc(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				//float32cdab
-				else if (interpretacion.compare("float32cdab") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_cdab(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				//float32dcba
-				else if (interpretacion.compare("float32dcba") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_float = cast_get_float_dcba(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				else if (interpretacion.compare("longle") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_long = datos[0] + (datos[1] << 16);
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);				
-				}
-
-				else if (interpretacion.compare("longbe") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-					valor_long = datos[1] + (datos[0] << 16);
-					//cout << "valor long be:" << valor_long << endl;
-
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "valor buffer:" << buffer << endl;
-				}
-				else if (interpretacion.compare("word") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbtcp, registro, cantidad1, datos);
-
-					if ((bit1 >= 0) && (bit1 <= 15)) {
-						valor = obtenervalorbit(datos[0], bit1);
-					}
-					else {
-						valor = datos[0];
-					}
-					sprintf(buffer, "%i", valor);
-					//arr_valores[i] = string(buffer);				
-				}
-				else
-				{
-					cout << "En \"" << nombre << "\" tipo no def!!: " << interpretacion << endl;
-
-
-				}
-			} // fin del if del read register
-
-			if (funcion.compare("cs") == 0) {
-				rc = modbus_read_bits(ctx_mbtcp, registro, 1, datos8b);
-				sprintf(buffer, "%i", datos8b[0]);
-				memcpy(datos, datos8b, 4);
-			}
-
-
-			if (funcion.compare("ir") == 0) {
-				rc = modbus_read_input_bits(ctx_mbtcp, registro, 1, datos8b);
-				sprintf(buffer, "%i", datos8b[0]);
-				memcpy(datos, datos8b, 4);
-
-			}
-
-		} // fin del while 1
-
-		if (rc != -1) {
-		setvalorstring(cast_arrchar_to_string(buffer)); // esta funcion actualiza el valor
-		resultado_leer = true;
-		*pcontador_errores = 0;
-		ssdatos << "dato[0]: " << datos[0] << " dato[1]: " << datos[1];
-		imprimir_mensaje(ssdatos.str(), negro);
-		imprimir_mensaje("valor float: " + cast_float_to_string(atof(buffer)), negro);
-		imprimir_mensaje("valor float escalado: " + cast_float_to_string(clsvalorfloat), negro);
-		//setvalorfloat
-		memcpy(&static_clsdatosleidos_mbtcp[0], &datos[0], 20);
-				for (int offset1 = 0; offset1 < 20; offset1++) {
-					if (offset1 > cantidad1) {
-						static_clsregistros_mbtcp[offset1] = -1;
-					}
-					else {
-						static_clsregistros_mbtcp[offset1] = registro + offset1;
-					}
-
-		}
-	
-		//leido del tag
-
-		//clsvalor = atoi(buffer);
-		//clsvalorfloat = atof(buffer) * escalamiento;
-		//clsvalorstr = cast_float_to_string(clsvalorfloat);
-		}
-		else {
-			resultado_leer = false;
-			incrementarerrores();
-			descripcionerror = rastro + " - error modbus";//Loggin
-			logger.registrarError("WARN: Modbus TCP read fail. "+rastro);
-			imprimir_mensaje(descripcionerror, rojo);
-		}
-
-		if (conectadocondispositivo) {
-			modbus_close(ctx_mbtcp);
-			modbus_free(ctx_mbtcp);
-		};
-
-		resultadoleer_rc = rc;
-	
-};
-
- */
 //---------------------------------------------------------------------
 //leer_mbtcp() con nueva interpretacion de valores Word con signo
 
@@ -496,7 +219,7 @@ void cls_equipos::leer_mbtcp(void) {
     uint16_t datos[20]; //reserva suficiente espacio para 10 registros long o 20 reg word
     uint8_t datos8b[4];
     float valor_float;
-    uint32_t valor_long;
+    uint64_t valor_long;
     uint16_t valor;
     char buffer[32];
     stringstream ssdatos;
@@ -511,7 +234,8 @@ void cls_equipos::leer_mbtcp(void) {
         logger.registrarError("DEBUG: libmodbus fail start in: leer_mbtcp() : " + std::string(__FILE__));
         conectadocondispositivo = false;
         resultado_leer = false;
-        rc = -1;
+        resultadoleer_rc = -1;
+        return;
     }
 
     if (direccion_esclavo == 0) direccion_esclavo = 1;
@@ -532,7 +256,7 @@ void cls_equipos::leer_mbtcp(void) {
     // lee los holding registers
     rc = -1;
     intento = 0;
-    if (cantidad1 > 20) cantidad1 = 20;
+    cantidad1 = std::max(1, std::min(cantidad1, 20));
     //modbus_set_response_timeout(ctx_mbtcp, 0, 200000);
 
     while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) {
@@ -560,28 +284,28 @@ void cls_equipos::leer_mbtcp(void) {
             if (interpretacion.compare("float32abcd") == 0) {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
                 imprimir_mensaje("**"+cast_float_to_string(valor_float), negro);
             }
 
@@ -591,28 +315,28 @@ void cls_equipos::leer_mbtcp(void) {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 valor_float = convert_float_fp(valor_float);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-                valor_long = datos[0] + (datos[1] << 16);
-                sprintf(buffer, "%f", valor_long);
+                valor_long = decode_u32_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longle64") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 4, datos);
-                valor_long = datos[0] + (datos[1] << 16) + (datos[2] << 32) + (datos[3] << 48);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u64_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
                 rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
-                valor_long = datos[1] + (datos[0] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_be(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
@@ -626,7 +350,7 @@ void cls_equipos::leer_mbtcp(void) {
                     valor = datos[0];
                 }
 
-                sprintf(buffer, "%i", valor);
+                snprintf(buffer, sizeof(buffer), "%i", valor);
             }
 
             // ========================================================
@@ -666,42 +390,42 @@ void cls_equipos::leer_mbtcp(void) {
             if (interpretacion.compare("float32abcd") == 0) {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-                valor_long = datos[0] + (datos[1] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
-                valor_long = datos[1] + (datos[0] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_be(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
@@ -715,7 +439,7 @@ void cls_equipos::leer_mbtcp(void) {
                     valor = datos[0];
                 }
 
-                sprintf(buffer, "%i", valor);
+                snprintf(buffer, sizeof(buffer), "%i", valor);
             }
 
             // ========================================================
@@ -752,7 +476,7 @@ void cls_equipos::leer_mbtcp(void) {
 
         if (funcion.compare("cs") == 0) {
             rc = modbus_read_bits(ctx_mbtcp, registro, 1, datos8b);
-            sprintf(buffer, "%i", datos8b[0]);
+            snprintf(buffer, sizeof(buffer), "%i", datos8b[0]);
             memcpy(datos, datos8b, 4);
         }
 
@@ -762,7 +486,7 @@ void cls_equipos::leer_mbtcp(void) {
 
         if (funcion.compare("ir") == 0) {
             rc = modbus_read_input_bits(ctx_mbtcp, registro, 1, datos8b);
-            sprintf(buffer, "%i", datos8b[0]);
+            snprintf(buffer, sizeof(buffer), "%i", datos8b[0]);
             memcpy(datos, datos8b, 4);
         }
 
@@ -784,10 +508,10 @@ void cls_equipos::leer_mbtcp(void) {
         imprimir_mensaje("valor float: " + cast_float_to_string(atof(buffer)), negro);
         imprimir_mensaje("valor float escalado: " + cast_float_to_string(clsvalorfloat), negro);
 
-        memcpy(&static_clsdatosleidos_mbtcp[0], &datos[0], 20);
+        for (int k = 0; k < 20; ++k) static_clsdatosleidos_mbtcp[k] = datos[k];
 
         for (int offset1 = 0; offset1 < 20; offset1++) {
-            if (offset1 > cantidad1) {
+            if (offset1 >= cantidad1) {
                 static_clsregistros_mbtcp[offset1] = -1;
             }
             else {
@@ -820,289 +544,7 @@ void cls_equipos::leer_mbtcp(void) {
 
 
  // -------------------------------------------------------------------------
-/* void cls_equipos::leer_mbserial(void) {
-	modbus_t* ctx_mbserial = NULL;
-	bool conectadocondispositivo = true;
-	string mensajedeerror = "";
-	int intento = 0;
-	int intentosmax = 3;
-	uint16_t datos[20]; //reserva suficiente espacio para 10 registros long o 20 reg word
-	uint8_t datos8b[4];
-	float valor_float;
-	uint32_t valor_long;
-	uint16_t valor;
-	char buffer[4];
-	stringstream ssdatos;
-	int rc = -1;
 
-	static_clsnombre_mbserial = nombre;
-	ctx_mbserial = modbus_new_rtu(interface1.c_str(), velocidad, paridad.c_str()[0], numerodebits, bitsparada);
-	rastro = nombre + ";" + interface1 + ";" + "idslave=" + cast_int_to_string(direccion_esclavo) + ";" + tag + ";" + "reg=" + cast_int_to_string(registro);
-	
-	if (ctx_mbserial == NULL) {
-			fprintf(stderr, "=falla en iniciar libmodbus\n");//Loggin
-			logger.registrarError("DEBUG: libmodbus fail start in: leer_mbserial() : "+ std::string(__FILE__));
-			conectadocondispositivo = false;
-			resultado_leer = false;
-			rc = -1;
-	}
-
-	if (direccion_esclavo == 0) direccion_esclavo = 1;
-	modbus_set_slave(ctx_mbserial, direccion_esclavo);
-	if (modbus_connect(ctx_mbserial) == -1) {
-			string smsmodbus = string(modbus_strerror(errno));
-			mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";//Loggin
-			mensajedeerror += rastro;
-			imprimir_mensaje(mensajedeerror, rojo);
-			logger.registrarError("WARN: Modbus serial fail."+smsmodbus+" "+rastro);
-			modbus_free(ctx_mbserial);
-			conectadocondispositivo = false;
-			resultado_leer = false;
-			rc = -1;
-		}
-		// lee los holding registers
-		rc = -1;
-		intento = 0;
-		if (cantidad1 > 20) cantidad1 = 20;
-		//modbus_set_response_timeout(ctx_mbserial, 0, 200000);
-
-		while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) { //while 1
-			  //cout << "la funcion es: " << funcion << endl;
-			  //cout << "la interpretacion es: " << interpretacion << endl;
-			intento++;
-			//cout << "leer:ln115" << endl;	
-			memset(datos, 0, 20 * sizeof(uint16_t));
-			memset(datos8b, 0, 4 * sizeof(uint8_t));
-			memset(buffer, 0, 4 * sizeof(char));
-			valor_float = 0.0;
-			valor_long = 0;
-			valor = 0;
-			if (intento > 1) { esperar(0.1); };
-
-			if (funcion.compare("hr") == 0) {
-
-				if (interpretacion.compare("float32abcd") == 0) {
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_abcd(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "1*";
-				}
-				else if (interpretacion.compare("float32badc") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_badc(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("float32cdab") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_cdab(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("float32dcba") == 0)
-				{
-
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					//cout << "dato_0:" << datos[0] << "   " << "dato_1:" << datos[1] << endl;
-					valor_float = cast_get_float_dcba(datos);
-					sprintf(buffer, "%f", valor_float);
-					//cout << (rc != -1)? string(buffer) : "0.0";
-					//imprimir_mensaje(cast_float_to_string(valor_float), negro);
-
-				}
-				else if (interpretacion.compare("float32fp") == 0) // solo para los PM factor de potencia
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_dcba(datos);
-					valor_float = convert_float_fp(valor_float);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = (rc != -1)? string(buffer) : "0.0";
-					//cout << "2*";				
-				}
-				else if (interpretacion.compare("longle") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_long = datos[0] + (datos[1] << 16);
-					sprintf(buffer, "%f", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "3*";								
-				}
-
-				else if (interpretacion.compare("longle64") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 4, datos);
-					valor_long = datos[0] + (datos[1] << 16) + (datos[2] << 32) + (datos[3] << 48);
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "3*";								
-				}
-
-				else if (interpretacion.compare("longbe") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-					valor_long = datos[1] + (datos[0] << 16);
-					//cout << "valor long be:" << valor_long << endl;
-					sprintf(buffer, "%i", valor_long);
-					//cout << "valor buffer:" << buffer << endl;
-					//arr_valores[i] = string(buffer);
-					//cout << "4*";								
-				}
-
-				else if (interpretacion.compare("word") == 0)
-				{
-					rc = modbus_read_registers(ctx_mbserial, registro, cantidad1, datos);
-
-					if ((bit1 >= 0) && (bit1 <= 15)) {
-						valor = obtenervalorbit(datos[0], bit1);
-					}
-					else {
-						valor = datos[0];
-					}
-					sprintf(buffer, "%i", valor);
-					//arr_valores[i] = (rc != -1)? string(buffer) : "0";
-					//cout << "interpretado como word registro:" << registro << "valor: " << valor << endl;								
-				}
-				//
-				else
-				{
-					cout << "En \"" << nombre << "\" tipo no def!!: " << interpretacion << endl;
-
-
-				}
-			}
-
-			if (funcion.compare("rr") == 0) {
-				if (interpretacion.compare("float32abcd") == 0) {
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_abcd(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				else if (interpretacion.compare("float32badc") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_badc(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				//float32cdab
-				else if (interpretacion.compare("float32cdab") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_cdab(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				//float32dcba
-				else if (interpretacion.compare("float32dcba") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_float = cast_get_float_dcba(datos);
-					sprintf(buffer, "%f", valor_float);
-					//arr_valores[i] = string(buffer);				
-				}
-				else if (interpretacion.compare("longle") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_long = datos[0] + (datos[1] << 16);
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);				
-				}
-
-				else if (interpretacion.compare("longbe") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-					valor_long = datos[1] + (datos[0] << 16);
-					//cout << "valor long be:" << valor_long << endl;
-
-					sprintf(buffer, "%i", valor_long);
-					//arr_valores[i] = string(buffer);
-					//cout << "valor buffer:" << buffer << endl;
-				}
-				else if (interpretacion.compare("word") == 0)
-				{
-					rc = modbus_read_input_registers(ctx_mbserial, registro, cantidad1, datos);
-
-					if ((bit1 >= 0) && (bit1 <= 15)) {
-						valor = obtenervalorbit(datos[0], bit1);
-					}
-					else {
-						valor = datos[0];
-					}
-					sprintf(buffer, "%i", valor);
-					//arr_valores[i] = string(buffer);				
-				}
-				else
-				{
-					cout << "En \"" << nombre << "\" tipo no def!!: " << interpretacion << endl;
-
-
-				}
-			} // fin del if del read register
-
-			if (funcion.compare("cs") == 0) {
-				rc = modbus_read_bits(ctx_mbserial, registro, 1, datos8b);
-				sprintf(buffer, "%i", datos8b[0]);
-				memcpy(datos, datos8b, 4);
-			}
-
-
-			if (funcion.compare("ir") == 0) {
-				rc = modbus_read_input_bits(ctx_mbserial, registro, 1, datos8b);
-				sprintf(buffer, "%i", datos8b[0]);
-				memcpy(datos, datos8b, 4);
-
-			}
-
-		} // fin del while 1
-
-		if (rc != -1) {
-
-
-			memcpy(&static_clsdatosleidos_mbserial[0], &datos[0], 20);
-			for (int offset1 = 0; offset1 < 20; offset1++) {
-					if (offset1 > cantidad1) {
-						static_clsregistros_mbserial[offset1] = -1;
-					}
-					else {
-						static_clsregistros_mbserial[offset1] = registro + offset1;
-					}
-
-			}
-
-
-			ssdatos << "dato[0]: " << datos[0] << " dato[1]: " << datos[1];
-			imprimir_mensaje(ssdatos.str(), negro);
-
-			setvalorstring(cast_arrchar_to_string(buffer)); // esta funcion actualiza el valor
-															//leido del tag
-			imprimir_mensaje("valor float: " + cast_float_to_string(atof(buffer)), negro);
-			imprimir_mensaje("valor float escalado: " + cast_float_to_string(clsvalorfloat), negro);
-			
-			resultado_leer = true;
-			*pcontador_errores = 0;
-
-		}
-		else {
-			incrementarerrores();
-			descripcionerror = rastro + " - error modbus";//Loggin
-			logger.registrarError("WARN: Modbus serial read fail. "+rastro);
-			imprimir_mensaje(descripcionerror, rojo);
-		}
-
-		if (conectadocondispositivo) {
-			modbus_close(ctx_mbserial);
-			modbus_free(ctx_mbserial);
-		};
-
-		resultadoleer_rc = rc;
-};
- */
 //-------------
 //leer_mbserial() Variables tipo Word con signo
 
@@ -1116,7 +558,7 @@ void cls_equipos::leer_mbserial(void) {
     uint16_t datos[20]; //reserva suficiente espacio para 10 registros long o 20 reg word
     uint8_t datos8b[4];
     float valor_float;
-    uint32_t valor_long;
+    uint64_t valor_long;
     uint16_t valor;
     char buffer[32];
     stringstream ssdatos;
@@ -1131,7 +573,8 @@ void cls_equipos::leer_mbserial(void) {
         logger.registrarError("DEBUG: libmodbus fail start in: leer_mbserial() : " + std::string(__FILE__));
         conectadocondispositivo = false;
         resultado_leer = false;
-        rc = -1;
+        resultadoleer_rc = -1;
+        return;
     }
 
     if (direccion_esclavo == 0) direccion_esclavo = 1;
@@ -1152,7 +595,7 @@ void cls_equipos::leer_mbserial(void) {
     // lee los holding registers
     rc = -1;
     intento = 0;
-    if (cantidad1 > 20) cantidad1 = 20;
+    cantidad1 = std::max(1, std::min(cantidad1, 20));
     //modbus_set_response_timeout(ctx_mbserial, 0, 200000);
 
     while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) {
@@ -1178,28 +621,28 @@ void cls_equipos::leer_mbserial(void) {
             if (interpretacion.compare("float32abcd") == 0) {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32fp") == 0)
@@ -1208,28 +651,28 @@ void cls_equipos::leer_mbserial(void) {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 valor_float = convert_float_fp(valor_float);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-                valor_long = datos[0] + (datos[1] << 16);
-                sprintf(buffer, "%f", valor_long);
+                valor_long = decode_u32_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longle64") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 4, datos);
-                valor_long = datos[0] + (datos[1] << 16) + (datos[2] << 32) + (datos[3] << 48);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u64_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
                 rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
-                valor_long = datos[1] + (datos[0] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_be(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
@@ -1243,7 +686,7 @@ void cls_equipos::leer_mbserial(void) {
                     valor = datos[0];
                 }
 
-                sprintf(buffer, "%i", valor);
+                snprintf(buffer, sizeof(buffer), "%i", valor);
             }
 
             // ========================================================
@@ -1283,42 +726,42 @@ void cls_equipos::leer_mbserial(void) {
             if (interpretacion.compare("float32abcd") == 0) {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
-                sprintf(buffer, "%f", valor_float);
+                snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-                valor_long = datos[0] + (datos[1] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_le(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
                 rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
-                valor_long = datos[1] + (datos[0] << 16);
-                sprintf(buffer, "%i", valor_long);
+                valor_long = decode_u32_be(datos);
+                snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
@@ -1332,7 +775,7 @@ void cls_equipos::leer_mbserial(void) {
                     valor = datos[0];
                 }
 
-                sprintf(buffer, "%i", valor);
+                snprintf(buffer, sizeof(buffer), "%i", valor);
             }
 
             // ========================================================
@@ -1369,7 +812,7 @@ void cls_equipos::leer_mbserial(void) {
 
         if (funcion.compare("cs") == 0) {
             rc = modbus_read_bits(ctx_mbserial, registro, 1, datos8b);
-            sprintf(buffer, "%i", datos8b[0]);
+            snprintf(buffer, sizeof(buffer), "%i", datos8b[0]);
             memcpy(datos, datos8b, 4);
         }
 
@@ -1379,7 +822,7 @@ void cls_equipos::leer_mbserial(void) {
 
         if (funcion.compare("ir") == 0) {
             rc = modbus_read_input_bits(ctx_mbserial, registro, 1, datos8b);
-            sprintf(buffer, "%i", datos8b[0]);
+            snprintf(buffer, sizeof(buffer), "%i", datos8b[0]);
             memcpy(datos, datos8b, 4);
         }
 
@@ -1391,10 +834,10 @@ void cls_equipos::leer_mbserial(void) {
 
     if (rc != -1) {
 
-        memcpy(&static_clsdatosleidos_mbserial[0], &datos[0], 20);
+        for (int k = 0; k < 20; ++k) static_clsdatosleidos_mbserial[k] = datos[k];
 
         for (int offset1 = 0; offset1 < 20; offset1++) {
-            if (offset1 > cantidad1) {
+            if (offset1 >= cantidad1) {
                 static_clsregistros_mbserial[offset1] = -1;
             }
             else {
@@ -1532,7 +975,7 @@ void cls_equipos::setvalorfloat(float nuevovalor) {
 	oldclsvalorstr = clsvalorstr;
 
 	clsvalorfloat =  nuevovalor*escalamiento;
-	clsvalor = (int) clsvalorfloat;
+	clsvalor = numeric_to_int(clsvalorfloat);
 	clsvalorstr = cast_float_to_string(clsvalorfloat);
 
 	if (oldclsvalorfloat == clsvalorfloat) {
@@ -1556,7 +999,7 @@ void cls_equipos::setvalorstring(string nuevovalorstr) {
 	oldclsvalor = clsvalor;
 	
 	clsvalorfloat = cast_string_to_float(limpiarcadena(nuevovalorstr)) * escalamiento;
-	clsvalor = (int)clsvalorfloat;
+	clsvalor = numeric_to_int(clsvalorfloat);
 	if (clsvalorfloat == 0.0) {
 		clsvalorstr = limpiarcadena(nuevovalorstr);
 	}

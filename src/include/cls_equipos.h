@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <vector>
+#include <memory>
 #include <errno.h>
 #include <modbus.h>
 #include "mysql_connection.h"
@@ -78,13 +79,13 @@ public:
 	bool fueescritodb; // bit dice si ya fue escrito en la base de datos
 
 	static string static_clsnombre_mbtcp;
-	static int* static_clsregistros_mbtcp;
-	static int* static_clsdatosleidos_mbtcp;
+	static int static_clsregistros_mbtcp[20];
+	static int static_clsdatosleidos_mbtcp[20];
 	static time_t static_clsultimalectura_mbtcp;
 
 	static string static_clsnombre_mbserial;
-	static int* static_clsregistros_mbserial;
-	static int* static_clsdatosleidos_mbserial;
+	static int static_clsregistros_mbserial[20];
+	static int static_clsdatosleidos_mbserial[20];
 	static time_t static_clsultimalectura_mbserial;
 
 
@@ -129,6 +130,7 @@ public:
 	// metodos
 	cls_equipos();
 	int leer();
+	std::shared_ptr<unsigned char> buffer_owner; // Shared by tags on one serial device.
 	unsigned char* buf;
 	int tamanobuffer;
 	int tamanoventana;
