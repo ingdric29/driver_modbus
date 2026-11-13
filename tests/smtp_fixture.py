@@ -1,5 +1,6 @@
 """Loopback-only SMTP fixture. All recipients in tests use example.invalid."""
 import socket
+import base64
 import ssl
 import subprocess
 import threading
@@ -17,13 +18,14 @@ def certificate(directory):
 
 
 class Server:
-    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False, offer_starttls=True, tls_delay=0):
+    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False, offer_starttls=True, tls_delay=0, expected_auth=None):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.context.load_cert_chain(str(cert), str(key))
         self.implicit, self.authenticate = implicit, authenticate
         self.reject_auth, self.reject_data = reject_auth, reject_data
         self.offer_starttls = offer_starttls
         self.tls_delay = tls_delay
+        self.expected_auth = expected_auth
         self.commands, self.messages, self.errors = [], [], []
         self.auth_payloads, self.envelopes = [], []
         self.listener = socket.socket()
@@ -34,6 +36,17 @@ class Server:
         self.stop = threading.Event()
         self.thread = threading.Thread(target=self.serve)
         self.thread.start()
+
+    def auth_response(self, token):
+        if self.expected_auth is not None:
+            try:
+                parts = base64.b64decode(token, validate=True).split(b'\0')
+                expected = [b'', self.expected_auth[0].encode(), self.expected_auth[1].encode()]
+                if parts != expected:
+                    return b'535 fixture credentials mismatch\r\n'
+            except ValueError:
+                return b'535 invalid fixture credentials\r\n'
+        return b'235 authenticated\r\n'
 
     def serve(self):
         while not self.stop.is_set():
@@ -72,7 +85,7 @@ class Server:
                             continue
                         if auth_pending:
                             self.auth_payloads.append(line)
-                            connection.sendall(b'235 authenticated\r\n')
+                            connection.sendall(self.auth_response(line))
                             auth_pending = False
                             continue
                         verb = line.split(b' ', 1)[0].upper()
@@ -96,7 +109,7 @@ class Server:
                             if self.reject_auth:
                                 connection.sendall(b'535 wrong fixture credentials\r\n')
                             elif len(line.split()) >= 3:
-                                connection.sendall(b'235 authenticated\r\n')
+                                connection.sendall(self.auth_response(line.split(b' ', 2)[2]))
                             else:
                                 connection.sendall(b'334 \r\n')
                                 auth_pending = True

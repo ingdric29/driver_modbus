@@ -11,4 +11,5 @@ read -r -a extra_ld <<< "${LDFLAGS:-}"
 timeout 20 "$test_dir/test"
 DRIVER_SQL_TEST=1 bash tests/run_state_test.sh
 python3 tests/test_full_startup.py "${DRIVER_BINARY:-$PWD/.build/automonitorv1}"
-echo 'PASS SQL integration and replication'
+python3 tests/test_full_email.py "${DRIVER_BINARY:-$PWD/.build/automonitorv1}"
+echo 'PASS SQL integration, replication and full SMTP pipeline'

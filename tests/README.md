@@ -148,3 +148,11 @@ leen configdb.cfg ni envían correo externo. El runner de estado comprueba que
 tres alarmas conservan sus envíos pendientes tras un error y no repiten una
 notificación aceptada. El diagnóstico independiente comprueba TLS/STARTTLS
 sin autenticación ni comandos de envío.
+
+`make test-sql` incluye además `test_full_email.py`: arranca el ejecutable
+completo con INI y MariaDB de pruebas, lee 159 tags TCP y carga tres alarmas
+con dos destinatarios cada una. El servidor SMTPS local valida SASL contra
+el usuario y la clave ficticios del INI, y comprueba seis mensajes aceptados
+sin duplicados. Esto cubre configuración, SQL/directorio, evaluación de alarmas,
+preparación y envío con libcurl en el mismo proceso, sin credenciales reales
+ni servidores externos. Usa la base reservada `driver_email_fixture`.
