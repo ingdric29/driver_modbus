@@ -33,6 +33,7 @@ Hecha por: Javier Flores
 #include "include/pending_batch.h"
 #include <map>
 #include "include/modbus_transport.h"
+#include "include/register_batch.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -423,7 +424,42 @@ int ordenejecucionciclico() {
 
 
 // lee valores de los equipos indicados y los inserta en las bases de datos locales y externa
+namespace {
+int requested_registers(const cls_equipos& tag) {
+    if (tag.interpretacion == "longle64") return 4;
+    if (tag.interpretacion.compare(0, 7, "float32") == 0 || tag.interpretacion == "longle" || tag.interpretacion == "longbe") return 2;
+    return std::max(1, std::min(tag.cantidad1, 20));
+}
+void prefetch_due_tags(cls_equipos* tags, int count) {
+    std::map<std::string, std::vector<int>> due;
+    const auto now = PeriodicDeadline::Clock::now();
+    for (int i = 0; i < count; ++i) {
+        auto& tag = tags[i];
+        std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
+        if (!tag.read_deadline.due(now) || *tag.pcontador_errores > tag.cuenta_errores_maximo
+            || (tag.protocolo != "MBTCP" && tag.protocolo != "MBSERIAL")
+            || (tag.funcion != "hr" && tag.funcion != "rr")) continue;
+        std::string endpoint = tag.protocolo == "MBTCP" ? tag.direccion_ip + ":" + std::to_string(tag.puerto)
+            : tag.interface1 + ":" + std::to_string(tag.velocidad) + ":" + tag.paridad + ":" + std::to_string(tag.numerodebits) + ":" + std::to_string(tag.bitsparada);
+        due[endpoint + ":" + std::to_string(tag.direccion_esclavo) + ":" + tag.funcion].push_back(i);
+    }
+    for (const auto& group : due) {
+        if (group.second.size() < 2) continue;
+        const auto& tag = tags[group.second.front()];
+        std::vector<RegisterRange> ranges;
+        for (int i : group.second) ranges.push_back({tags[i].registro, requested_registers(tags[i])});
+        // Only optimize if merging actually reduces the number of transactions.
+        if (merge_register_ranges(ranges).size() >= ranges.size()) continue;
+        auto lease = tag.protocolo == "MBTCP" ? ModbusLease::tcp(tag.direccion_ip, tag.puerto)
+            : ModbusLease::rtu(tag.interface1, tag.velocidad, tag.paridad.empty() ? 'N' : tag.paridad[0], tag.numerodebits, tag.bitsparada);
+        if (lease.connect(G_modbus_timeout) == 0) prefetch_registers(lease, tag.direccion_esclavo, tag.funcion == "hr" ? 3 : 4, ranges);
+    }
+}
+}
+
 int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
+    RegisterCycle cycle;
+    prefetch_due_tags(equipo, arge_cantidad);
 	/* ORDENES DE LECTURAS DE LOS DISPOSITIVOS SEGUN TABLECOM*/
 	double diferencia = 0.0;
 	int resultado=-1;

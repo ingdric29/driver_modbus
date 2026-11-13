@@ -28,6 +28,7 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include "include/modbus_decode.h"
 #include <limits>
 #include "include/modbus_transport.h"
+#include "include/register_batch.h"
 ////////////////////////////
 
 
@@ -294,28 +295,28 @@ void cls_equipos::leer_mbtcp(void) {
         if (funcion.compare("hr") == 0) {
 
             if (interpretacion.compare("float32abcd") == 0) {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
                 imprimir_mensaje("**"+cast_float_to_string(valor_float), negro);
@@ -324,7 +325,7 @@ void cls_equipos::leer_mbtcp(void) {
             else if (interpretacion.compare("float32fp") == 0)
             {
                 // solo para los PM factor de potencia
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 valor_float = convert_float_fp(valor_float);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
@@ -332,28 +333,28 @@ void cls_equipos::leer_mbtcp(void) {
 
             else if (interpretacion.compare("longle") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_long = decode_u32_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longle64") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 4, datos);
+                rc = read_cached_registers(lease, 3, registro, 4, datos);
                 valor_long = decode_u64_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_long = decode_u32_be(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 3, registro, cantidad1, datos);
 
                 if ((bit1 >= 0) && (bit1 <= 15)) {
                     valor = obtenervalorbit(datos[0], bit1);
@@ -371,7 +372,7 @@ void cls_equipos::leer_mbtcp(void) {
 
             else if (interpretacion.compare("word_signed") == 0)
             {
-                rc = modbus_read_registers(ctx_mbtcp, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 3, registro, cantidad1, datos);
 
                 int16_t valor_signed = 0;
 
@@ -400,49 +401,49 @@ void cls_equipos::leer_mbtcp(void) {
         if (funcion.compare("rr") == 0) {
 
             if (interpretacion.compare("float32abcd") == 0) {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_long = decode_u32_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_long = decode_u32_be(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 4, registro, cantidad1, datos);
 
                 if ((bit1 >= 0) && (bit1 <= 15)) {
                     valor = obtenervalorbit(datos[0], bit1);
@@ -460,7 +461,7 @@ void cls_equipos::leer_mbtcp(void) {
 
             else if (interpretacion.compare("word_signed") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbtcp, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 4, registro, cantidad1, datos);
 
                 int16_t valor_signed = 0;
 
@@ -629,28 +630,28 @@ void cls_equipos::leer_mbserial(void) {
         if (funcion.compare("hr") == 0) {
 
             if (interpretacion.compare("float32abcd") == 0) {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
@@ -658,7 +659,7 @@ void cls_equipos::leer_mbserial(void) {
             else if (interpretacion.compare("float32fp") == 0)
             {
                 // solo para los PM factor de potencia
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 valor_float = convert_float_fp(valor_float);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
@@ -666,28 +667,28 @@ void cls_equipos::leer_mbserial(void) {
 
             else if (interpretacion.compare("longle") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_long = decode_u32_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longle64") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 4, datos);
+                rc = read_cached_registers(lease, 3, registro, 4, datos);
                 valor_long = decode_u64_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 3, registro, 2, datos);
                 valor_long = decode_u32_be(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 3, registro, cantidad1, datos);
 
                 if ((bit1 >= 0) && (bit1 <= 15)) {
                     valor = obtenervalorbit(datos[0], bit1);
@@ -705,7 +706,7 @@ void cls_equipos::leer_mbserial(void) {
 
             else if (interpretacion.compare("word_signed") == 0)
             {
-                rc = modbus_read_registers(ctx_mbserial, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 3, registro, cantidad1, datos);
 
                 int16_t valor_signed = 0;
 
@@ -734,49 +735,49 @@ void cls_equipos::leer_mbserial(void) {
         if (funcion.compare("rr") == 0) {
 
             if (interpretacion.compare("float32abcd") == 0) {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_abcd(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32badc") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_badc(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32cdab") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_cdab(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("float32dcba") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_float = cast_get_float_dcba(datos);
                 snprintf(buffer, sizeof(buffer), "%f", valor_float);
             }
 
             else if (interpretacion.compare("longle") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_long = decode_u32_le(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("longbe") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, 2, datos);
+                rc = read_cached_registers(lease, 4, registro, 2, datos);
                 valor_long = decode_u32_be(datos);
                 snprintf(buffer, sizeof(buffer), "%" PRIu64, valor_long);
             }
 
             else if (interpretacion.compare("word") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 4, registro, cantidad1, datos);
 
                 if ((bit1 >= 0) && (bit1 <= 15)) {
                     valor = obtenervalorbit(datos[0], bit1);
@@ -794,7 +795,7 @@ void cls_equipos::leer_mbserial(void) {
 
             else if (interpretacion.compare("word_signed") == 0)
             {
-                rc = modbus_read_input_registers(ctx_mbserial, registro, cantidad1, datos);
+                rc = read_cached_registers(lease, 4, registro, cantidad1, datos);
 
                 int16_t valor_signed = 0;
 

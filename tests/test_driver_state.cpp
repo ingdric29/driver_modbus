@@ -1,7 +1,11 @@
 #include "globales.h"
 #include <cassert>
 #include <cstring>
-int main() {
+#include "modbus_transport.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+void serial_test() {
     cls_equipos tag;
     tag.protocolo = "RS232";
     tag.nombre = "serial-test";
@@ -37,3 +41,42 @@ int main() {
     assert(tag.leer() == -1);
     assert(!tag.resultado_leer);
 }
+
+void batch_period_test() {
+    auto server = modbus_new_tcp("127.0.0.1", 0);
+    assert(server);
+    int listener = modbus_tcp_listen(server, 1);
+    assert(listener >= 0);
+    sockaddr_in address{}; socklen_t length = sizeof(address);
+    assert(getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length) == 0);
+    auto mapping = modbus_mapping_new(0, 0, 4, 0);
+    assert(mapping); mapping->tab_registers[0] = 220; mapping->tab_registers[1] = 25;
+    std::thread peer([&] {
+        assert(modbus_tcp_accept(server, &listener) >= 0);
+        for (int expected : {2, 1}) {
+            uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
+            const int received = modbus_receive(server, query);
+            assert(received >= 12);
+            assert(((int(query[10]) << 8) | query[11]) == expected);
+            assert(modbus_reply(server, query, received, mapping) > 0);
+        }
+    });
+    cls_equipos tags[2];
+    for (int i = 0; i < 2; ++i) {
+        tags[i].protocolo = "MBTCP"; tags[i].nombre = "meter";
+        tags[i].direccion_ip = "127.0.0.1"; tags[i].puerto = ntohs(address.sin_port);
+        tags[i].funcion = "hr"; tags[i].interpretacion = "word";
+        tags[i].registro = i; tags[i].periodo = i == 0 ? 0.1 : 2;
+    }
+    ordenlecturaequipos(tags, 2);
+    assert(tags[0].clsvalor == 220 && tags[1].clsvalor == 25);
+    assert(tags[0].sample_sequence == 1 && tags[1].sample_sequence == 1);
+    tags[0].read_deadline.defer(0.001);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    ordenlecturaequipos(tags, 2);
+    assert(tags[0].sample_sequence == 2);
+    assert(tags[1].sample_sequence == 1); // Slow tag was not read early.
+    peer.join(); ModbusLease::clear(); modbus_close(server); close(listener);
+    modbus_mapping_free(mapping); modbus_free(server);
+}
+int main() { serial_test(); batch_period_test(); }

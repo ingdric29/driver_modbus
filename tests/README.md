@@ -47,3 +47,9 @@ TCP en un puerto loopback libre y RTU mediante pseudoterminales Linux.
 En ambos casos realiza lectura/escritura/lectura en la conexión retenida,
 comprueba los valores y cierra los recursos. Añadir `-pthread`, los includes
 y `-lmodbus` a la compilación. Usar un timeout externo de 10 segundos.
+
+`test_register_batch.cpp` verifica combinación de rangos contiguos/solapados,
+separación por huecos y límite de 20 palabras, rangos inválidos y descarte de
+caché al terminar el ciclo. El runner de estado también comprueba con el
+driver real que dos tags contiguos usan una consulta inicial de dos registros
+y que la siguiente consulta del tag rápido pide uno solo, sin adelantar el lento.

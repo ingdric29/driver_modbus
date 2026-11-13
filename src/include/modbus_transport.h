@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <functional>
+#include <atomic>
 
 // Exclusive lease per physical endpoint. Reads and writes use the same registry.
 class ModbusLease {
@@ -13,6 +14,7 @@ class ModbusLease {
         std::mutex mutex;
         modbus_t* context = nullptr;
         bool connected = false;
+        uint64_t session = 0;
         std::string signature;
         ~Link() { if (context) { if (connected) modbus_close(context); modbus_free(context); } }
     };
@@ -50,12 +52,14 @@ public:
         const auto signature = std::to_string(baud) + parity + std::to_string(bits) + ":" + std::to_string(stops);
         return ModbusLease("rtu:" + device, signature, [&] { return modbus_new_rtu(device.c_str(), baud, parity, bits, stops); });
     }
+    uint64_t session() const { return link_->session; }
     modbus_t* get() const { return link_->context; }
     int connect(uint32_t timeout_microseconds) {
         if (!get()) return -1;
         modbus_set_response_timeout(get(), timeout_microseconds / 1000000, timeout_microseconds % 1000000);
         if (link_->connected) return 0;
         link_->connected = modbus_connect(get()) == 0;
+        if (link_->connected) { static std::atomic<uint64_t> next{0}; link_->session = ++next; }
         return link_->connected ? 0 : -1;
     }
     void invalidate() {
