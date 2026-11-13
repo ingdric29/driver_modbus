@@ -162,8 +162,7 @@ int enviar_email(storigen origen, stdestino destino) {
         res = curl_easy_perform(curl);
 
         if (res != CURLE_OK) {
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            email_log.registrarError(std::string("curl_easy_perform() failed:") + curl_easy_strerror(res));
+            email_log.registrarError(std::string("ERROR: SMTP: ") + curl_easy_strerror(res) + " (codigo=" + std::to_string(res) + ")");
         }
 
         curl_slist_free_all(recipients);

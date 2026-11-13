@@ -39,3 +39,8 @@ El directorio y los destinatarios se cargan antes de las alarmas. Cada acción
 EMAIL consulta el directorio vigente y prepara una copia del mensaje; no
 conserva punteros a un directorio de una generación anterior. Si el ID no
 existe, la acción devuelve error y no se marca como enviada.
+
+El [monitor SSH](monitor.md) permite consultar en vivo el estado de cada
+dispositivo/tag, alarmas, SQL y eventos desde otra terminal, sin iniciar otra
+adquisición. Tras instalar esta versión, el driver debe reiniciarse una vez
+para habilitar el socket local; abrir/cerrar visores posteriores no requiere reinicio.

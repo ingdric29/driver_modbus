@@ -31,6 +31,20 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include "include/register_batch.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
+#include "include/monitor_state.h"
+namespace {
+struct MonitorRead {
+    cls_equipos& tag;
+    monitor::Clock::time_point start = monitor::Clock::now();
+    explicit MonitorRead(cls_equipos& t) : tag(t) {}
+    ~MonitorRead() {
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(monitor::Clock::now() - start).count();
+        monitor::State::instance().publish(tag.monitor_key, tag.resultadoleer_rc, tag.clsvalorstr,
+            tag.latest_sample.acquired, us, register_acquired_steady() == monitor::Clock::time_point{}
+                ? monitor::Clock::now() : register_acquired_steady());
+    }
+};
+}
 ////////////////////////////
 
 
@@ -119,7 +133,9 @@ int cls_equipos::leer() {
 
 	resultadoleer_rc = -1;
     ReadMeasurement measurement(resultadoleer_rc);
+    MonitorRead monitor_read(*this);
     register_acquired() = 0;
+    register_acquired_steady() = monitor::Clock::time_point{};
 	if (*pcontador_errores > cuenta_errores_maximo) {
 		*pestadocomunicacion = false;
 		*ptiempotranscurridoerrores = *ptiempotranscurridoerrores + difftime(time(NULL), *pultima_llamada_leer);
@@ -143,7 +159,8 @@ int cls_equipos::leer() {
 		mensajedeerror += "se reanuda dentro de " + cast_double_to_string(tiemporeset_cuenta_errores - *ptiempotranscurridoerrores) + " segundos";
 		imprimir_mensaje_importante(mensajedeerror, rojo);//Loggin
 		if(!*suspension_logged){logger.registrarError("INFO: Excess errors. Device "+nombre+" suspended.");*suspension_logged=true;}
-		return -2; 
+		resultadoleer_rc = -2;
+		return resultadoleer_rc;
 	}
 	imprimir_mensaje("leer: " + tag, negro);
 	

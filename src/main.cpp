@@ -33,6 +33,8 @@ Hecha por: Javier Flores
 #include "include/modbus_transport.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
+#include "include/monitor_state.h"
+#include "include/monitor_server.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -220,7 +222,12 @@ int main(int argc, char* argv[]) {
 	GLOBAL_contador_defeventos = -1;
 
 	logger_main.registrarError("INFO: Start Devlog.");
-	try { return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS; }
+	try {
+        monitor::State::instance().configure(GLOBAL_nombre_concentrador,
+            "tcp://" + stdblocal.direccion + ":" + std::to_string(stdblocal.puerto), stdblocal.nombre);
+        monitor::Server monitor_server(obtenerDirectorio(".runtime"));
+        return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+    }
     catch (const std::exception& error) {
         logger_main.registrarError(std::string("Fatal worker failure: ") + error.what());
         ModbusLease::clear(); liberarmemoria(); return EXIT_FAILURE;
@@ -274,10 +281,12 @@ int muestrear(void) {
 	GLOBAL_estado_primera_ejecucion_programa = 1;
 	cout << "empezar a ejecutar hilos" << endl;
 	while (!GLOBAL_stop_requested) {
+        monitor::State::instance().phase("CARGANDO");
 		if (ordenlecturaconfiguracion() < 0) { liberarmemoria(); return -1; }
 		if (GLOBAL_stop_requested) { liberarmemoria(); break; }
         GLOBAL_EJECUTARHILOS = true;
 		actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "estado", "0", "`id`>'0'");
+        monitor::State::instance().phase("EJECUTANDO");
         WorkerGroup workers(GLOBAL_EJECUTARHILOS);
         workers.start(ordenlecturaconfiguracionciclico);
         workers.start(ordenejecucionciclico);
@@ -291,6 +300,7 @@ int muestrear(void) {
         for (int serial = 0; serial < GLOBAL_contador_equipos_rs232_distintos; ++serial)
             workers.start(lectura_puerto_serial, &equipo_rs232_distintos[serial]);
         workers.join();
+        monitor::State::instance().phase(GLOBAL_stop_requested ? "DETENIENDO" : "RECARGANDO");
         ModbusLease::clear();
 
 		cout << separadorigual << endl;
@@ -433,7 +443,8 @@ int ordenrevisarposiblesalarmas() {
 
 	imprimir_mensaje("inicio revision tabla de alarmas: " + cast_int_to_string(GLOBAL_contador_defalarmas), negro);
 	for (int j = 0; j < GLOBAL_contador_defalarmas; j++) {
-		defalarmas[j].evaluarcompleto();
+        int result = defalarmas[j].evaluarcompleto();
+        monitor::State::instance().alarm(defalarmas[j].id, result >= 0, defalarmas[j].activa);
 	}
 	imprimir_mensaje("terminada revision tabla de alarmas", negro);
 	GLOBAL_ultima_revision_alarmas = time(NULL);
@@ -477,6 +488,27 @@ int ordenlecturaconfiguracion() {
 
 		actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "concentrador", GLOBAL_nombre_concentrador, "id >= 0");
 
+        auto& monitor_state = monitor::State::instance();
+        monitor_state.begin_catalog();
+        auto register_tags = [&](cls_equipos* tags, int count) {
+            for (int i = 0; i < count; ++i) {
+                auto& t = tags[i];
+                monitor::Tag info;
+                info.device = t.nombre; info.protocol = t.protocolo;
+                info.endpoint = t.protocolo == "MBTCP" ? t.direccion_ip + ":" + std::to_string(t.puerto) : t.interface1;
+                info.slave = t.direccion_esclavo;
+                // Length prefixes prevent ambiguous names/endpoints from merging devices.
+                for (const auto& part : {info.protocol, info.device, info.endpoint, std::to_string(info.slave)})
+                    info.device_key += std::to_string(part.size()) + ":" + part;
+                info.name = t.tag; info.unit = t.unidad; info.address = t.registro;
+                info.period = std::isfinite(t.periodo) && t.periodo > 0 ? t.periodo : 1;
+                t.monitor_key = monitor_state.add_tag(info);
+            }
+        };
+        register_tags(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
+        register_tags(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
+        register_tags(equipo_rs232, GLOBAL_contador_equipos_rs232);
+        for (int i = 0; i < GLOBAL_contador_defalarmas; ++i) monitor_state.add_alarm(defalarmas[i].id, defalarmas[i].clsdispositivo, defalarmas[i].descripcion);
 		imprimir_mensaje("se leyeron las configuraciones", verde);
 	}
 	return 1;

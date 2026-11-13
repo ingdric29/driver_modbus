@@ -20,3 +20,6 @@ for unit in register_batch modbus_transport; do
   timeout 15 "$test_dir/$unit"
   echo "PASS $unit"
 done
+
+"${CXX:-g++}" "${common[@]}" tests/test_monitor.cpp src/monitor_server.cpp -o "$test_dir/monitor"
+timeout 15 "$test_dir/monitor"

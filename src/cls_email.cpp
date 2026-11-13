@@ -27,10 +27,7 @@
 		LOCAL_destino.cuerpo6 = mensaje6;
 		LOCAL_destino.cuerpo7 = mensaje7;
 		
-		cout << "to:" << LOCAL_destino.to << endl;
-		cout << "cc:" << LOCAL_destino.cc << endl;
-		cout << "asunto:" << LOCAL_destino.asunto << endl;
-		cout << "cuerpo:" << LOCAL_destino.cuerpo << endl;
+
 				
 		res = enviar_email(GLOBAL_email_origen, LOCAL_destino );
 		return res;

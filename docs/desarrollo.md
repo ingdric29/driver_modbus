@@ -8,7 +8,8 @@ make -j2
 make test
 ```
 
-El binario nuevo es `.build/automonitorv1`. Objetos y dependencias quedan en
+Los ejecutables nuevos son `.build/automonitorv1` y `.build/automonitorctl`
+([monitor SSH](monitor.md), Python 3/curses). Objetos y dependencias quedan en
 `.build`, sin sobrescribir los ejecutables/objetos históricos versionados.
 Los cambios de headers se detectan automáticamente. `make orquesta` construye
 el supervisor opcional en `.build/orquesta`; las pruebas no lo ejecutan.
@@ -25,9 +26,11 @@ Debian verificadas extraídas localmente. El makefile admite `INCLUDES`, `LIBS`,
 Los repositorios cloud ya están aislados; trabajar sobre el checkout existente
 sin crear worktrees salvo petición explícita.
 
-`make test` ejecuta diez programas unitarios con ASan/UBSan y un runner enlazado
+`make test` ejecuta once programas unitarios con ASan/UBSan y un runner enlazado
 con las fuentes reales. Incluye servidores Modbus TCP y RTU sobre loopback y
 pseudoterminales, parsing RS232, periodos distintos y parada por señal.
+También verifica el socket de monitorización, clientes lentos y el visor Python
+en una pseudoterminal (navegación, redimensionado y restauración de terminal).
 Para compiladores sin sanitizadores, establecer `TEST_CXXFLAGS` explícitamente.
 
 `make test-sql` es opcional y requiere la instancia de prueba descrita en

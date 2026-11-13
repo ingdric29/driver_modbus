@@ -14,6 +14,7 @@
 #include <ctime>
 #include "sample_window.h"
 #include "driver_metrics.h"
+#include "monitor_state.h"
 
 class SqlSessionPool {
     using Key = std::tuple<std::string, std::string, std::string, std::string>;
@@ -23,6 +24,11 @@ public:
     SqlSessionPool() : driver_(get_driver_instance()) { driver_->threadInit(); }
     ~SqlSessionPool() { connections_.clear(); driver_->threadEnd(); }
     void invalidate() { connections_.clear(); }
+    void observe(sql::Connection* connection, bool success) noexcept {
+        for (const auto& entry : connections_) if (entry.second.get() == connection) {
+            monitor::State::instance().sql(std::get<0>(entry.first), std::get<3>(entry.first), success); return;
+        }
+    }
     std::shared_ptr<sql::Connection> get(const std::string& endpoint, const std::string& user, const std::string& password, const std::string& schema) {
         const Key key{endpoint, user, password, schema};
         auto existing = connections_.find(key);
@@ -39,8 +45,17 @@ public:
 };
 inline SqlSessionPool& sql_sessions() { static thread_local SqlSessionPool pool; return pool; }
 inline std::shared_ptr<sql::Connection> sql_connection(const std::string& endpoint, const std::string& user, const std::string& password, const std::string& schema) {
-    return sql_sessions().get(endpoint, user, password, schema);
+    try { return sql_sessions().get(endpoint, user, password, schema); }
+    catch (...) { monitor::State::instance().sql(endpoint, schema, false); throw; }
 }
+class SqlObservation {
+    sql::Connection* connection_;
+    bool completed_ = false;
+public:
+    explicit SqlObservation(sql::Connection* connection) : connection_(connection) {}
+    void success() noexcept { completed_ = true; sql_sessions().observe(connection_, true); }
+    ~SqlObservation() { if (!completed_) sql_sessions().observe(connection_, false); }
+};
 inline std::string sql_identifier(const std::string& name) {
     if (name.empty()) throw std::invalid_argument("empty SQL identifier");
     for (unsigned char c : name) if (!std::isalnum(c) && c != '_') throw std::invalid_argument("invalid SQL identifier");
@@ -60,8 +75,8 @@ class SqlTransaction {
     bool committed_ = false;
 public:
     explicit SqlTransaction(std::shared_ptr<sql::Connection> connection) : connection_(std::move(connection)) { connection_->setAutoCommit(false); }
-    void commit() { connection_->commit(); committed_ = true; connection_->setAutoCommit(true); }
-    ~SqlTransaction() { if (!committed_) { try { connection_->rollback(); connection_->setAutoCommit(true); } catch (...) {} } }
+    void commit() { connection_->commit(); committed_ = true; connection_->setAutoCommit(true); sql_sessions().observe(connection_.get(), true); }
+    ~SqlTransaction() { if (!committed_) { sql_sessions().observe(connection_.get(), false); try { connection_->rollback(); connection_->setAutoCommit(true); } catch (...) {} } }
 };
 inline void store_sample_batch(const std::shared_ptr<sql::Connection>& connection, const std::string& table,
     const std::vector<SampleValue>& samples, const std::string& tag, int device,

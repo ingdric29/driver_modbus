@@ -81,11 +81,13 @@ int update_fields(stdatabase* db, const std::string& table, string* fields, stri
             query += (i ? " AND " : "") + sql_identifier(fields[keys[i]]) + "=?";
         }
         auto connection = database_session(db);
+        SqlObservation observation(connection.get());
         std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
         int parameter = 1;
         for (int i = 0; i < count; ++i) bind_legacy(*statement, parameter++, values[i]);
         for (int key : keys) bind_legacy(*statement, parameter++, values[key]);
         statement->executeUpdate();
+        observation.success();
         return 0;
     } catch (const std::exception& error) { database_failure(error); return -1; }
 }
@@ -96,10 +98,13 @@ int find_fields(stdatabase* db, const std::string& table, const std::vector<std:
         for (size_t i = 0; i < fields.size(); ++i) query += (i ? " AND " : "") + sql_identifier(fields[i]) + "=?";
         query += " LIMIT 1";
         auto connection = database_session(db);
+        SqlObservation observation(connection.get());
         std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
         for (size_t i = 0; i < values.size(); ++i) statement->setString(i + 1, values[i]);
         std::unique_ptr<sql::ResultSet> result(statement->executeQuery());
-        return result->next() ? 1 : 0;
+        int found = result->next() ? 1 : 0;
+        observation.success();
+        return found;
     } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 }
@@ -1209,9 +1214,12 @@ int insertar_valor(stdatabase* db, string tabla, string* campo, string* valor, i
         }
         query += ") VALUES (" + placeholders + ")";
         auto connection = database_session(db);
+        SqlObservation observation(connection.get());
         std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
         for (int i = 0; i < cantidad; ++i) bind_legacy(*statement, i + 1, valor[i]);
-        return statement->executeUpdate() == 1 ? 0 : -1;
+        int affected = statement->executeUpdate();
+        observation.success();
+        return affected == 1 ? 0 : -1;
     } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 

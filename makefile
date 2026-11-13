@@ -11,10 +11,13 @@ LDLIBS += -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -pthr
 SRCS = src/main.cpp src/acquisition.cpp src/persistence.cpp src/loadconfig.cpp \
        src/ini.c src/INIReader.cpp src/cls_equipos.cpp src/conversiones.cpp \
        src/cls_cmd.cpp src/cls_defalarmas.cpp src/enviarmail.cpp src/cls_email.cpp \
-       src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c
+       src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql orquesta clean
-all: $(TARGET)
+all: $(TARGET) $(BUILD_DIR)/automonitorctl
+$(BUILD_DIR)/automonitorctl: tools/automonitorctl.py
+	@mkdir -p $(@D)
+	install -m 755 $< $@
 $(TARGET): $(OBJECTS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) $(LDLIBS) -o $@
@@ -28,12 +31,13 @@ orquesta: $(BUILD_DIR)/orquesta
 $(BUILD_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) -lboost_filesystem -lboost_system -o $@
-test: $(TARGET)
+test: all
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
+	python3 tests/test_monitor_client.py
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
 clean:
-	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET)
+	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET) $(BUILD_DIR)/automonitorctl
 -include $(OBJECTS:.o=.d)

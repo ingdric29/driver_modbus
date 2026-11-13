@@ -6,6 +6,7 @@ Permite hacer un registro de los eventos que sucedan en la ejecucion del program
 
 */
 #include "include/cls_logger.h"
+#include "include/monitor_state.h"
 #include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp> // Es necesario instalar: sudo apt install libboost-filesystem-dev
@@ -37,6 +38,7 @@ Logger::Logger(size_t limiteBytes) : limiteBytes(limiteBytes), nombreArchivo("de
 }
 
 void Logger::registrarError(const std::string& mensajeError) {
+    monitor::State::instance().event(mensajeError);
     std::lock_guard<std::mutex> lock(log_mutex());
     verificarTamañoArchivo();
 
@@ -45,7 +47,7 @@ void Logger::registrarError(const std::string& mensajeError) {
         archivoLog << "[" << obtenerFechaHoraActual() << "] " << mensajeError << std::endl;
         archivoLog.close();
 
-        std::cerr << "Error registrado en " << directorioLog + "/" + nombreArchivo << ": " << mensajeError << std::endl;
+        std::cerr << "[" << obtenerFechaHoraActual() << "] " << mensajeError << std::endl;
     } else {
         std::cerr << "No se pudo abrir el archivo de log: " << directorioLog + "/" + nombreArchivo << std::endl;
     }

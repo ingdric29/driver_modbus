@@ -6,6 +6,8 @@ before opening SMTP. In-memory email delivery is exercised separately by the
 state test, whose transport is replaced at link time.
 """
 import os
+import importlib.util
+import json
 import pathlib
 import shutil
 import signal
@@ -20,6 +22,10 @@ import time
 binary = pathlib.Path(sys.argv[1]).resolve(strict=True)
 client = os.environ.get("MARIADB_CLIENT") or shutil.which("mariadb") or shutil.which("mysql")
 assert client, "MariaDB client required for the optional startup fixture"
+viewer_path = pathlib.Path(__file__).resolve().parents[1] / 'tools' / 'automonitorctl.py'
+spec = importlib.util.spec_from_file_location('monitor_client', viewer_path)
+viewer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(viewer)
 stop = threading.Event()
 
 def receive(connection, length):
@@ -106,13 +112,49 @@ smtp_pass=
                 time.sleep(0.02)
             assert process.poll() is None, output_path.read_text()
             assert "ERROR: HTML vacío" in output_path.read_text(), "EMAIL[7] was not reached"
+            monitor_path = base / '.runtime' / 'automonitor.sock'
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                snapshot = viewer.fetch(monitor_path)
+                if snapshot['devices'] and snapshot['devices'][0]['status'] == 'ONLINE' and snapshot['sql']['status'] == 'OK':
+                    break
+                time.sleep(.1)
+            assert snapshot['pid'] == process.pid and snapshot['phase'] == 'EJECUTANDO', snapshot
+            assert len(snapshot['devices']) == 1, snapshot
+            device = snapshot['devices'][0]
+            assert device['name'] == 'meter' and device['status'] == 'ONLINE', device
+            assert len(device['tags']) == 159 and device['fresh_tags'] == 159, device
+            assert all(float(tag['value']) == 280 and tag['period_s'] == .1 for tag in device['tags']), device
+            assert snapshot['sql']['status'] == 'OK' and snapshot['sql']['operations_ok'] > 0, snapshot['sql']
+            assert snapshot['alarms_active'] == 1 and snapshot['alarms_unknown'] == 0, snapshot
+            assert any(event['component'] == 'CORREO' for event in snapshot['events']), snapshot['events']
+            text_view = subprocess.check_output([sys.executable, str(viewer_path), '--socket', str(monitor_path), '--once', '--device', 'meter'], text=True)
+            assert 'r158 = 280.000000 V' in text_view and 'periodo 0.1s' in text_view, text_view
+            # Concurrent viewers only inspect snapshots; acquisition continues after every client exits.
+            clients = [subprocess.Popen([sys.executable, str(viewer_path), '--socket', str(monitor_path), '--json'], stdout=subprocess.PIPE) for _ in range(3)]
+            for child in clients:
+                data, _ = child.communicate(timeout=4)
+                assert child.returncode == 0 and json.loads(data)['pid'] == process.pid
+            assert process.poll() is None
+            generation = snapshot['generation']
+            # Reload through the existing configuration mechanism, retaining the monitor endpoint.
+            subprocess.run([client, '--no-defaults', '--host=127.0.0.1', '--port=33077', '-u', 'root',
+                            '-e', 'UPDATE driver_startup_fixture.tbcambios SET cont_tbregistros=cont_tbregistros+1'], check=True)
+            deadline = time.monotonic() + 12
+            while time.monotonic() < deadline and process.poll() is None:
+                snapshot = viewer.fetch(monitor_path)
+                if snapshot['generation'] > generation and snapshot['phase'] == 'EJECUTANDO' and snapshot['devices'][0]['status'] == 'ONLINE':
+                    break
+                time.sleep(.1)
+            assert snapshot['generation'] > generation and snapshot['devices'][0]['status'] == 'ONLINE', snapshot
             process.send_signal(signal.SIGTERM)
             assert process.wait(timeout=10) == 0, output_path.read_text()
+            assert not monitor_path.exists(), 'socket must be removed on shutdown'
         text = output_path.read_text()
         assert "numero tags mbtcp:159" in text
         assert "FOREIGN KEY" not in text, text
         assert "AddressSanitizer" not in text and "runtime error:" not in text, text
-        print("PASS full startup: 159 TCP tags, EMAIL[7], valid alarm history and controlled shutdown; no SMTP delivery")
+        print("PASS full startup: 159 TCP tags, live monitor/CLI, concurrent viewers, catalog reload, EMAIL[7] and controlled shutdown; no SMTP delivery")
     finally:
         if process is not None and process.poll() is None:
             process.send_signal(signal.SIGTERM)

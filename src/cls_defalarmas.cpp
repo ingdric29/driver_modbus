@@ -22,6 +22,7 @@ extern stdatabase stdbexterna;
 
 // metodo constructor
 cls_defalarmas::cls_defalarmas() {
+    id = 0; activa = false; reconocida = false;
 	expresionactivar = "0";
 	expresiondesactivar = "0";
 	ejecutado_activar_cmd = false;

@@ -113,3 +113,18 @@ clave foránea válida y termina por SIGTERM sin caída ni error de integridad.
 Usa una plantilla vacía para que el transporte real no abra SMTP. Solo debe
 usarse con la instancia local dedicada de pruebas en el puerto 33077.
 Requiere el cliente MariaDB/MySQL; `MARIADB_CLIENT` permite indicar su ruta.
+
+## Monitor SSH
+
+`make test` incluye `test_monitor.cpp` con ASan/UBSan: períodos distintos,
+calidad y edad con reloj simulado, recuperación, aislamiento de generaciones,
+SQL observado, eventos acotados, JSON/UTF-8, permisos, socket abandonado,
+rechazo de segundo servidor y espectadores lentos durante publicaciones concurrentes.
+`python3 tests/test_monitor_client.py` usa un socket simulado y una PTY real:
+verifica consultas de solo lectura, selección, navegación a tags, redimensionado,
+restauración de terminal y que Q deja la fuente disponible. No inicia un driver.
+
+Con MariaDB local de pruebas, `make test-sql` ejecuta el proceso completo con
+159 tags TCP simulados, consulta el monitor y el CLI, conecta varios espectadores,
+recarga el catálogo mediante tbcambios y verifica el cierre ordenado del socket.
+La plantilla de correo vacía evita cualquier envío SMTP.

@@ -98,6 +98,7 @@ public:
 	string  html_final;
 
 	bool preservar_picos = false;
+	uint64_t monitor_key = 0; // Assigned offline, never a pointer into driver state.
 	uint64_t sample_sequence = 0;
 	uint64_t change_revision = 0;
 	SampleValue latest_sample;

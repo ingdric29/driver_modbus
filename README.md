@@ -35,7 +35,8 @@ Compatibilidad:
 
 Ver [compilación y pruebas](docs/desarrollo.md), [arquitectura](docs/arquitectura.md),
 [conservación de picos](docs/picos.md), [replicación](docs/replicacion.md)
-y [operación](docs/operacion.md). Los protocolos activos son TCP, RTU y RS232.
+y [operación](docs/operacion.md).
+El [monitor SSH](docs/monitor.md) permite consultar dispositivos y tags sin detener el driver. Los protocolos activos son TCP, RTU y RS232.
 
 ## Instalación
 
