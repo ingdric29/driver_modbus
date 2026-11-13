@@ -30,6 +30,7 @@ Hecha por: Javier Flores
 #include "include/estructuras.h"
 #include <chrono>
 #include "include/worker_group.h"
+#include "include/version.h"
 #include "include/modbus_transport.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
@@ -183,11 +184,16 @@ MAIN
 int main(int argc, char* argv[]) {
     install_driver_signals();
 
+    if (argc > 1 && std::string(argv[1]) == "--version") {
+        cout << "Automonitor Driver " << AUTOMONITOR_VERSION << " | commit " << AUTOMONITOR_COMMIT
+             << " | build " << AUTOMONITOR_BUILD_DATE << endl;
+        return EXIT_SUCCESS;
+    }
 	if (argc > 1) GLOBAL_habilitar_imprimir = atoi(argv[1]);
 	cout << separadorigual << endl;
-	cout << "AUTOMONITOR DRIVER V3.6 ";
+	cout << "Automonitor Driver " << AUTOMONITOR_VERSION << endl;
 	cout << "AUTOMATRONI C.A. visitanos: www.automatroni.com" << endl;
-	cout << "Rev. 1.1.2  26/11/24" << endl;
+	cout << "Commit " << AUTOMONITOR_COMMIT << " | Build " << AUTOMONITOR_BUILD_DATE << endl;
 	cout << separadorigual << endl;
 
 	if (loadconfigdb() == 1) {

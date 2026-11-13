@@ -1,10 +1,18 @@
+.DEFAULT_GOAL := all
 # C++11 driver. Generated objects/dependencies never overwrite tracked artifacts.
 CXX ?= g++
 BUILD_DIR ?= .build
 TARGET ?= $(BUILD_DIR)/automonitorv1
 INCLUDES ?= -Isrc/include -I/usr/include/modbus
 LIBS ?=
+BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 CPPFLAGS += $(INCLUDES)
+$(BUILD_DIR)/src/main.o $(BUILD_DIR)/src/monitor_server.o: CPPFLAGS += -DAUTOMONITOR_COMMIT=\"$(BUILD_COMMIT)\" -DAUTOMONITOR_BUILD_DATE=\"$(BUILD_DATE)\"
+# Refresh the identification banner even when only HEAD changed.
+.PHONY: FORCE
+FORCE:
+$(BUILD_DIR)/src/main.o $(BUILD_DIR)/src/monitor_server.o: FORCE
 CXXFLAGS ?= -g -O2 -Wall -Wextra -Wformat=2
 CXXFLAGS += -std=c++11 -pthread
 LDLIBS += -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -pthread
@@ -15,9 +23,10 @@ SRCS = src/main.cpp src/acquisition.cpp src/persistence.cpp src/loadconfig.cpp \
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql orquesta clean
 all: $(TARGET) $(BUILD_DIR)/automonitorctl $(BUILD_DIR)/automonitor-mailcheck
-$(BUILD_DIR)/automonitorctl: tools/automonitorctl.py
+$(BUILD_DIR)/automonitorctl: tools/automonitorctl.py src/include/version.h
 	@mkdir -p $(@D)
 	install -m 755 $< $@
+	install -m 644 src/include/version.h $(BUILD_DIR)/version.h
 $(BUILD_DIR)/automonitor-mailcheck: tools/automonitor-mailcheck.py
 	@mkdir -p $(@D)
 	install -m 755 $< $@
@@ -44,5 +53,5 @@ test: all
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
 clean:
-	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET) $(BUILD_DIR)/automonitorctl $(BUILD_DIR)/automonitor-mailcheck
+	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET) $(BUILD_DIR)/automonitorctl $(BUILD_DIR)/automonitor-mailcheck $(BUILD_DIR)/version.h
 -include $(OBJECTS:.o=.d)

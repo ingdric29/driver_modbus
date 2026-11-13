@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import sys
@@ -12,6 +13,16 @@ import unicodedata
 
 DEFAULT_SOCKET = Path(__file__).resolve().parent.parent / '.runtime' / 'automonitor.sock'
 MAX_SNAPSHOT = 8 * 1024 * 1024
+
+
+def product_version():
+    base = Path(__file__).resolve().parent
+    for path in (base / 'version.h', base.parent / 'src/include/version.h'):
+        if path.is_file():
+            match = re.search(r'^#define AUTOMONITOR_VERSION "([^"]+)"', path.read_text(), re.M)
+            if match:
+                return match.group(1)
+    return 'unknown'
 
 
 def safe(value):
@@ -111,7 +122,7 @@ def event_line(event):
 
 def plain(snapshot, device_name=None):
     db = snapshot['sql']
-    lines = ['AUTOMONITOR {} [{}] PID={} gen={}'.format(snapshot['concentrator'], snapshot['phase'], snapshot['pid'], snapshot['generation']),
+    lines = ['AUTOMONITOR {} {} [{}] PID={} gen={}'.format(snapshot.get('driver_version', '?'), snapshot['concentrator'], snapshot['phase'], snapshot['pid'], snapshot['generation']),
              'MariaDB {} (ultima operacion hace {}) | Alarmas activas {} / sin evaluar {} | Ventanas pendientes {}'.format(
                  db['status'], elapsed(db['age_ms']), snapshot['alarms_active'], snapshot['alarms_unknown'], snapshot['metrics']['pending_windows'])]
     devices = [find_device(snapshot['devices'], device_name)] if device_name else snapshot['devices']
@@ -190,7 +201,7 @@ class View:
             return
         snapshot = self.snapshot
         if snapshot:
-            line(0, 'AUTOMONITOR {} [{}]'.format(snapshot['concentrator'], 'SIN CONEXION' if self.error else snapshot['phase']), bold)
+            line(0, 'AUTOMONITOR {} {} [{}]'.format(snapshot.get('driver_version', '?'), snapshot['concentrator'], 'SIN CONEXION' if self.error else snapshot['phase']), bold)
             line(1, 'PID {} | {} | Lecturas tags/s {:.1f} | Alarmas {} (+{} sin evaluar)'.format(
                 snapshot['pid'], stamp(snapshot['generated_at']), self.rate,
                 snapshot['alarms_active'], snapshot['alarms_unknown']))
@@ -280,6 +291,7 @@ class View:
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Monitor SSH de Automonitor. No inicia adquisicion ni consulta Modbus/SQL.')
     parser.add_argument('--socket', type=Path, default=DEFAULT_SOCKET, help='socket local del driver')
+    parser.add_argument('--version', action='version', version='automonitorctl ' + product_version())
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--once', action='store_true', help='imprimir una instantanea y salir')
     mode.add_argument('--json', action='store_true', help='imprimir una instantanea JSON y salir')

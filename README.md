@@ -1,5 +1,7 @@
 # Automonitor / Devlog — Driver Modbus
 
+**Versión de la rama mejorada: 1.2.0.** Ver [CHANGELOG.md](CHANGELOG.md).
+
 Driver C++ para adquisición de variables industriales, evaluación de alarmas y
 registro de datos. Soporta Modbus TCP, Modbus RTU y lectura serie RS232; utiliza
 MySQL/MariaDB para configuración y persistencia, y libcurl para correo SMTP.
@@ -294,3 +296,21 @@ desarrollo y arquitectura) y `tests/README.md`. Esos archivos no existen en `mai
 
 Desarrollo original: Ing. Alejandro Diomede / Automatroni.
 Modificaciones históricas y depuración: Ing. Javier Flores.
+
+## Versión y trazabilidad
+
+La fuente única de versión de producto es `src/include/version.h`.
+`make` incluye el commit y la fecha UTC de compilación en el driver. Una
+compilación directa sin esas definiciones muestra `unknown` para esos metadatos.
+
+```bash
+./.build/automonitorv1 --version
+./.build/automonitorctl --version
+```
+
+El visor muestra la versión del driver conectado; `--version` identifica al
+visor instalado. El JSON conserva `version: 1` como versión del protocolo y
+expone por separado `driver_version`, `driver_commit` y `build_date`.
+Para distribuir el visor fuera de `.build`, copiar también su `version.h` vecino.
+La etiqueta `v1.2.0` identifica la entrega en la rama mejorada; no implica integrar
+la rama en `main`. Consultar el historial para funciones y limitaciones.

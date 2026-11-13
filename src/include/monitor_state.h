@@ -1,5 +1,6 @@
 #ifndef AUTOMONITOR_MONITOR_STATE_H
 #define AUTOMONITOR_MONITOR_STATE_H
+#include "version.h"
 // Producers copy results here. The viewer never takes acquisition/SQL locks.
 #include <algorithm>
 #include <chrono>
@@ -184,6 +185,9 @@ inline std::string snapshot_json(const Snapshot& s, Clock::time_point now = Cloc
     for (const auto& a : s.alarms) { if (!a.second.known) ++unknown; if (a.second.active) ++active; }
     const auto& m = DriverMetrics::instance();
     out << "{\"version\":1,\"pid\":" << getpid() << ",\"generated_at\":" << std::time(nullptr)
+        << ",\"driver_version\":" << quote(AUTOMONITOR_VERSION)
+        << ",\"driver_commit\":" << quote(AUTOMONITOR_COMMIT)
+        << ",\"build_date\":" << quote(AUTOMONITOR_BUILD_DATE)
         << ",\"uptime_s\":" << age_ms(now, s.started)/1000 << ",\"generation\":" << s.generation
         << ",\"concentrator\":" << quote(s.concentrator) << ",\"phase\":" << quote(s.phase)
         << ",\"alarms_active\":" << active << ",\"alarms_unknown\":" << unknown
