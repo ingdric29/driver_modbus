@@ -4,7 +4,7 @@
 	
 	using namespace std;
 	
-	cls_email::cls_email(){
+	cls_email::cls_email() : id(0) {
 		
 	}
 	

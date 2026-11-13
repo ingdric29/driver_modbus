@@ -32,8 +32,8 @@ test: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
-test-sql:
-	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_sql_test.sh
+test-sql: $(TARGET)
+	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
 clean:
 	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET)
 -include $(OBJECTS:.o=.d)

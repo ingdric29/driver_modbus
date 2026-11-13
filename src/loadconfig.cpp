@@ -1016,12 +1016,8 @@ int actualizar_defalarmas(struct stdatabase* db) {
 			defalarmas[ind].clsequipo_rs232 = &equipo_rs232[0];
 			defalarmas[ind].clscantidad_equipo_rs232 = GLOBAL_contador_equipos_rs232;
 
-			defalarmas[ind].clsemaillist = &emaillist[0];
-			defalarmas[ind].clscantidademaillist = GLOBAL_contador_directorio;
 			defalarmas[ind].clsdispositivo = res->getString("dispositivo");
 			defalarmas[ind].clstag = res->getString("tag");
-			defalarmas[ind].clscmd = &cmd[0];
-			defalarmas[ind].clscantidad_cmd = GLOBAL_contador_cmd;
 			defalarmas[ind].clsvalorAlarma = res->getString("valorAlarma");
 
 			ind++;
@@ -1313,7 +1309,7 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 		con = database_session(dborigen);
 		int timeout1 = 3;
 		con->setClientOption("MYSQL_OPT_READ_TIMEOUT", &timeout1);
-		string* valorescampos = new string[cantidadcampos];
+		std::vector<string> valorescampos(cantidadcampos);
 
 		/* Conecta con la base de datos */
 		con->setSchema((dborigen->nombre).c_str());
@@ -1568,43 +1564,4 @@ void liberarmemoria(void) {
     GLOBAL_contador_defalarmas = GLOBAL_contador_cmd = 0;
     GLOBAL_contador_defeventos = -1;
     GLOBAL_contador_directorio = GLOBAL_contador_numerossms = 0;
-}
-
-
-
-int insertar_eventos_tbhistoalarmas(string descripcion, string actdesact) {
-	string arr_campos1[13];
-	string arr_valores1[13];
-	int res_insertardblocal;
-	int id = 0;
-	arr_campos1[0] = "id";
-	arr_campos1[1] = "id_alarma";
-	arr_campos1[2] = "fechatiempo";
-	arr_campos1[3] = "tiempo";
-	arr_campos1[4] = "tipo";
-	arr_campos1[5] = "descripcion";
-	arr_campos1[6] = "valor";
-	arr_campos1[7] = "accion";
-	arr_campos1[8] = "condicion";
-	arr_campos1[9] = "concentrador";
-	arr_campos1[10] = "dispositivo";
-	arr_campos1[11] = "tag";
-	arr_campos1[12] = "reconocida";
-	arr_valores1[0] = "NULL";
-	arr_valores1[1] = cast_int_to_string(id);
-	arr_valores1[2] = cast_time_to_datetime(time(NULL));
-	arr_valores1[3] = cast_time_to_datetime(time(NULL));
-	arr_valores1[4] = actdesact;
-	arr_valores1[5] = descripcion;
-	arr_valores1[6] = "0";
-	arr_valores1[7] = "";
-	arr_valores1[8] = "" ;
-	arr_valores1[9] = GLOBAL_nombre_concentrador;
-	arr_valores1[10] = "";
-	arr_valores1[11] = "";
-	arr_valores1[12] = "0";
-	res_insertardblocal = insertar_valor(&stdblocal, "tbhistoalarmas", &arr_campos1[0], &arr_valores1[0], 13);	
-
-
-return 0;
 }

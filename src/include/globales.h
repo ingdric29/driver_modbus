@@ -200,6 +200,6 @@ extern double GLOBAL_tiempo_ultima_revision_eventos;
 extern double GLOBAL_maxima_cuenta_errores;
 extern double GLOBAL_tiempo_restablecimiento_comunicacion;
 
-int insertar_eventos_tbhistoalarmas(string descripcion, string actdesact);
+
 
 #endif

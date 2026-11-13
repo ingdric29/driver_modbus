@@ -44,16 +44,12 @@ class cls_defalarmas {
 		int  contador_de_acciones_activar; // cuenta el numero de acciones realizadas
 		int  contador_de_acciones_desactivar; // cuenta el numero de acciones realizadas
 		int  contador_de_acciones_max; //maximo numero de acciones realizadas
-		cls_equipos* clsequipo_mbtcp;
-		int 		 clscantidad_equipo_mbtcp;
-		cls_equipos* clsequipo_mbserial;
-		int 		 clscantidad_equipo_mbserial;
-		cls_equipos* clsequipo_rs232;
-		int 		 clscantidad_equipo_rs232;
-		cls_cmd* 	 clscmd;
-		int 		 clscantidad_cmd;
-		cls_email* 	 clsemaillist;
-		int 		 clscantidademaillist;
+		cls_equipos* clsequipo_mbtcp = nullptr;
+		int 		 clscantidad_equipo_mbtcp = 0;
+		cls_equipos* clsequipo_mbserial = nullptr;
+		int 		 clscantidad_equipo_mbserial = 0;
+		cls_equipos* clsequipo_rs232 = nullptr;
+		int 		 clscantidad_equipo_rs232 = 0;
 		time_t ultima_evaluacion;
 		time_t fechaocurrencia_activacion;
 		time_t fechaocurrencia_desactivacion;

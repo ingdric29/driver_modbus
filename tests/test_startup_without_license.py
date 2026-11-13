@@ -38,7 +38,7 @@ habilitar_acceso_externo=0
         output = completed.stdout
         assert completed.returncode == 1, (label, completed.returncode, output)
         assert "INFO: Start Devlog." in output, (label, output)
-        assert "SQL operation failed:" in output, (label, output)
+        assert "SQLException" in output, (label, output)
         for rejected in ("Ambas claves invalidas", "Invalid license key format", "License not activated"):
             assert rejected not in output, (label, output)
         print(f"PASS startup without license: {label} (expected database unavailable)")

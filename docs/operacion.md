@@ -29,3 +29,13 @@ el arranque no requiere licencia ni está vinculado a las interfaces de red.
 Los parámetros antiguos `clave1` y `clave2` se ignoran y pueden retirarse de
 configdb.cfg. La autenticación configurada para bases de datos y correo sigue
 siendo necesaria cuando esos servicios la exigen.
+
+El inicio del proceso se registra en `log/devlog.log`. No se inserta como una
+alarma de dispositivo en `tbhistoalarmas`, porque ese evento global no tiene
+un dispositivo asociado. Las alarmas reales siguen guardando su dispositivo;
+no se desactivan ni se modifican las restricciones de clave foránea.
+
+El directorio y los destinatarios se cargan antes de las alarmas. Cada acción
+EMAIL consulta el directorio vigente y prepara una copia del mensaje; no
+conserva punteros a un directorio de una generación anterior. Si el ID no
+existe, la acción devuelve error y no se marca como enviada.

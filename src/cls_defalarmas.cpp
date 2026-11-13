@@ -69,7 +69,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 
 	bool  encontrado = false;
 	for (int i=0; i<clscantidad_equipo_mbtcp; i++) {
-	  if (&clsequipo_mbtcp[i]) {	
+	  if (clsequipo_mbtcp) {
 		if ((clsequipo_mbtcp[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbtcp[i].tag.compare(tag) ==0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_mbtcp[i].state_mutex);
             if (!clsequipo_mbtcp[i].resultado_leer) return -1;
@@ -88,7 +88,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	}
 	if (encontrado == false) {
 	 for (int i=0; i<clscantidad_equipo_mbserial; i++) {
-	   if (&clsequipo_mbserial[i]) {	 
+	   if (clsequipo_mbserial) {
 		if ((clsequipo_mbserial[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbserial[i].tag.compare(tag) ==0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_mbserial[i].state_mutex);
             if (!clsequipo_mbserial[i].resultado_leer) return -1;
@@ -110,7 +110,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	
 	if (encontrado == false) {
 		for (int i = 0; i < clscantidad_equipo_rs232; i++) {
-			if (&clsequipo_rs232[i]) {
+			if (clsequipo_rs232) {
 				if ((clsequipo_rs232[i].nombre.compare(dispositivo) == 0) && (clsequipo_rs232[i].tag.compare(tag) == 0)) {
             std::lock_guard<std::recursive_mutex> state(*clsequipo_rs232[i].state_mutex);
             if (!clsequipo_rs232[i].resultado_leer) return -1;
@@ -337,7 +337,8 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 					indicestr = accion1.substr(inicio+6,fin-inicio-6); 
 					//cout << "comando EMAIL indice = " << indicestr << " longitud:" << indicestr.size()<< endl;
 					indice = email_buscarid(cast_string_to_int(indicestr));
-					if ((indice >= 0) && (indice < GLOBAL_contador_directorio)) {
+					if (emaillist && (indice >= 0) && (indice < GLOBAL_contador_directorio)) {
+                        cls_email notification = emaillist[indice];
 						//"activar   : " + expresionactivar + "[ " + expresionactivar_numerica + " ]"
 						
 						//"desactivar: " + expresiondesactivar + "[ " + expresiondesactivar_numerica + " ]"
@@ -345,54 +346,54 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 						if (alarmaactivada == true) {
 							//cout << "ejecurar accion por alarma activa" << endl;
 
-							clsemaillist[indice].asunto = "Alarma | " + descripcion + " | " + GLOBAL_nombre_concentrador;
+							notification.asunto = "Alarma | " + descripcion + " | " + GLOBAL_nombre_concentrador;
 						
-							clsemaillist[indice].mensaje = "Fecha y hora: " + fecha_para_emails_local_es();
-							clsemaillist[indice].mensaje1 = "Tipo: 	Alarma activada en " + GLOBAL_nombre_concentrador ;
-							clsemaillist[indice].mensaje2 = descripcion;
-							//clsemaillist[indice].mensaje3 = "Dispositivo	: " + clsdispositivo;
-							//clsemaillist[indice].mensaje4 = "Direccion ip / origen	: " + clsorigen;
-							//clsemaillist[indice].mensaje5 = "Registro				: " + clsregistro;  
-							//clsemaillist[indice].mensaje6 = "Causa: " + expresionactivar + "[ " + expresionactivar_numerica + " ]";
+							notification.mensaje = "Fecha y hora: " + fecha_para_emails_local_es();
+							notification.mensaje1 = "Tipo: 	Alarma activada en " + GLOBAL_nombre_concentrador ;
+							notification.mensaje2 = descripcion;
+							//notification.mensaje3 = "Dispositivo	: " + clsdispositivo;
+							//notification.mensaje4 = "Direccion ip / origen	: " + clsorigen;
+							//notification.mensaje5 = "Registro				: " + clsregistro;
+							//notification.mensaje6 = "Causa: " + expresionactivar + "[ " + expresionactivar_numerica + " ]";
 							res_leertag2 = leertag2 (clsdispositivo, clsvalorAlarma, &valorAlarma );
 							if 	((res_leertag2==0) && (valorAlarma.time_fechatiempo > 0)) {
-								clsemaillist[indice].mensaje3 = cast_double_to_string(valorAlarma.valorfloat,2);
-								clsemaillist[indice].mensaje4 = valorAlarma.unidad;
+								notification.mensaje3 = cast_double_to_string(valorAlarma.valorfloat,2);
+								notification.mensaje4 = valorAlarma.unidad;
 								}
 							else {
-								clsemaillist[indice].mensaje3 = "";
-								clsemaillist[indice].mensaje4 = "";
+								notification.mensaje3 = "";
+								notification.mensaje4 = "";
 								}
 							
 							
 							if (ejecutado_activar_email == false) {
-								res_email = clsemaillist[indice].enviar();
+								res_email = notification.enviar();
 							}
 							
 						}
 						else {
 
 							//cout << "ejecurar accion por alarma desactivada" << endl;
-							clsemaillist[indice].asunto = "Alarma desactivada | "  + descripcion + " | " + GLOBAL_nombre_concentrador;
-							clsemaillist[indice].mensaje = "Fecha y hora: " + fecha_para_emails_local_es();
-							clsemaillist[indice].mensaje1 = "Tipo: 	Alarma desactivada en " + GLOBAL_nombre_concentrador ;
-							clsemaillist[indice].mensaje2 = descripcion;
-							//clsemaillist[indice].mensaje3 = "Dispositivo	: " + clsdispositivo;
-							//clsemaillist[indice].mensaje4 = "Direccion ip / origen	: " + clsorigen;
-							//clsemaillist[indice].mensaje5 = "Registro				: " +  clsregistro;				
+							notification.asunto = "Alarma desactivada | "  + descripcion + " | " + GLOBAL_nombre_concentrador;
+							notification.mensaje = "Fecha y hora: " + fecha_para_emails_local_es();
+							notification.mensaje1 = "Tipo: 	Alarma desactivada en " + GLOBAL_nombre_concentrador ;
+							notification.mensaje2 = descripcion;
+							//notification.mensaje3 = "Dispositivo	: " + clsdispositivo;
+							//notification.mensaje4 = "Direccion ip / origen	: " + clsorigen;
+							//notification.mensaje5 = "Registro				: " +  clsregistro;
 							
-							//clsemaillist[indice].mensaje6 = "Causa: " + expresiondesactivar + "[ " + expresiondesactivar_numerica + " ]";
+							//notification.mensaje6 = "Causa: " + expresiondesactivar + "[ " + expresiondesactivar_numerica + " ]";
 							res_leertag2 = leertag2 (clsdispositivo, clsvalorAlarma, &valorAlarma );
 							if 	((res_leertag2==0) && (valorAlarma.time_fechatiempo > 0)) {
-								clsemaillist[indice].mensaje3 = cast_double_to_string(valorAlarma.valorfloat,2);
-								clsemaillist[indice].mensaje4 = valorAlarma.unidad;
+								notification.mensaje3 = cast_double_to_string(valorAlarma.valorfloat,2);
+								notification.mensaje4 = valorAlarma.unidad;
 								}
 							else {
-								clsemaillist[indice].mensaje3 = "";
-								clsemaillist[indice].mensaje4 = "";
+								notification.mensaje3 = "";
+								notification.mensaje4 = "";
 								}
 							if (ejecutado_desactivar_email == false) {
-								res_email = clsemaillist[indice].enviar();
+								res_email = notification.enviar();
 
 							}
 							
@@ -400,7 +401,10 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 					
 
 
-					}
+					} else {
+                        res_email = -1;
+                        imprimir_mensaje("No configured EMAIL recipient for ID " + indicestr, rojo);
+                    }
 					
 				}	// fin del cierre del corechete
 			

@@ -219,7 +219,6 @@ int main(int argc, char* argv[]) {
 	GLOBAL_ultimo_reseteo_mysqlexterno = 0;
 	GLOBAL_contador_defeventos = -1;
 
-	insertar_eventos_tbhistoalarmas("registrador iniciado!","");
 	logger_main.registrarError("INFO: Start Devlog.");
 	try { return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS; }
     catch (const std::exception& error) {
@@ -452,9 +451,9 @@ int ordenlecturaconfiguracion() {
 		if (actualizar_leer_equipo(MBSERIAL) < 0) return -1;
 		if (actualizar_leer_equipo(RS232) < 0) return -1;
 		if (leer_tbcmd(GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave) < 0) return -1;
-		if (actualizar_defalarmas(&stdblocal) < 0) return -1;
 		if (actualizar_directorio(&stdblocal) < 0) return -1;
 		if (actualizar_smslist(&stdblocal) < 0) return -1;
+		if (actualizar_defalarmas(&stdblocal) < 0) return -1;
 		if (actualizar_defeventos(&stdblocal) < 0) return -1;
         for (int rtu = 0; rtu < GLOBAL_contador_equipos_mbserial; ++rtu)
             for (int serial = 0; serial < GLOBAL_contador_equipos_rs232; ++serial)
@@ -661,6 +660,7 @@ void imprimir_mensaje_importante(string str, GLOBAL_colores color) {
 // dado el id, encuentra la posicion en memoria ram. cmd[j]
 // es decir encuentra a j, en la expresion cmd[j] = id
 int cmd_buscarid(int id) {
+    if (!cmd) return -1;
 	int indice = -1;
 	stringstream ss1;
 	ss1 << "contador comandos:" << GLOBAL_contador_cmd;
@@ -683,6 +683,7 @@ int cmd_buscarid(int id) {
 // dado el id, encuentra la posicion en memoria ram. cmd[j]
 // es decir encuentra a j, en la expresion cmd[j] = id
 int email_buscarid(int id) {
+    if (!emaillist) return -1;
 	int indice = -1;
 	for (int j = 0; j < GLOBAL_contador_directorio; j++) {
 		if (&emaillist[j]) {
@@ -699,6 +700,7 @@ int email_buscarid(int id) {
 // dado el id, encuentra la posicion en memoria ram. cmd[j]
 // es decir encuentra a j, en la expresion cmd[j] = id
 int sms_buscarid(int id) {
+    if (!smslist) return -1;
 	int indice = -1;
 	for (int j = 0; j < GLOBAL_contador_numerossms; j++) {
 		if (&smslist[j]) {

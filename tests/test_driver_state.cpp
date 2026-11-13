@@ -10,6 +10,8 @@
 #include "estructuras.h"
 #include <cstdlib>
 #include "runtime_control.h"
+#include "cls_defalarmas.h"
+#include "fake_email.h"
 void serial_test() {
     cls_equipos tag;
     tag.protocolo = "RS232";
@@ -181,6 +183,49 @@ void command_sql_test() {
     ddl->execute("DROP TABLE tbejecutar,tbcmd,tbdispositivos");
     delete[] cmd; cmd = nullptr; GLOBAL_contador_cmd = 0;
 }
+
+void alarm_directory_test() {
+    cls_equipos tag; tag.nombre = "meter"; tag.tag = "rVoltaje";
+    tag.clsvalorfloat = 280; tag.clsvalor = 280; tag.clsvalorstr = "280";
+    tag.resultado_leer = true; tag.ultimo_muestreo = time(nullptr); tag.unidad = "V";
+    emaillist = nullptr; GLOBAL_contador_directorio = 0;
+    // Alarm is created BEFORE the directory, matching the old crash sequence.
+    cls_defalarmas alarm;
+    alarm.id = 42; alarm.clsdispositivo = "meter"; alarm.clstag = "rVoltaje";
+    alarm.clsvalorAlarma = "rVoltaje"; alarm.descripcion = "voltage spike";
+    alarm.clsequipo_mbtcp = &tag; alarm.clscantidad_equipo_mbtcp = 1;
+    alarm.expresionactivar = "$(meter.rVoltaje)>250";
+    alarm.expresiondesactivar = "$(meter.rVoltaje)<240";
+    alarm.accionactivar = alarm.acciondesactivar = "EMAIL[7];";
+    emaillist = new cls_email[1]; GLOBAL_contador_directorio = 1;
+    emaillist[0].id = 7; emaillist[0].to = "first@example.invalid";
+    emaillist[0].asunto = "directory subject";
+    alarm.ejecutado_activar_bd = true; // This test isolates actions, not SQL history.
+    test_email::deliveries.clear();
+    assert(alarm.evaluarcompleto() == 1);
+    assert(alarm.ejecutado_activar_email && test_email::deliveries.size() == 1);
+    assert(test_email::deliveries[0].to == "first@example.invalid");
+    assert(emaillist[0].asunto == "directory subject"); // Prepared message is a copy.
+    delete[] emaillist;
+    emaillist = new cls_email[1]; emaillist[0].id = 7; emaillist[0].to = "replacement@example.invalid";
+    tag.clsvalorfloat = 220; tag.clsvalor = 220;
+    alarm.ejecutado_desactivar_bd = true;
+    assert(alarm.evaluarcompleto() == 2);
+    assert(test_email::deliveries.size() == 2);
+    assert(test_email::deliveries.back().to == "replacement@example.invalid");
+    emaillist[0].id = 8; // Missing recipient must remain retryable, not be marked sent.
+    tag.clsvalorfloat = 280; tag.clsvalor = 280; alarm.ejecutado_activar_bd = true;
+    assert(alarm.evaluarcompleto() == 1);
+    assert(!alarm.ejecutado_activar_email && test_email::deliveries.size() == 2);
+    emaillist[0].id = 7;
+    assert(alarm.evaluarcompleto() == 1);
+    assert(alarm.ejecutado_activar_email && test_email::deliveries.size() == 3);
+    delete[] emaillist; emaillist = nullptr;
+    alarm.ejecutado_activar_email = false;
+    assert(alarm.evaluarcompleto() == 1); // Defensive handling of null directory.
+    assert(!alarm.ejecutado_activar_email && test_email::deliveries.size() == 3);
+    GLOBAL_contador_directorio = 0;
+}
 void shutdown_test() {
     install_driver_signals(); GLOBAL_EJECUTARHILOS = true; GLOBAL_stop_requested = false;
     const auto begin = std::chrono::steady_clock::now();
@@ -192,7 +237,7 @@ void shutdown_test() {
     GLOBAL_stop_requested = false; GLOBAL_EJECUTARHILOS = true;
 }
 int main() { shutdown_test();
-    serial_test(); batch_period_test(); event_lookup_test();
+    serial_test(); batch_period_test(); event_lookup_test(); alarm_directory_test();
     cls_sms disabled_sms; assert(disabled_sms.enviar() == CURLE_FAILED_INIT);
     if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); command_sql_test(); }
 }

@@ -97,3 +97,19 @@ el binario construido. Usa configuración temporal y un puerto loopback sin
 servicio para verificar tres arranques: sin claves antiguas, con cero y con
 texto inválido. Los tres deben alcanzar el coordinador y devolver el fallo SQL
 esperado; no se afirma adquisición funcional con la base de datos ausente.
+
+## Regresión de EMAIL[7] y arranque completo
+
+La prueba enlazada utiliza `fake_email.cpp` en lugar del transporte SMTP real:
+verifica una alarma creada antes del directorio, activación/desactivación,
+reemplazo del directorio, ID inexistente y directorio nulo, sin enviar correo.
+`TEST_CXXFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer'` también
+instrumenta esa prueba enlazada.
+
+`make test-sql` añade `test_full_startup.py`: prepara el perfil local reservado
+`driver_startup_fixture` con 159 tags TCP, un servidor Modbus loopback y una
+alarma `EMAIL[7]`. Comprueba que alcanza la acción, mantiene un histórico con
+clave foránea válida y termina por SIGTERM sin caída ni error de integridad.
+Usa una plantilla vacía para que el transporte real no abra SMTP. Solo debe
+usarse con la instancia local dedicada de pruebas en el puerto 33077.
+Requiere el cliente MariaDB/MySQL; `MARIADB_CLIENT` permite indicar su ruta.
