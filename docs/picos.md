@@ -31,3 +31,7 @@ recarga de configuración dentro del proceso, incluso si se elimina el tag.
 Se conservan en memoria: un cierre del proceso pierde lo aún no confirmado.
 Una respuesta SQL perdida tras un commit remoto puede producir duplicados
 al reintentar; todavía no se ofrece entrega exactamente una vez.
+
+Las ventanas históricas se escriben ahora en una transacción: solo se confirman
+al completar COMMIT. Un error en una fila revierte la ventana completa. La
+conexión y sentencia preparada se reutilizan durante el lote.

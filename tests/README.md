@@ -53,3 +53,15 @@ separación por huecos y límite de 20 palabras, rangos inválidos y descarte de
 caché al terminar el ciclo. El runner de estado también comprueba con el
 driver real que dos tags contiguos usan una consulta inicial de dos registros
 y que la siguiente consulta del tag rápido pide uno solo, sin adelantar el lento.
+
+## SQL opcional
+
+`test_sql_session.cpp` utiliza exclusivamente una instancia temporal local en
+`127.0.0.1:33077`, usuario root sin clave y base `driver_test`. Ese perfil es
+solo de pruebas; no se debe usar con servidores de producción. Crea y elimina
+`history_fixture`; comprueba reutilización, parámetros largos/con comillas,
+rollback de un lote parcial y rechazo de identificadores inválidos.
+
+Con esa misma instancia, `DRIVER_SQL_TEST=1 bash tests/run_state_test.sh`
+comprueba los wrappers reales de inserción/actualización y propagación de
+fallos mediante `generic_fixture`. Las pruebas ordinarias no requieren SQL.

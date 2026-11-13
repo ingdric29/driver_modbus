@@ -20,6 +20,7 @@ cargar en memoria el archivo de configuracion
 
 #include <chrono>
 #include <memory>
+#include "include/sql_session.h"
 #include <thread>
 
 #include "include/cls_logger.h"
@@ -48,6 +49,58 @@ extern storigen GLOBAL_email_origen;
 INICIA LA LECTURA DE LA CONFIGURACION INICIAL
 ========================================================
 */
+
+namespace {
+bool is_external_target(const std::string& host, int port, const std::string& schema) {
+    const bool external = host == GLOBAL_dbext_direccion && port == cast_string_to_int(GLOBAL_dbext_puerto) && schema == GLOBAL_dbext_nombre;
+    const bool local = host == GLOBAL_db_direccion && port == cast_string_to_int(GLOBAL_db_puerto) && schema == GLOBAL_db_nombre;
+    return external && !local;
+}
+bool database_allowed(const stdatabase* db) {
+    return db != &stdbexterna || (GLOBAL_habilitar_acceso_externo && GLOBAL_ACCESO_EXTERNO);
+}
+std::shared_ptr<sql::Connection> database_session(const stdatabase* db) {
+    return sql_connection("tcp://" + db->direccion + ":" + std::to_string(db->puerto), db->usuario, db->clave, db->nombre);
+}
+void database_failure(const std::exception& error) {
+    sql_sessions().invalidate();
+    logger_loadconfig.registrarError(std::string("SQL operation failed: ") + error.what());
+}
+int update_fields(stdatabase* db, const std::string& table, string* fields, string* values, int count,
+    const std::vector<int>& keys, const std::string& condition = "") {
+    if (!database_allowed(db) || count <= 0) return -1;
+    try {
+        std::string query = "UPDATE " + sql_identifier(table) + " SET ";
+        for (int i = 0; i < count; ++i) query += (i ? "," : "") + sql_identifier(fields[i]) + "=?";
+        query += " WHERE ";
+        if (!condition.empty()) query += condition; // Internal SQL expression, never a bound value.
+        else for (size_t i = 0; i < keys.size(); ++i) {
+            if (keys[i] < 0 || keys[i] >= count) return -1;
+            query += (i ? " AND " : "") + sql_identifier(fields[keys[i]]) + "=?";
+        }
+        auto connection = database_session(db);
+        std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
+        int parameter = 1;
+        for (int i = 0; i < count; ++i) bind_legacy(*statement, parameter++, values[i]);
+        for (int key : keys) bind_legacy(*statement, parameter++, values[key]);
+        statement->executeUpdate();
+        return 0;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
+}
+int find_fields(stdatabase* db, const std::string& table, const std::vector<std::string>& fields, const std::vector<std::string>& values) {
+    if (!database_allowed(db)) return -1;
+    try {
+        std::string query = "SELECT 1 FROM " + sql_identifier(table) + " WHERE ";
+        for (size_t i = 0; i < fields.size(); ++i) query += (i ? " AND " : "") + sql_identifier(fields[i]) + "=?";
+        query += " LIMIT 1";
+        auto connection = database_session(db);
+        std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
+        for (size_t i = 0; i < values.size(); ++i) statement->setString(i + 1, values[i]);
+        std::unique_ptr<sql::ResultSet> result(statement->executeQuery());
+        return result->next() ? 1 : 0;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
+}
+}
 
 int loadconfigdb()
 {
@@ -179,20 +232,18 @@ int lee_tbcambios(void) {
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), GLOBAL_db_usuario.c_str(), GLOBAL_db_clave.c_str()); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = sql_connection(direccionpuerto, GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(GLOBAL_db_nombre.c_str());
 
-		stmt = con->createStatement();
-		res = stmt->executeQuery("SELECT * FROM `tbcambios` WHERE `id`=1");
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery("SELECT * FROM `tbcambios` WHERE `id`=1"));
 
 		while (res->next()) {
 			id = res->getInt("id"); //
@@ -211,14 +262,15 @@ int lee_tbcambios(void) {
 			cambio = 1;
 			GLOBAL_cont_cambio_tablacom = cont_cambio_tablacom;
 		}
-		con->close();
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
+
 		return cambio;
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -262,21 +314,19 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), GLOBAL_db_usuario.c_str(), GLOBAL_db_clave.c_str()); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = sql_connection(direccionpuerto, GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(GLOBAL_db_nombre.c_str());
 
 
-		stmt = con->createStatement();
-		res = stmt->executeQuery(query.c_str());
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(query.c_str()));
 
 		while (res->next() && (ind < 512)) { cuenta = cuenta + 1; ind++; }
 
@@ -301,8 +351,8 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 						break;
 		}
 
-		delete res;
-		res = stmt->executeQuery(query.c_str());
+
+		res.reset(stmt->executeQuery(query.c_str()));
 
 		switch (protocoloenum) {
 
@@ -336,7 +386,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 
 				equipo_mbtcp[ind].periodo = cast_string_to_double(res->getString("periodo"));
                 try { PeriodicDeadline::interval(equipo_mbtcp[ind].periodo); }
-                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what());    return -1; } //
 				equipo_mbtcp[ind].bit1 = res->getInt("bit1"); //
 				equipo_mbtcp[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_mbtcp[ind].comentario = res->getString("comentario"); //
@@ -378,7 +428,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].escalamiento = getValfloat(cadena);
 				equipo_mbserial[ind].periodo = cast_string_to_double(res->getString("periodo"));
                 try { PeriodicDeadline::interval(equipo_mbserial[ind].periodo); }
-                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what());    return -1; } //
 				equipo_mbserial[ind].bit1 = res->getInt("bit1"); //
 				equipo_mbserial[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_mbserial[ind].comentario = res->getString("comentario"); //
@@ -415,7 +465,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_rs232[ind].html_final = tratamientocadena(res->getString("html_final")); // delimitador final
 				equipo_rs232[ind].periodo = cast_string_to_double(res->getString("periodo"));
                 try { PeriodicDeadline::interval(equipo_rs232[ind].periodo); }
-                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what());    return -1; } //
 				equipo_rs232[ind].bit1 = res->getInt("bit1"); //
 				equipo_rs232[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_rs232[ind].comentario = res->getString("comentario"); //
@@ -499,13 +549,14 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 			hilosseriales = new std::thread [GLOBAL_contador_equipos_rs232_distintos + 1];
 			break;
 		}
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 		return 1;
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -527,100 +578,13 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 
 
 
-int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat, int dispositivo, string rastro, string nombre_concentrador, string nombre_dispositivo, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db, string dbtabla)
-{
-
-	if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
-
-	}
-
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		//  sql::ResultSet *res;
-		string SQL_STR = "";
-		char arrSQL[1024] = { 0 };
-		memset(arrSQL, 0, 1024);
-		bool resultado = false;
-		string direccionpuerto;
-		string puerto_db_str = cast_int_to_string(puerto_db);
-		string fechatiemporecibido = cast_time_to_datetime(fechatiempo);
-		direccionpuerto = "tcp://" + direccion_db + ":" + puerto_db_str;
-		/* crea la conexion con la base de datos */
-		driver = get_driver_instance();
-		//con = driver->connect("tcp://127.0.0.1:3306", "root", "raspberry");
-		con = driver->connect(direccionpuerto.c_str(), usuario_db.c_str(), clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		/* nombre de la base de datos */
-		con->setSchema(nombre_db.c_str());
-		stmt = con->createStatement();
-
-		//Verificacion y correccion de valores -NaN.
-		/*if(valorstr.compare("-nan")==0){valorstr="NULL"; valorfloat=NULL;}
-		
-		SQL_STR = "INSERT INTO `%s`.`%s` (`id`, `timedate`, `fechatiempo`, `tag`, `valorstr`, `valorfloat`, `dispositivo`, `rastro`, `concentrador`, `nombredispositivo` ) VALUES (NULL, CURRENT_TIMESTAMP, '%s', '%s', '%s', '%f', '%i', '%s', '%s', '%s' );";
-		
-		sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), dbtabla.c_str(), fechatiemporecibido.c_str(), tag.c_str(), valorstr.c_str(), valorfloat, dispositivo, rastro.c_str(), nombre_concentrador.c_str(), nombre_dispositivo.c_str());
-	
-		*/
-		if(valorstr.compare("-nan")==0){
-			
-			SQL_STR = "INSERT INTO `%s`.`%s` (`id`, `timedate`, `fechatiempo`, `tag`, `valorstr`, `valorfloat`, `dispositivo`, `rastro`, `concentrador`, `nombredispositivo` ) VALUES (NULL, CURRENT_TIMESTAMP, '%s', '%s', NULL, NULL, '%i', '%s', '%s', '%s' );";
-			sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), dbtabla.c_str(), fechatiemporecibido.c_str(), tag.c_str(), dispositivo, rastro.c_str(), nombre_concentrador.c_str(), nombre_dispositivo.c_str());
-
-		}
-		
-		else{
-		
-			SQL_STR = "INSERT INTO `%s`.`%s` (`id`, `timedate`, `fechatiempo`, `tag`, `valorstr`, `valorfloat`, `dispositivo`, `rastro`, `concentrador`, `nombredispositivo` ) VALUES (NULL, CURRENT_TIMESTAMP, '%s', '%s', '%s', '%f', '%i', '%s', '%s', '%s' );";
-			sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), dbtabla.c_str(), fechatiemporecibido.c_str(), tag.c_str(), valorstr.c_str(), valorfloat, dispositivo, rastro.c_str(), nombre_concentrador.c_str(), nombre_dispositivo.c_str());
-		}
-		////////////////////////////////////////////////////////////////////////////////////////
-        //cout << "la instruccion sql es: " << arrSQL << endl;
-		resultado = stmt->executeUpdate(arrSQL) > 0;
-
-		//  delete res;
-		delete stmt;
-		delete con;
-		return resultado;
-
-	}
-	catch (sql::SQLException& e) {
-		GLOBAL_ACCESO_EXTERNO = false;
-		imprimir_mensaje("falla en mysql: ", rojo);
-		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat, int dispositivo, string rastro, string nombre_concentrador, string nombre_dispositivo, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db, string dbtabla) {
+    try {
+        SampleValue sample; sample.acquired = fechatiempo; sample.text = valorstr; sample.value = valorfloat;
+        auto connection = sql_connection("tcp://" + direccion_db + ":" + std::to_string(puerto_db), usuario_db, clave_db, nombre_db);
+        store_sample_batch(connection, dbtabla, {sample}, tag, dispositivo, rastro, nombre_concentrador, nombre_dispositivo);
+        return 1;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 
 
@@ -637,7 +601,7 @@ de la tabla tbcmd
 int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db)
 {
 
-	if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
+	if (is_external_target(direccion_db, puerto_db, nombre_db)) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -646,15 +610,7 @@ int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string di
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -675,21 +631,19 @@ int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string di
 	bool   res_update = false;
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), usuario_db.c_str(), clave_db.c_str()); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(nombre_db.c_str());
 
-		stmt = con->createStatement();
+		stmt.reset(con->createStatement());
 		sprintf(arrSQL, "SELECT * FROM `tbejecutar` WHERE `concentrador` = '%s' ORDER BY `id` DESC LIMIT 1", GLOBAL_nombre_concentrador.c_str());
-		res = stmt->executeQuery(arrSQL);
+		res.reset(stmt->executeQuery(arrSQL));
 
 		while (res->next() && (ind < 64)) {
 			id = res->getInt("id"); //
@@ -708,15 +662,16 @@ int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string di
 			sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), valor_ejecutar.c_str(), valor_tiempo_str.c_str(), valor_segundos_str.c_str(), id);
 			res_update = stmt->execute(arrSQL);
 		};
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 		res_ejecutar = ejecutar_tbcmd;
 		return (int)res_update;
 
 	}
 
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -740,7 +695,7 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 {
     std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 
-	if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
+	if (is_external_target(direccion_db, puerto_db, nombre_db)) {
 
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
@@ -751,15 +706,7 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -800,20 +747,18 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 	sprintf(cadenaquerycmd3, "SELECT COUNT(`id`) as contador FROM (%s) as vistacmd where `concentrador` = '%s'", cadenaquerycmd.c_str(), GLOBAL_nombre_concentrador.c_str());
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), usuario_db.c_str(), clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db);
 		/* Conecta con la base de datos */
 		con->setSchema(nombre_db.c_str());
 
-		stmt = con->createStatement();
-		res = stmt->executeQuery(cadenaquerycmd3);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(cadenaquerycmd3));
 		while (res->next()) {
 			pending_count = res->getInt("contador");
 		}
@@ -821,7 +766,7 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 		std::unique_ptr<cls_cmd[]> pending(new cls_cmd[pending_count + 1]());
 		memset(cadenaquerycmd3, 0, 2000);
 		sprintf(cadenaquerycmd3, "SELECT * FROM (%s) as vistacmd where `concentrador` = '%s' ORDER BY `id` ASC", cadenaquerycmd.c_str(), GLOBAL_nombre_concentrador.c_str());
-		res = stmt->executeQuery(cadenaquerycmd3);
+		res.reset(stmt->executeQuery(cadenaquerycmd3));
 		//cout << cadenaquerycmd3 << endl;
 		while (res->next() && (ind < 128)) {
 			pending[ind].id = res->getInt("id");
@@ -850,9 +795,9 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 
 			//   cout << res->getString(1) << endl;
 		}
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 		delete[] cmd;
 		cmd = pending.release();
 		GLOBAL_contador_cmd = ind;
@@ -860,6 +805,7 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -885,7 +831,7 @@ de la tabla tbcmd
 int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db)
 {
 
-	if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
+	if (is_external_target(direccion_db, puerto_db, nombre_db)) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -895,15 +841,7 @@ int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string 
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -919,19 +857,17 @@ int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string 
 	bool   res_update = false;
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
 
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), usuario_db.c_str(), clave_db.c_str()); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(nombre_db.c_str());
 
-		stmt = con->createStatement();
+		stmt.reset(con->createStatement());
 
 		tiempoactual = time(NULL);
 		valor_tiempo_str = cast_time_to_datetime(tiempoactual);
@@ -940,13 +876,14 @@ int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string 
 		sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), valor_tiempo_str.c_str(), id);
 		res_update = stmt->execute(arrSQL);
 
-		delete stmt;
-		delete con;
+
+
 		return (int)res_update;
 
 	}
 
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -974,7 +911,7 @@ limpia los registros mas viejos*/
 int borrar_registros(double dias, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db, string dbtabla)
 {
     // Validaciones de red e interfaz
-    if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
+    if (is_external_target(direccion_db, puerto_db, nombre_db)) {
         if (GLOBAL_habilitar_acceso_externo == 0) {
             imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
             return 0;
@@ -984,10 +921,7 @@ int borrar_registros(double dias, string direccion_db, int puerto_db, string nom
             return 0;
         }
         else {
-            if (!chequear_internet(GLOBAL_direccionip_dns)) {
-                imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-                return 0;
-            }
+
         }
     }
 
@@ -1004,10 +938,7 @@ int borrar_registros(double dias, string direccion_db, int puerto_db, string nom
         sql::Driver* driver = get_driver_instance();
         
         // Uso de smart pointers para garantizar liberacion automatica de memoria (RIIA)
-        std::unique_ptr<sql::Connection> con(driver->connect(direccionpuerto.c_str(), usuario_db.c_str(), clave_db.c_str()));
-        
-        int timeout1 = timeout_mysql;
-        con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+        auto con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db);
         con->setSchema(nombre_db.c_str());
 
         std::unique_ptr<sql::Statement> stmt(con->createStatement());
@@ -1036,6 +967,7 @@ int borrar_registros(double dias, string direccion_db, int puerto_db, string nom
         return total_eliminados;
     }
     catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
         GLOBAL_ACCESO_EXTERNO = false;
         imprimir_mensaje("falla en mysql: ", rojo);
         imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -1067,15 +999,7 @@ int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna,
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -1107,25 +1031,23 @@ int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna,
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		sql::Driver* driver_ext;
-		sql::Connection* con_ext;
-		sql::Statement* stmt_ext;
-		sql::ResultSet* res_ext;
+		std::shared_ptr<sql::Connection> con_ext;
+		std::unique_ptr<sql::Statement> stmt_ext;
+		std::unique_ptr<sql::ResultSet> res_ext;
 
 		/* Crea una conexion con la base de datos externa */
 		driver_ext = get_driver_instance();
-		con_ext = driver_ext->connect(direccionpuerto_ext.c_str(), (dbexterna->usuario).c_str(), (dbexterna->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con_ext->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con_ext = database_session(dbexterna);
 		/* Conecta con la base de datos externa */
 		con_ext->setSchema((dbexterna->nombre).c_str());
 
-		stmt_ext = con_ext->createStatement();
-		res_ext = stmt_ext->executeQuery(arrSQL_ext);
+		stmt_ext.reset(con_ext->createStatement());
+		res_ext.reset(stmt_ext->executeQuery(arrSQL_ext));
 		ind = 0;
 		while (res_ext->next() && (ind < 1)) {
 			fechatiempostr = res_ext->getString("fechatiempo"); //
@@ -1138,15 +1060,14 @@ int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna,
 		/* Crea una conexion con la base de datos local */
 		direccionpuerto = "tcp://" + (dblocal->direccion) + ":" + cast_int_to_string(dblocal->puerto);
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (dblocal->usuario).c_str(), (dblocal->clave).c_str());
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = database_session(dblocal);
 		/* Conecta con la base de datos local */
 		con->setSchema((dblocal->nombre).c_str());
 
 		query1 = "SELECT * FROM `%s` WHERE `fechatiempo` > '%s' ORDER BY `fechatiempo` ASC LIMIT %i ";
 		sprintf(arrSQL, query1.c_str(), nombre.c_str(), fechatiempostr.c_str(), limitederegistros);
-		stmt = con->createStatement();
-		res = stmt->executeQuery(arrSQL);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(arrSQL));
 		ind = 0;
 		while (res->next() && (ind < limitederegistros)) {
 			campo_id = res->getString("id");
@@ -1164,18 +1085,19 @@ int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna,
 			ind++;
 		}
 
-		delete res;
-		delete stmt;
-		delete con;
-		delete res_ext;
-		delete stmt_ext;
-		delete con_ext;
+
+
+
+
+
+
 
 
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -1198,7 +1120,7 @@ int sincronizar_tablas(struct stdatabase* dblocal, struct stdatabase* dbexterna,
 // leer tabla de definicion de alarmas
 int actualizar_defalarmas(struct stdatabase* db) {
 
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
+	if (db == &stdbexterna) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -1207,15 +1129,7 @@ int actualizar_defalarmas(struct stdatabase* db) {
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -1270,19 +1184,17 @@ int actualizar_defalarmas(struct stdatabase* db) {
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		res = stmt->executeQuery(arrSQL);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(arrSQL));
 
 		while (res->next()) {
 			GLOBAL_contador_defalarmas = res->getInt("contador");
@@ -1290,7 +1202,7 @@ int actualizar_defalarmas(struct stdatabase* db) {
 		imprimir_mensaje("cantidad de alarmas definidas: " + cast_int_to_string(GLOBAL_contador_defalarmas));
 		memset(arrSQL, 0, 1024);
 		sprintf(arrSQL, query2.c_str());
-		res = stmt->executeQuery(arrSQL);
+		res.reset(stmt->executeQuery(arrSQL));
 		ind = 0;
 
 
@@ -1325,15 +1237,16 @@ int actualizar_defalarmas(struct stdatabase* db) {
 
 		GLOBAL_contador_defalarmas = ind;
 
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 
 
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -1355,7 +1268,7 @@ int actualizar_defalarmas(struct stdatabase* db) {
 // leer tabla de directorio
 int actualizar_directorio(struct stdatabase* db) {
 
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
+	if (db == &stdbexterna) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -1364,15 +1277,7 @@ int actualizar_directorio(struct stdatabase* db) {
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -1396,26 +1301,24 @@ int actualizar_directorio(struct stdatabase* db) {
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		res = stmt->executeQuery(arrSQL);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(arrSQL));
 
 		while (res->next()) {
 			GLOBAL_contador_directorio = res->getInt("contador");
 		}
 		memset(arrSQL, 0, 1024);
 		sprintf(arrSQL, query2.c_str());
-		res = stmt->executeQuery(arrSQL);
+		res.reset(stmt->executeQuery(arrSQL));
 		ind = 0;
 
 
@@ -1439,15 +1342,16 @@ int actualizar_directorio(struct stdatabase* db) {
 
 		GLOBAL_contador_directorio = ind;
 
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 
 
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -1468,119 +1372,15 @@ int actualizar_directorio(struct stdatabase* db) {
 
 // revuelve 0 si no consigue
 //devuelve 1 si consigue el item buscado
-int buscarentabla(struct stdatabase* db, string tabla, string campo, string valor)
-{
-
-	int ind = 0;  // contador de comandos a ejecutar
-	string cadena;
-	string direccionpuerto;
-	direccionpuerto = "tcp://" + db->direccion + ":" + cast_int_to_string(db->puerto);
-	string cadenasql = "SELECT * FROM " + tabla + " WHERE " + campo + " = '" + valor + "'";
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
-
-		/* Crea una conexion */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = 3;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		con->setClientOption("MYSQL_OPT_READ_TIMEOUT", &timeout1);
-
-
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-
-		stmt = con->createStatement();
-
-		res = stmt->executeQuery(cadenasql.c_str());
-
-		while (res->next() && (ind < 1)) {
-
-			ind++;
-
-		}
-		delete res;
-		delete stmt;
-		delete con;
-		return (ind);
-
-	}
-	catch (sql::SQLException& e) {
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int buscarentabla(stdatabase* db, string tabla, string campo, string valor) {
+    return find_fields(db, tabla, {campo}, {valor});
 }
 
 
 // revuelve 0 si no consigue
 //devuelve 1 si consigue el item buscado
-int buscarentabla3(struct stdatabase* db, string tabla, string campo1, string campo2, string campo3, string valor1, string valor2, string valor3)
-{
-
-	int ind = 0;  // contador de comandos a ejecutar
-	string cadena;
-	string direccionpuerto;
-	direccionpuerto = "tcp://" + db->direccion + ":" + cast_int_to_string(db->puerto);
-	string cadenasql = "SELECT * FROM " + tabla + " WHERE `" + campo1 + "` = '" + valor1 + "' AND ";
-	cadenasql = cadenasql + "`" + campo2 + "` = '" + valor2 + "' AND ";
-	cadenasql = cadenasql + "`" + campo3 + "` = '" + valor3 + "'";
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
-
-		/* Crea una conexion */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = 3;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		con->setClientOption("MYSQL_OPT_READ_TIMEOUT", &timeout1);
-
-
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-
-		stmt = con->createStatement();
-
-		res = stmt->executeQuery(cadenasql.c_str());
-
-		while (res->next() && (ind < 1)) {
-
-			ind++;
-
-		}
-		delete res;
-		delete stmt;
-		delete con;
-		return (ind);
-
-	}
-	catch (sql::SQLException& e) {
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int buscarentabla3(stdatabase* db, string tabla, string campo1, string campo2, string campo3, string valor1, string valor2, string valor3) {
+    return find_fields(db, tabla, {campo1, campo2, campo3}, {valor1, valor2, valor3});
 }
 
 
@@ -1588,129 +1388,8 @@ int buscarentabla3(struct stdatabase* db, string tabla, string campo1, string ca
 // el resultado es 0 si todo ok, y -1 si hay algun error
 
 
-int actualizar_valor(struct stdatabase* db, string tabla, int indice, string* campo, string* valor, int cantidad) {
-
-
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
-
-	}
-
-	bool resultado = false;
-	int res_int = 0;
-	string direccionpuerto;
-	string SQL_STR = "";
-	string query1 = "UPDATE `" + tabla + "` SET ";
-	for (int i = 0; i < cantidad; i++) {
-		
-		//Correccion 25/10/24
-		//Verificacion y correccion de valores -NaN. Observacion: Este codigo puede mejorarse haciendo una funcion o clase aparte ya que se utiliza en varias partes del codigo. 
-		if(valor[i].compare("-nan")==0){valor[i]="NULL";}
-
-		///////////////////////////////////////////////////////////////////////
-		//Modificacion para valores NULL - 28/10/24
-
-		if(valor[i].compare("NULL")==0){
-
-			if (i == (cantidad - 1)) {
-				query1 = query1 + "`" + campo[i] + "` = " + valor[i];
-			}
-			else {
-				query1 = query1 + "`" + campo[i] + "` = " + valor[i] + ",";
-			}
-		}
-
-		else{
-			if (i == (cantidad - 1)) {
-				query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "'";
-			}
-			else {
-				query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "',";
-			}
-		}
-        
-        /*
-		if (i == (cantidad - 1)) {
-			query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "'";
-		}
-		else {
-			query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "',";
-		}
-        */
-	}
-
-	query1 = query1 + " WHERE `" + campo[indice] + "` = '" + valor[indice] + "'";
-
-	char arrSQL[1024] = { 0 };
-
-	//arrSQL = new char[query1.size()+1];
-	//cout << "query1:" << query1 << endl;
-
-	memset(arrSQL, 0, 1024);
-	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
-	imprimir_mensaje("actualizacion valores: " + query1, negro);
-	//printf(arrSQL); printf("\n");
-
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-
-
-		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		resultado = stmt->execute(arrSQL);
-
-		//cout << "resultado:" << resultado << endl;
-
-
-		delete stmt;
-		delete con;
-		//delete arrSQL;
-
-		res_int = resultado ? -1 : 0;
-
-		//cout << "resultado entero:" << res_int << endl;
-
-		return (res_int);
-
-	}
-	catch (sql::SQLException& e) {
-
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
+int actualizar_valor(stdatabase* db, string tabla, int indice, string* campo, string* valor, int cantidad) {
+    return update_fields(db, tabla, campo, valor, cantidad, {indice});
 }
 
 
@@ -1718,134 +1397,8 @@ int actualizar_valor(struct stdatabase* db, string tabla, int indice, string* ca
 // el resultado es 0 si todo ok, y -1 si hay algun error
 
 
-int actualizar_valor3(struct stdatabase* db, string tabla, int indice1, int indice2, int indice3, string* campo, string* valor, int cantidad) {
-
-
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
-
-	}
-
-	bool resultado = false;
-	int res_int = 0;
-	string direccionpuerto;
-	string SQL_STR = "";
-	string query1 = "UPDATE `" + tabla + "` SET ";
-	for (int i = 0; i < cantidad; i++) {
-		
-		//Correccion 25/10/24
-		//Verificacion y correccion de valores -NaN.
-
-        if(valor[i].compare("-nan")==0){valor[i]="NULL";}
-
-		///////////////////////////////////////////////////////////////////////////////////
-		//Modificacion para valores NULL - 28/10/24
-
-		if(valor[i].compare("NULL")==0){
-
-			if (i == (cantidad - 1)) {
-				query1 = query1 + "`" + campo[i] + "` = " + valor[i];
-			}
-			else {
-				query1 = query1 + "`" + campo[i] + "` = " + valor[i] + ",";
-			}
-		}
-
-		else{
-			if (i == (cantidad - 1)) {
-				query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "'";
-			}
-			else {
-				query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "',";
-			}
-		}
-
-		/* Codigo Original
-		if (i == (cantidad - 1)) {
-			query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "'";
-		}
-		else {
-			query1 = query1 + "`" + campo[i] + "` = '" + valor[i] + "',";
-		}
-		*/
-	}
-
-	query1 = query1 + " WHERE `" + campo[indice1] + "` = '" + valor[indice1] + "'";
-	query1 = query1 + " AND `" + campo[indice2] + "` = '" + valor[indice2] + "'";
-	query1 = query1 + " AND `" + campo[indice3] + "` = '" + valor[indice3] + "'";
-
-
-	char arrSQL[1024] = { 0 };
-
-	//arrSQL = new char[query1.size()+1];
-
-	//cout << "query1:" << query1 << endl;
-
-	memset(arrSQL, 0, 1024);
-	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
-	imprimir_mensaje("actualizacion valores: " + query1, negro);
-	//printf(arrSQL); printf("\n");
-
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-
-
-		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		resultado = stmt->execute(arrSQL);
-
-		//cout << "resultado:" << resultado << endl;
-
-
-		delete stmt;
-		delete con;
-		//delete arrSQL;
-
-		res_int = resultado ? -1 : 0;
-
-		//cout << "resultado entero:" << res_int << endl;
-
-		return (res_int);
-
-	}
-	catch (sql::SQLException& e) {
-
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
+int actualizar_valor3(stdatabase* db, string tabla, int indice1, int indice2, int indice3, string* campo, string* valor, int cantidad) {
+    return update_fields(db, tabla, campo, valor, cantidad, {indice1, indice2, indice3});
 }
 
 
@@ -1855,223 +1408,28 @@ int actualizar_valor3(struct stdatabase* db, string tabla, int indice1, int indi
 // el resultado es 0 si todo ok, y -1 si hay algun error
 
 
-int actualizar_valor_condicion(struct stdatabase* db, string tabla, string campo, string valor, string condicion) {
-
-
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
-
-	}
-
-	bool resultado = false;
-	int res_int = 0;
-	string direccionpuerto;
-	string SQL_STR = "";
-	string query1 = "UPDATE `" + tabla + "` SET " + "`" + campo + "` = " + "'" + valor + "'";
-
-	query1 = query1 + " WHERE " + condicion;
-
-	char arrSQL[1024] = { 0 };
-
-	//arrSQL = new char[query1.size()+1];
-
-	//cout << "query1:" << query1 << endl;
-
-	memset(arrSQL, 0, 1024);
-	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
-	imprimir_mensaje("actualizacion valores: " + query1, negro);
-	//printf(arrSQL); printf("\n");
-
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-
-
-		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		resultado = stmt->execute(arrSQL);
-
-		//cout << "resultado:" << resultado << endl;
-
-
-		delete stmt;
-		delete con;
-		//delete arrSQL;
-
-		res_int = resultado ? -1 : 0;
-
-		//cout << "resultado entero:" << res_int << endl;
-
-		return (res_int);
-
-	}
-	catch (sql::SQLException& e) {
-
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
+int actualizar_valor_condicion(stdatabase* db, string tabla, string campo, string valor, string condicion) {
+    return update_fields(db, tabla, &campo, &valor, 1, {}, condicion);
 }
 
 
 
 // inserta los valores de cualquier tabla
 // el resultado es 0 si todo ok, y -1 si hay algun error
-int insertar_valor(struct stdatabase* db, string tabla, string* campo, string* valor, int cantidad) {
-
-
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
-
-	}
-
-	bool resultado = false;
-	int res_int = 0;
-	string direccionpuerto;
-	string SQL_STR = "";
-	string query1 = "INSERT INTO `" + tabla + "` (";
-	for (int i = 0; i < cantidad; i++) {
-		if (i == (cantidad - 1)) {
-			query1 = query1 + "`" + campo[i] + "`" + ") VALUES (";
-		}
-		else {
-			query1 = query1 + "`" + campo[i] + "`" + ",";
-		}
-
-	}
-
-	for (int i = 0; i < cantidad; i++) {
-
-		//Correccion: 25/10/24
-		//Valor NaN a NULL.
-		if (valor[i].compare("-nan")==0){valor[i]="NULL";}
-		///////////////////////////////////////////////////
-		
-		if (!(valor[i].compare("NULL") == 0)) {
-
-			if (i == (cantidad - 1)) {
-				query1 = query1 + "'" + valor[i] + "'" + ")";
-			}
-			else {
-				query1 = query1 + "'" + valor[i] + "'" + ",";
-			}
-		}
-
-		else {
-
-			if (i == (cantidad - 1)) {
-				query1 = query1 + valor[i] + ")";
-			}
-			else {
-				query1 = query1 + valor[i] + ",";
-			}
-
-		}
-
-	}
-
-	char arrSQL[1024] = { 0 };
-
-	//arrSQL = new char[query1.size()+1];
-
-	imprimir_mensaje("insercion valor: " + query1, negro);
-	memset(arrSQL, 0, 1024);
-	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
-
-	try {
-		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-
-
-		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
-		/* Conecta con la base de datos */
-		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		resultado = stmt->execute(arrSQL);
-
-		//cout << "resultado:" << resultado << endl;
-
-
-		delete stmt;
-		delete con;
-		//delete arrSQL;
-
-		res_int = resultado ? -1 : 0;
-
-		//cout << "resultado entero:" << res_int << endl;
-
-		return (res_int);
-
-	}
-	catch (sql::SQLException& e) {
-		GLOBAL_ACCESO_EXTERNO = false;
-		imprimir_mensaje("falla en mysql: ", rojo);
-		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int insertar_valor(stdatabase* db, string tabla, string* campo, string* valor, int cantidad) {
+    if (!database_allowed(db) || cantidad <= 0) return -1;
+    try {
+        std::string query = "INSERT INTO " + sql_identifier(tabla) + " (", placeholders;
+        for (int i = 0; i < cantidad; ++i) {
+            query += (i ? "," : "") + sql_identifier(campo[i]);
+            placeholders += i ? ",?" : "?";
+        }
+        query += ") VALUES (" + placeholders + ")";
+        auto connection = database_session(db);
+        std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
+        for (int i = 0; i < cantidad; ++i) bind_legacy(*statement, i + 1, valor[i]);
+        return statement->executeUpdate() == 1 ? 0 : -1;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 
 
@@ -2144,9 +1502,9 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 	string cadenasql_origen = "SELECT ";
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 
 		for (int j = 0; j < cantidadcampos; j++) {
@@ -2165,18 +1523,17 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 
 		/* Crea una conexion */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto_origen.c_str(), (dborigen->usuario).c_str(), (dborigen->clave).c_str());
+		con = database_session(dborigen);
 		int timeout1 = 3;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
 		con->setClientOption("MYSQL_OPT_READ_TIMEOUT", &timeout1);
 		string* valorescampos = new string[cantidadcampos];
 
 		/* Conecta con la base de datos */
 		con->setSchema((dborigen->nombre).c_str());
 
-		stmt = con->createStatement();
+		stmt.reset(con->createStatement());
 
-		res = stmt->executeQuery(cadenasql_origen.c_str());
+		res.reset(stmt->executeQuery(cadenasql_origen.c_str()));
 
 		while (res->next() && (ind < limitefilastablaorigen)) {
 
@@ -2189,13 +1546,14 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 			ind++;
 
 		}
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
                                "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
                                ".# Error description: " + e.what() +
@@ -2215,7 +1573,7 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 // leer tabla de definicion de eventos
 int actualizar_defeventos(struct stdatabase* db) {
 
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
+	if (db == &stdbexterna) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -2224,15 +1582,7 @@ int actualizar_defeventos(struct stdatabase* db) {
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -2258,19 +1608,17 @@ int actualizar_defeventos(struct stdatabase* db) {
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		res = stmt->executeQuery(arrSQL);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(arrSQL));
 
 		while (res->next()) {
 			LOCAL_contador_defeventos = res->getInt("contador");
@@ -2278,7 +1626,7 @@ int actualizar_defeventos(struct stdatabase* db) {
 		imprimir_mensaje("cantidad de eventos definidos: " + cast_int_to_string(LOCAL_contador_defeventos));
 		memset(arrSQL, 0, 1024);
 		sprintf(arrSQL, query2.c_str());
-		res = stmt->executeQuery(arrSQL);
+		res.reset(stmt->executeQuery(arrSQL));
 		ind = 0;
 
 
@@ -2298,15 +1646,16 @@ int actualizar_defeventos(struct stdatabase* db) {
 
 		GLOBAL_contador_defeventos = ind;
 
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 
 
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
@@ -2327,7 +1676,7 @@ int actualizar_defeventos(struct stdatabase* db) {
 // leer tabla de numeros de telefono para sms
 int actualizar_smslist(struct stdatabase* db) {
 
-	if (db->direccion.compare(GLOBAL_dbext_direccion) == 0) {
+	if (db == &stdbexterna) {
 		if (GLOBAL_habilitar_acceso_externo == 0) {
 			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
 			return 0;
@@ -2336,15 +1685,7 @@ int actualizar_smslist(struct stdatabase* db) {
 			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
 			return 0;
 		}
-		else {
-			if (chequear_internet(GLOBAL_direccionip_dns)) {
-				;
-			}
-			else {
-				imprimir_mensaje("no hay internet, no se puede alcanzar el servidor externo", negro);
-				return 0;
-			}
-		}
+
 
 	}
 
@@ -2368,26 +1709,24 @@ int actualizar_smslist(struct stdatabase* db) {
 
 	try {
 		sql::Driver* driver;
-		sql::Connection* con;
-		sql::Statement* stmt;
-		sql::ResultSet* res;
+		std::shared_ptr<sql::Connection> con;
+		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
 		driver = get_driver_instance();
-		con = driver->connect(direccionpuerto.c_str(), (db->usuario).c_str(), (db->clave).c_str());
-		int timeout1 = timeout_mysql;
-		con->setClientOption("MYSQL_OPT_CONNECT_TIMEOUT", &timeout1);
+		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
-		stmt = con->createStatement();
-		res = stmt->executeQuery(arrSQL);
+		stmt.reset(con->createStatement());
+		res.reset(stmt->executeQuery(arrSQL));
 
 		while (res->next()) {
 			GLOBAL_contador_numerossms = res->getInt("contador");
 		}
 		memset(arrSQL, 0, 1024);
 		sprintf(arrSQL, query2.c_str());
-		res = stmt->executeQuery(arrSQL);
+		res.reset(stmt->executeQuery(arrSQL));
 		ind = 0;
 
 
@@ -2410,15 +1749,16 @@ int actualizar_smslist(struct stdatabase* db) {
 
 		GLOBAL_contador_numerossms = ind;
 
-		delete res;
-		delete stmt;
-		delete con;
+
+
+
 
 
 		return (ind);
 
 	}
 	catch (sql::SQLException& e) {
+        sql_sessions().invalidate();
 		GLOBAL_ACCESO_EXTERNO = false;
 		imprimir_mensaje("falla en mysql: ", rojo);
 		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);

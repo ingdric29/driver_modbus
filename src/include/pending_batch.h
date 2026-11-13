@@ -12,6 +12,13 @@ public:
     PendingBatch() = default;
     explicit PendingBatch(std::vector<SampleValue> samples) : samples_(std::move(samples)) {}
     bool empty() const { return confirmed_ == samples_.size(); }
+    template<class Store> bool persist(Store&& store) {
+        std::vector<SampleValue> remaining(samples_.begin() + confirmed_, samples_.end());
+        if (remaining.empty()) return true;
+        if (!store(remaining)) return false;
+        confirmed_ = samples_.size();
+        return true;
+    }
     template<class Store> bool flush(Store&& store) {
         while (!empty()) {
             if (!store(samples_[confirmed_])) return false;

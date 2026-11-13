@@ -34,6 +34,7 @@ Hecha por: Javier Flores
 #include <map>
 #include "include/modbus_transport.h"
 #include "include/register_batch.h"
+#include "include/sql_session.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -981,11 +982,18 @@ void flush_historical() {
     for (auto it = historical_pending.begin(); it != historical_pending.end();) {
         auto& write = it->second;
         if (!write.retry.due()) { ++it; continue; }
-        const bool stored = write.pending.flush([&](const SampleValue& sample) {
-            return insertardb(sample.acquired, write.tag, sample.text, sample.value,
-                write.id, write.trace, GLOBAL_nombre_concentrador, write.name,
-                GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre,
-                GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores") > 0;
+        const bool stored = write.pending.persist([&](const std::vector<SampleValue>& samples) {
+            try {
+                auto connection = sql_connection("tcp://" + GLOBAL_db_direccion + ":" + GLOBAL_db_puerto,
+                    GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre);
+                store_sample_batch(connection, "tbvalores", samples, write.tag, write.id, write.trace,
+                    GLOBAL_nombre_concentrador, write.name);
+                return true;
+            } catch (const std::exception& error) {
+                sql_sessions().invalidate();
+                logger_main.registrarError(std::string("Historical transaction failed: ") + error.what());
+                return false;
+            }
         });
         if (!stored) { write.retry.defer(1); ++it; continue; }
         auto confirm = [&](cls_equipos* tags, int count) {

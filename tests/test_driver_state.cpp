@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include "sql_session.h"
+#include "estructuras.h"
+#include <cstdlib>
 void serial_test() {
     cls_equipos tag;
     tag.protocolo = "RS232";
@@ -79,4 +82,21 @@ void batch_period_test() {
     peer.join(); ModbusLease::clear(); modbus_close(server); close(listener);
     modbus_mapping_free(mapping); modbus_free(server);
 }
-int main() { serial_test(); batch_period_test(); }
+void generic_sql_test() {
+    stdatabase db; db.direccion = "127.0.0.1"; db.puerto = 33077;
+    db.nombre = "driver_test"; db.usuario = "root"; db.clave = "";
+    auto connection = sql_connection("tcp://127.0.0.1:33077", "root", "", "driver_test");
+    std::unique_ptr<sql::Statement> ddl(connection->createStatement());
+    ddl->execute("DROP TABLE IF EXISTS generic_fixture");
+    ddl->execute("CREATE TABLE generic_fixture (name VARCHAR(100),hub VARCHAR(100),tag VARCHAR(100),value TEXT)");
+    std::string fields[] = {"name", "hub", "tag", "value"};
+    std::string values[] = {"O'Brien", "hub%", "rVoltaje", std::string(5000, '%')};
+    assert(insertar_inteligente3(&db, "generic_fixture", 0, 1, 2, fields, values, 4) == 0);
+    values[3] = "new 'value' 100%";
+    assert(insertar_inteligente3(&db, "generic_fixture", 0, 1, 2, fields, values, 4) == 0);
+    std::unique_ptr<sql::ResultSet> rows(ddl->executeQuery("SELECT value FROM generic_fixture"));
+    assert(rows->next() && rows->getString(1) == values[3]); assert(!rows->next());
+    rows.reset(); ddl->execute("DROP TABLE generic_fixture");
+    assert(insertar_inteligente3(&db, "generic_fixture", 0, 1, 2, fields, values, 4) == -1);
+}
+int main() { serial_test(); batch_period_test(); if (std::getenv("DRIVER_SQL_TEST")) generic_sql_test(); }
