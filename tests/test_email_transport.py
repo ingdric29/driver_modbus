@@ -26,8 +26,8 @@ class TransportTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def send(self, url, trusted=True):
-        result = subprocess.run([str(BINARY), url, str(self.cert) if trusted else '-'], cwd=self.base / 'run',
+    def send(self, url, trusted=True, timeouts=()):
+        result = subprocess.run([str(BINARY), url, str(self.cert) if trusted else '-'] + [str(value) for value in timeouts], cwd=self.base / 'run',
                                 capture_output=True, text=True, timeout=8)
         output = result.stdout + result.stderr
         self.assertNotIn('fixture-secret', output)
@@ -53,6 +53,21 @@ class TransportTests(unittest.TestCase):
                 self.assertIn(b'Content-Transfer-Encoding: 8bit', server.messages[0])
                 self.assertNotIn(b'Cc: ', server.messages[0])
                 self.assertRegex(server.messages[0].decode(), r'Date: [A-Z][a-z]{2}, .* \+0000')
+            finally:
+                server.close()
+
+    def test_regression_slow_tls_legacy_timeout_fails_corrected_timeout_succeeds(self):
+        for timeout, total, expected in ((3, 10, 28), (10, 30, 0)):
+            server = Server(self.cert, self.key, tls_delay=4)
+            try:
+                result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), timeouts=(timeout, total))
+                self.assertEqual(result, expected, output)
+                if expected:
+                    self.assertNotIn(b'AUTH', server.commands)
+                    self.assertFalse(server.messages)
+                else:
+                    self.assertIn('aceptado por el servidor', output)
+                    self.assertEqual(len(server.messages), 1)
             finally:
                 server.close()
 

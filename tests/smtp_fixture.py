@@ -3,6 +3,7 @@ import socket
 import ssl
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 
@@ -16,12 +17,13 @@ def certificate(directory):
 
 
 class Server:
-    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False, offer_starttls=True):
+    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False, offer_starttls=True, tls_delay=0):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.context.load_cert_chain(str(cert), str(key))
         self.implicit, self.authenticate = implicit, authenticate
         self.reject_auth, self.reject_data = reject_auth, reject_data
         self.offer_starttls = offer_starttls
+        self.tls_delay = tls_delay
         self.commands, self.messages, self.errors = [], [], []
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
@@ -43,6 +45,7 @@ class Server:
             try:
                 connection.settimeout(2)
                 if self.implicit:
+                    time.sleep(self.tls_delay)
                     connection = self.context.wrap_socket(connection, server_side=True)
                 connection.sendall(b'220 localhost fixture\r\n')
                 buffer = b''
@@ -81,6 +84,7 @@ class Server:
                             connection.sendall(response + b'250 SIZE 1048576\r\n')
                         elif verb == b'STARTTLS':
                             connection.sendall(b'220 start TLS\r\n')
+                            time.sleep(self.tls_delay)
                             connection = self.context.wrap_socket(connection, server_side=True)
                             tls = True
                             buffer = b''

@@ -5,13 +5,14 @@
 std::string GLOBAL_nombre_concentrador = "SMTP fixture";
 int enviar_email(storigen, stdestino);
 int main(int argc, char** argv) {
-    if (argc != 3) return 2;
+    if (argc != 3 && argc != 5) return 2;
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) return 3;
     storigen origin;
     origin.smtp = argv[1]; origin.ca_file = std::string(argv[2]) == "-" ? "" : argv[2];
     origin.from = "sender@example.invalid";
     origin.username = "fixture-user"; origin.password = "fixture-secret";
-    origin.connect_timeout = 2; origin.timeout = 3;
+    origin.connect_timeout = argc == 5 ? std::stol(argv[3]) : 2;
+    origin.timeout = argc == 5 ? std::stol(argv[4]) : 3;
     stdestino destination;
     destination.context = "alarma=42 dispositivo=meter directorio=7 evento=activar";
     destination.to = "recipient@example.invalid";

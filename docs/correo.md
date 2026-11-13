@@ -96,3 +96,14 @@ tamaño del buffer de cURL incluso con plantillas/descripciones grandes.
 Actualizar y compilar, detener la instancia antigua con SIGINT/SIGTERM y
 arrancar el binario nuevo desde `.build`. Cambiar solo la URL del archivo no
 basta si se conserva el transporte anterior sin STARTTLS explícito.
+
+## Regresión identificada en el historial
+
+El commit `e3c54ed` (paso 11) añadió un límite de conexión de tres segundos y
+uno total de diez; el emisor original no fijaba esos límites. Ese cambio podía
+interrumpir conexiones legítimas lentas. El commit `f6f22ae` eleva los valores
+por defecto a 10/30 segundos, permite configurarlos y añade STARTTLS explícito.
+La prueba de regresión retrasa cuatro segundos la negociación TLS del mismo
+servidor local: con el límite antiguo devuelve cURL 28 y con 10/30 completa
+la autenticación y el envío. Esto reproduce el efecto del límite; confirmar
+la aceptación real en la Raspberry requiere el resultado posterior al reinicio.

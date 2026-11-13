@@ -140,3 +140,7 @@ Los destinatarios son exclusivamente example.invalid y los servidores escuchan
 en 127.0.0.1; ningún correo sale a Internet. El runner de estado confirma que
 tres alarmas conservan su envío pendiente después de error y no repiten una
 notificación aceptada. Las pruebas no usan claves de configdb.cfg.
+
+La regresión de timeout SMTP retrasa TLS cuatro segundos: comprueba que el
+límite antiguo de tres segundos falla con código 28 y que 10/30 permite
+completar el mismo envío con verificación de certificado activa.
