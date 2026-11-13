@@ -561,7 +561,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				}
 			}
 			cout << "numero dispositivos rs232:" << GLOBAL_contador_equipos_rs232_distintos << endl;
-			hilosseriales = new std::thread [GLOBAL_contador_equipos_rs232_distintos + 1];
+
 			break;
 		}
 
@@ -613,95 +613,25 @@ tiempo_segundos	bigint(20)
 /* LEE LA TABLA tbejecutar para saber si de debe ejecutar los comandos
 de la tabla tbcmd
 */
-int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db)
-{
-
-	if (is_external_target(direccion_db, puerto_db, nombre_db)) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-
-
-	}
-
-	int id = 0;
-	int ind = 0;
-	string cadena;
-	string direccionpuerto;
-	direccionpuerto = "tcp://" + direccion_db + ":" + cast_int_to_string(puerto_db);
-	int ejecutar_tbcmd = 0;
-	string tiempo_tbcmd;
-	string SQL_STR = "";
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
-	string valor_ejecutar = "0";
-	string valor_tiempo_str;
-	string valor_segundos_str;
-	time_t tiempoactual;
-	bool   res_update = false;
-	try {
-		sql::Driver* driver;
-		std::shared_ptr<sql::Connection> con;
-		std::unique_ptr<sql::Statement> stmt;
-		std::unique_ptr<sql::ResultSet> res;
-
-		/* Crea una conexion */
-		driver = get_driver_instance();
-		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		/* Conecta con la base de datos */
-		con->setSchema(nombre_db.c_str());
-
-		stmt.reset(con->createStatement());
-		sprintf(arrSQL, "SELECT * FROM `tbejecutar` WHERE `concentrador` = '%s' ORDER BY `id` DESC LIMIT 1", GLOBAL_nombre_concentrador.c_str());
-		res.reset(stmt->executeQuery(arrSQL));
-
-		while (res->next() && (ind < 64)) {
-			id = res->getInt("id"); //
-			ejecutar_tbcmd = res->getInt("ejecutar_tbcmd"); //
-			tiempo_tbcmd = res->getString("tiempo_tbcmd"); //
-			lote = res->getString("lote"); //
-			segundos = cast_string_to_double((string)res->getString("tiempo_segundos")); //
-			ind++;
-		}
-		memset(arrSQL, 0, 1024);
-		if (ejecutar_tbcmd) {
-			tiempoactual = time(NULL);
-			valor_tiempo_str = cast_time_to_datetime(tiempoactual);
-			valor_segundos_str = cast_double_to_string(tiempoactual);
-			SQL_STR = "UPDATE `%s`.`tbejecutar` SET `ejecutar_tbcmd` = '%s', `tiempo_tbcmd` = '%s', `tiempo_segundos` = '%s' WHERE `tbejecutar`.`id` = %d;";
-			sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), valor_ejecutar.c_str(), valor_tiempo_str.c_str(), valor_segundos_str.c_str(), id);
-			res_update = stmt->execute(arrSQL);
-		};
-
-
-
-		res_ejecutar = ejecutar_tbcmd;
-		return (int)res_update;
-
-	}
-
-	catch (sql::SQLException& e) {
-        sql_sessions().invalidate();
-		GLOBAL_ACCESO_EXTERNO = false;
-		imprimir_mensaje("falla en mysql: ", rojo);
-		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int leer_tbejecutar(int& ejecutar, time_t& segundos, string& lote, string host, int port, string schema, string user, string password) {
+    ejecutar = 0;
+    if (is_external_target(host, port, schema) && (!GLOBAL_habilitar_acceso_externo || !GLOBAL_ACCESO_EXTERNO)) return 0;
+    try {
+        auto connection = sql_connection("tcp://" + host + ":" + std::to_string(port), user, password, schema);
+        std::unique_ptr<sql::PreparedStatement> select(connection->prepareStatement("SELECT * FROM tbejecutar WHERE concentrador=? ORDER BY id DESC LIMIT 1"));
+        select->setString(1, GLOBAL_nombre_concentrador);
+        std::unique_ptr<sql::ResultSet> row(select->executeQuery());
+        if (!row->next()) return 0;
+        const int requested = row->getInt("ejecutar_tbcmd");
+        segundos = cast_string_to_double(row->getString("tiempo_segundos")); lote = row->getString("lote");
+        if (requested) {
+            std::unique_ptr<sql::PreparedStatement> update(connection->prepareStatement("UPDATE tbejecutar SET ejecutar_tbcmd=0,tiempo_tbcmd=?,tiempo_segundos=? WHERE id=?"));
+            const auto now = time(nullptr);
+            update->setString(1, cast_time_to_datetime(now)); update->setInt64(2, now); update->setInt(3, row->getInt("id"));
+            update->executeUpdate(); ejecutar = requested;
+        }
+        return 0;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 
 // si retorna 0, es porque no hay comandos  a ejecutar
@@ -756,14 +686,11 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 	cadenaquerycmd += "on((`tbdispositivos`.`nombre` = `tbcmd`.`nombredispositivo`) and"; cadenaquerycmd += "(`tbdispositivos`.`concentrador` = `tbcmd`.`concentrador`) )) ";
 	cadenaquerycmd += "order by `tbdispositivos`.`id`";
 
-	char cadenaquerycmd3[2000];
-	memset(cadenaquerycmd3, 0, 2000);
 
-	sprintf(cadenaquerycmd3, "SELECT COUNT(`id`) as contador FROM (%s) as vistacmd where `concentrador` = '%s'", cadenaquerycmd.c_str(), GLOBAL_nombre_concentrador.c_str());
 	try {
 		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
-		std::unique_ptr<sql::Statement> stmt;
+		std::unique_ptr<sql::PreparedStatement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
@@ -772,16 +699,18 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 		/* Conecta con la base de datos */
 		con->setSchema(nombre_db.c_str());
 
-		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(cadenaquerycmd3));
+		stmt.reset(con->prepareStatement("SELECT COUNT(id) AS contador FROM (" + cadenaquerycmd + ") AS vistacmd WHERE concentrador=?"));
+        stmt->setString(1, GLOBAL_nombre_concentrador);
+		res.reset(stmt->executeQuery());
 		while (res->next()) {
 			pending_count = res->getInt("contador");
 		}
 
 		std::unique_ptr<cls_cmd[]> pending(new cls_cmd[pending_count + 1]());
-		memset(cadenaquerycmd3, 0, 2000);
-		sprintf(cadenaquerycmd3, "SELECT * FROM (%s) as vistacmd where `concentrador` = '%s' ORDER BY `id` ASC", cadenaquerycmd.c_str(), GLOBAL_nombre_concentrador.c_str());
-		res.reset(stmt->executeQuery(cadenaquerycmd3));
+		res.reset();
+        stmt.reset(con->prepareStatement("SELECT * FROM (" + cadenaquerycmd + ") AS vistacmd WHERE concentrador=? ORDER BY id ASC"));
+        stmt->setString(1, GLOBAL_nombre_concentrador);
+        res.reset(stmt->executeQuery());
 		//cout << cadenaquerycmd3 << endl;
 		while (res->next() && (ind < 128)) {
 			pending[ind].id = res->getInt("id");
@@ -843,77 +772,14 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 /* escribe en la tabla tbcmd el momento despues que se ejecuta el comando
 de la tabla tbcmd
 */
-int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db)
-{
-
-	if (is_external_target(direccion_db, puerto_db, nombre_db)) {
-		if (GLOBAL_habilitar_acceso_externo == 0) {
-			imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet", negro);
-			return 0;
-		}
-
-		if (GLOBAL_ACCESO_EXTERNO == false) {
-			imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo", negro);
-			return 0;
-		}
-
-
-	}
-
-	string cadena;
-	string direccionpuerto;
-	direccionpuerto = "tcp://" + direccion_db + ":" + cast_int_to_string(puerto_db);
-
-	string SQL_STR = "";
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
-	string valor_tiempo_str;
-	time_t tiempoactual;
-	bool   res_update = false;
-	try {
-		sql::Driver* driver;
-		std::shared_ptr<sql::Connection> con;
-		std::unique_ptr<sql::Statement> stmt;
-
-
-		/* Crea una conexion */
-		driver = get_driver_instance();
-		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
-		/* Conecta con la base de datos */
-		con->setSchema(nombre_db.c_str());
-
-		stmt.reset(con->createStatement());
-
-		tiempoactual = time(NULL);
-		valor_tiempo_str = cast_time_to_datetime(tiempoactual);
-
-		SQL_STR = "UPDATE `%s`.`tbcmd` SET `cmd_datetime` = '%s' WHERE `tbcmd`.`id` = %i;";
-		sprintf(arrSQL, SQL_STR.c_str(), nombre_db.c_str(), valor_tiempo_str.c_str(), id);
-		res_update = stmt->execute(arrSQL);
-
-
-
-		return (int)res_update;
-
-	}
-
-	catch (sql::SQLException& e) {
-        sql_sessions().invalidate();
-		GLOBAL_ACCESO_EXTERNO = false;
-		imprimir_mensaje("falla en mysql: ", rojo);
-		imprimir_mensaje("se deshabilito lectura mysql externo por " + cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ", amarillo);
-		std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-                               "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-                               ".# Error description: " + e.what() +
-                               " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                               ", SQLState: " + e.getSQLState() + " )";
-
-    	std::cout << mensajeError << std::endl;
-    	logger_loadconfig.registrarError(mensajeError);
-		return -1;
-	}
-
-
+int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db) {
+    if (is_external_target(direccion_db, puerto_db, nombre_db) && (!GLOBAL_habilitar_acceso_externo || !GLOBAL_ACCESO_EXTERNO)) return -1;
+    try {
+        auto connection = sql_connection("tcp://" + direccion_db + ":" + std::to_string(puerto_db), usuario_db, clave_db, nombre_db);
+        std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement("UPDATE tbcmd SET cmd_datetime=? WHERE id=?"));
+        statement->setString(1, cast_time_to_datetime(time(nullptr))); statement->setInt(2, id);
+        statement->executeUpdate(); return 0;
+    } catch (const std::exception& error) { database_failure(error); return -1; }
 }
 
 
@@ -1107,10 +973,7 @@ int actualizar_defalarmas(struct stdatabase* db) {
 	query2 += " where `tbdefalarmas`.`habilitar` = '1' and `tbdispositivos`.`habilitar` = '1'";
 	query2 += "order by `tbdefalarmas`.`id`";
 
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
 	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
 
 	cout << "direccion:" << direccionpuerto << endl;
 	cout << "base de datos:" << (db->nombre) << endl;
@@ -1127,15 +990,13 @@ int actualizar_defalarmas(struct stdatabase* db) {
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
 		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query1));
 
 		while (res->next()) {
 			GLOBAL_contador_defalarmas = res->getInt("contador");
 		}
 		imprimir_mensaje("cantidad de alarmas definidas: " + cast_int_to_string(GLOBAL_contador_defalarmas));
-		memset(arrSQL, 0, 1024);
-		sprintf(arrSQL, query2.c_str());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query2));
 		ind = 0;
 
 
@@ -1224,10 +1085,7 @@ int actualizar_directorio(struct stdatabase* db) {
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbdirectorio`";
 	string query2 = "SELECT * FROM `tbdirectorio`";
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
 	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
 
 	//cout << "direccion:" << direccionpuerto << endl;
 	//cout << "base de datos:" << (db -> nombre) << endl;
@@ -1244,14 +1102,12 @@ int actualizar_directorio(struct stdatabase* db) {
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
 		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query1));
 
 		while (res->next()) {
 			GLOBAL_contador_directorio = res->getInt("contador");
 		}
-		memset(arrSQL, 0, 1024);
-		sprintf(arrSQL, query2.c_str());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query2));
 		ind = 0;
 
 
@@ -1527,14 +1383,11 @@ int actualizar_defeventos(struct stdatabase* db) {
 	string SQL_STR = "";
 	string descripcion = "";
 	int habilitar = 0;
-	int LOCAL_contador_defeventos;
+	int LOCAL_contador_defeventos = 0;
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbdefeventos` WHERE habilitar = 1";
 	string query2 = "SELECT * FROM `tbdefeventos` WHERE habilitar = 1";
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
 	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
 
 	//cout << "direccion:" << direccionpuerto << endl;
 	//cout << "base de datos:" << (db->nombre) << endl;
@@ -1551,15 +1404,13 @@ int actualizar_defeventos(struct stdatabase* db) {
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
 		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query1));
 
 		while (res->next()) {
 			LOCAL_contador_defeventos = res->getInt("contador");
 		}
 		imprimir_mensaje("cantidad de eventos definidos: " + cast_int_to_string(LOCAL_contador_defeventos));
-		memset(arrSQL, 0, 1024);
-		sprintf(arrSQL, query2.c_str());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query2));
 		ind = 0;
 
 
@@ -1632,10 +1483,7 @@ int actualizar_smslist(struct stdatabase* db) {
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbsms`";
 	string query2 = "SELECT * FROM `tbsms`";
-	char arrSQL[1024] = { 0 };
-	memset(arrSQL, 0, 1024);
 	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
-	sprintf(arrSQL, query1.c_str());
 
 	//cout << "direccion:" << direccionpuerto << endl;
 	//cout << "base de datos:" << (db -> nombre) << endl;
@@ -1652,14 +1500,12 @@ int actualizar_smslist(struct stdatabase* db) {
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
 		stmt.reset(con->createStatement());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query1));
 
 		while (res->next()) {
 			GLOBAL_contador_numerossms = res->getInt("contador");
 		}
-		memset(arrSQL, 0, 1024);
-		sprintf(arrSQL, query2.c_str());
-		res.reset(stmt->executeQuery(arrSQL));
+		res.reset(stmt->executeQuery(query2));
 		ind = 0;
 
 
@@ -1713,7 +1559,7 @@ void liberarmemoria(void) {
     delete[] equipo_mbserial; equipo_mbserial = nullptr;
     delete[] equipo_rs232; equipo_rs232 = nullptr;
     delete[] equipo_rs232_distintos; equipo_rs232_distintos = nullptr;
-    delete[] hilosseriales; hilosseriales = nullptr;
+
     delete[] defalarmas; defalarmas = nullptr;
     delete[] defeventos; defeventos = nullptr;
     delete[] cmd; cmd = nullptr;

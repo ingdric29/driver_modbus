@@ -16,7 +16,7 @@
 	// 0 si todo ok, y !0 si hubo error
 	int cls_sms::enviar() {
 		CURL* curl;
-		CURLcode res;
+		CURLcode res = CURLE_FAILED_INIT; // Legacy sender remains disabled; never report uninitialized success.
 		curl = curl_easy_init();
 		if (curl) {
 			curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
@@ -39,7 +39,7 @@
 			curl_mime_free(mime);
 
 			if (res != CURLE_OK) { // CURLE_OK ES IGUA A 0 SI TODO OK
-				fprintf(stderr, "curl_easy_perform() failed: %s\n",
+				fprintf(stderr, "SMS sender remains disabled: %s\n",
 					curl_easy_strerror(res));
 				imprimir_mensaje("el url de modem es:" + clsurl_modem, rojo);
 			}

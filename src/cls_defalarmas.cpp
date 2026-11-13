@@ -62,47 +62,7 @@ string cls_defalarmas::reemplazar_simbolos(const string& expression) {
 }
 
 // dado el dispositivo y el tag obtiene el valor
-struct stres cls_defalarmas::leertag (const string& dispositivo, const string& tag ) {
-	stres local;
-	local.valorfloat = -1.0;
-	local.valorstr = "-1.0";
-	bool  encontrado = false;
-	for (int i=0; i<clscantidad_equipo_mbtcp; i++) {
-	  if (&clsequipo_mbtcp[i]) {	
-		if ((clsequipo_mbtcp[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbtcp[i].tag.compare(tag) ==0)) {
-            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbtcp[i].state_mutex);
-			local.valorfloat = clsequipo_mbtcp[i].clsvalorfloat;
-			local.valorstr = clsequipo_mbtcp[i].clsvalorstr;
-			local.indice = i;
-			local.puntero_equipo = &clsequipo_mbtcp[0];
-			encontrado = true;
-			break;
-		}
-	  }	
-	}
-	if (encontrado == false) {
-	 for (int i=0; i<clscantidad_equipo_mbserial; i++) {
-	   if (&clsequipo_mbserial[i]) {	 
-		if ((clsequipo_mbserial[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbserial[i].tag.compare(tag) ==0)) {
-            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbserial[i].state_mutex);
-			local.valorfloat = clsequipo_mbserial[i].clsvalorfloat;
-			local.valorstr = clsequipo_mbserial[i].clsvalorstr;
-			local.indice = i;
-			local.puntero_equipo = &clsequipo_mbserial[0];
-			encontrado = true;
-			break;
-		}
-	  }
-	 }
-	}
-	
 
-	
-
-
-	return local;
-	
-}
 
 // dado el dispositivo y el tag obtiene el valor.  retorna 0, si todo ok, -1 si hay error
 int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, struct stres * local ) {
@@ -178,20 +138,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	
 }
 
-int cls_defalarmas::prioridad(char op) {
- switch (op) {
-  case '@': return 5;	 
-  case '>': return 4;
-  case '<': return 4;
-  case '=': return 4;
-  case '~': return 4; 
-  case '!': return 3;
-  case '&': return 2;
-  case '|': return 1;
-  case ')': return -1;
-  default: return 0;
- }
-} 
+
 
 
 string cls_defalarmas::reordenar_antes_evaluar(string in) { return alarm_postfix(in); }

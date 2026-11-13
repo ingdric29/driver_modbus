@@ -31,6 +31,12 @@ Compatibilidad:
 
 ---
 
+## Desarrollo y mejoras
+
+Ver [compilación y pruebas](docs/desarrollo.md), [arquitectura](docs/arquitectura.md),
+[conservación de picos](docs/picos.md), [replicación](docs/replicacion.md)
+y [operación](docs/operacion.md). Los protocolos activos son TCP, RTU y RS232.
+
 ## Instalación
 
 ### Linux (Debian/Raspbian)
@@ -56,7 +62,7 @@ Compatibilidad:
 
 5. **Compilar el programa**:
   ```bash
-  sudo make
+  make -j2
   ```
 
 6. **Mover las páginas dinámicas**:

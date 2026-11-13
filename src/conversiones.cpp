@@ -73,25 +73,18 @@ float cast_get_float_cdab(const uint16_t* src)
 }
 
 
-time_t cast_datetime_to_time(const string& strDateTime) {
-	tm t;
-	// solo para linux: strptime(strDateTime.c_str(), "%F %T", &t);
-	int anio, mes, dia, hora, minutos, segundos;
-	sscanf(strDateTime.c_str(), "%4d-%2d-%2d %2d:%2d:%2d", &anio, &mes, &dia, &hora, &minutos, &segundos);
-	if (!(anio > 1900)) anio = 1900;
-	if (!(mes >= 1 && mes <= 12)) mes = 1;
-	if (!(dia >= 1 && dia <= 31)) dia = 1;
-	if (!(hora >= 0 && hora <= 23)) dia = 1;
-	if (!(minutos >= 0 && minutos <= 59)) minutos = 0;
-	if (!(segundos >= 0 && dia <= 59)) dia = 0;
-	t.tm_year = anio - 1900;
-	t.tm_mon = mes - 1;
-	t.tm_mday = dia;
-	t.tm_hour = hora;
-	t.tm_min = minutos;
-	t.tm_sec = segundos;
-	t.tm_isdst = 0;
-	return mktime(&t);
+time_t cast_datetime_to_time(const string& value) {
+    std::tm parsed{};
+    int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, consumed = 0;
+    if (sscanf(value.c_str(), "%4d-%2d-%2d %2d:%2d:%2d%n", &year, &month, &day, &hour, &minute, &second, &consumed) != 6
+        || size_t(consumed) != value.size() || year < 1900 || month < 1 || month > 12 || day < 1 || day > 31
+        || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return time_t(-1);
+    parsed.tm_year = year - 1900; parsed.tm_mon = month - 1; parsed.tm_mday = day;
+    parsed.tm_hour = hour; parsed.tm_min = minute; parsed.tm_sec = second; parsed.tm_isdst = -1;
+    const auto result = mktime(&parsed);
+    if (parsed.tm_year != year - 1900 || parsed.tm_mon != month - 1 || parsed.tm_mday != day
+        || parsed.tm_hour != hour || parsed.tm_min != minute || parsed.tm_sec != second) return time_t(-1);
+    return result;
 }
 
 string cast_time_to_datetime(time_t tiempo) {

@@ -21,4 +21,13 @@ int main() {
         assert(active == 0);
         assert(!running);
     }
+    bool propagated = false; running = true;
+    try {
+        WorkerGroup workers(running);
+        workers.start([] { throw std::runtime_error("worker failed"); });
+        workers.start([&] { while (running) std::this_thread::yield(); });
+        workers.join();
+    } catch (const std::runtime_error&) { propagated = true; }
+    assert(propagated && !running);
+
 }

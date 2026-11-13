@@ -21,7 +21,7 @@ extern cls_equipos* equipo_rs232_distintos;
 extern cls_cmd* cmd; // se instancias la clase
 extern cls_email* emaillist;
 extern cls_sms* smslist;
-extern thread* hilosseriales;
+
 
 
 extern int GLOBAL_contador_equipos_mbtcp;
@@ -150,7 +150,7 @@ int actualizar_posiciones_clsdefeventos();
 int actualizar_smslist(struct stdatabase* db);
 
 int enviar_email(struct storigen origen, struct stdestino destino);
-static size_t payload_source(void* ptr, size_t size, size_t nmemb, void* userp);
+
 // dado el id, encuentra la posicion en memoria ram. cmd[j]
 // es decir encuentra a j, en la expresion cmd[j] = id
 int cmd_buscarid(int id);
@@ -186,7 +186,7 @@ void liberarmemoria(void);
 
 void lectura_puerto_serial(cls_equipos* equipo_serial);
 
-void lectura_puertos_seriales();
+
 
 double funmenor(double v1, double v2);
 

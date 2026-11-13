@@ -119,6 +119,7 @@ int cls_equipos::leer() {
 
 	resultadoleer_rc = -1;
     ReadMeasurement measurement(resultadoleer_rc);
+    register_acquired() = 0;
 	if (*pcontador_errores > cuenta_errores_maximo) {
 		*pestadocomunicacion = false;
 		*ptiempotranscurridoerrores = *ptiempotranscurridoerrores + difftime(time(NULL), *pultima_llamada_leer);
@@ -161,7 +162,7 @@ int cls_equipos::leer() {
 
 	resultado_leer = resultadoleer_rc > 0;
 	if (resultadoleer_rc > 0) {
-        ultimo_muestreo = time(NULL);
+        ultimo_muestreo = register_acquired() ? register_acquired() : time(NULL);
         SampleValue sample;
         sample.sequence = ++sample_sequence;
         sample.acquired = ultimo_muestreo;

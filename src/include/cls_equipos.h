@@ -15,13 +15,6 @@
 #include "sample_window.h"
 #include <errno.h>
 #include <modbus.h>
-#include "mysql_connection.h"
-#include <cppconn/driver.h>
-#include <cppconn/exception.h>
-#include <cppconn/resultset.h>
-#include <cppconn/statement.h>
-#include <cppconn/prepared_statement.h>
-#include <curl/curl.h>
 
 
 #define const_num_equipo 10

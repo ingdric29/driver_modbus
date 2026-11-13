@@ -151,6 +151,36 @@ void replication_test() {
     assert(rows->next() && rows->getInt(1) == 8); rows.reset();
     a->execute("DROP TABLE replication_fixture"); b->execute("DROP TABLE replication_fixture");
 }
+
+void command_sql_test() {
+    auto setup = sql_connection("tcp://127.0.0.1:33077", "root", "", "driver_test");
+    std::unique_ptr<sql::Statement> ddl(setup->createStatement());
+    ddl->execute("CREATE DATABASE IF NOT EXISTS driver_cmd_test");
+    auto connection = sql_connection("tcp://127.0.0.1:33077", "root", "", "driver_cmd_test");
+    ddl.reset(connection->createStatement());
+    ddl->execute("DROP TABLE IF EXISTS tbejecutar,tbcmd,tbdispositivos");
+    ddl->execute("CREATE TABLE tbdispositivos (id INT,nombre TEXT,direccion_ip TEXT,puerto INT,direccion_esclavo INT,interface TEXT,velocidad INT,paridad TEXT,bitsparada INT,modelo TEXT,usuario TEXT,password TEXT,protocolo TEXT,habilitar INT,concentrador TEXT)");
+    ddl->execute("CREATE TABLE tbcmd (id INT,registro INT,valor INT,cmd_datetime DATETIME,hab_ejecutar INT,concentrador TEXT,lote TEXT,nombredispositivo TEXT)");
+    ddl->execute("CREATE TABLE tbejecutar (id INT,concentrador TEXT,ejecutar_tbcmd INT,tiempo_tbcmd DATETIME,tiempo_segundos BIGINT,lote TEXT)");
+    GLOBAL_nombre_concentrador = "hub'100%";
+    std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement("INSERT INTO tbdispositivos VALUES (1,'meter','127.0.0.1',502,1,'',9600,'N',1,'model','','','MBTCP',1,?)"));
+    statement->setString(1, GLOBAL_nombre_concentrador); assert(statement->executeUpdate() == 1);
+    statement.reset(connection->prepareStatement("INSERT INTO tbcmd VALUES (1,123,321,NULL,1,?,'batch','meter')"));
+    statement->setString(1, GLOBAL_nombre_concentrador); assert(statement->executeUpdate() == 1);
+    statement.reset(connection->prepareStatement("INSERT INTO tbejecutar VALUES (1,?,1,NULL,42,'batch')"));
+    statement->setString(1, GLOBAL_nombre_concentrador); assert(statement->executeUpdate() == 1);
+    assert(leer_tbcmd("127.0.0.1",33077,"driver_cmd_test","root","") == 1);
+    assert(cmd[0].registro == 123 && cmd[0].clsvalor == 321);
+    int requested = 0; time_t timestamp = 0; std::string batch;
+    assert(leer_tbejecutar(requested,timestamp,batch,"127.0.0.1",33077,"driver_cmd_test","root","") == 0);
+    assert(requested == 1 && timestamp == 42 && batch == "batch");
+    assert(leer_tbejecutar(requested,timestamp,batch,"127.0.0.1",33077,"driver_cmd_test","root","") == 0 && requested == 0);
+    assert(escribir_tbcmd_fechahora(1,"127.0.0.1",33077,"driver_cmd_test","root","") == 0);
+    std::unique_ptr<sql::ResultSet> row(ddl->executeQuery("SELECT cmd_datetime IS NOT NULL FROM tbcmd"));
+    assert(row->next() && row->getInt(1) == 1); row.reset(); statement.reset();
+    ddl->execute("DROP TABLE tbejecutar,tbcmd,tbdispositivos");
+    delete[] cmd; cmd = nullptr; GLOBAL_contador_cmd = 0;
+}
 void shutdown_test() {
     install_driver_signals(); GLOBAL_EJECUTARHILOS = true; GLOBAL_stop_requested = false;
     const auto begin = std::chrono::steady_clock::now();
@@ -163,5 +193,6 @@ void shutdown_test() {
 }
 int main() { shutdown_test();
     serial_test(); batch_period_test(); event_lookup_test();
-    if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); }
+    cls_sms disabled_sms; assert(disabled_sms.enviar() == CURLE_FAILED_INIT);
+    if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); command_sql_test(); }
 }

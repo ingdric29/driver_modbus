@@ -78,3 +78,16 @@ checkpoint sin avance y recuperación posterior, usando `replication_fixture`.
 la espera tras recuperación, usando tiempo simulado. La prueba enlazada de
 estado incluye SIGTERM: interrumpe una espera de 60 s en menos de un segundo,
 sin alterar las pruebas posteriores.
+
+## Comandos agrupados
+
+Desde la raíz, `make test` ejecuta las pruebas ordinarias y `make test-sql`
+ejecuta la integración opt-in con la instancia local dedicada. Los runners
+crean sus ejecutables y logs en carpetas temporales, con timeout y limpieza.
+La suite de formato valida también fechas inválidas y roundtrip de fechas.
+WorkerGroup comprueba además propagación de excepciones después de unir hilos.
+
+La integración de comandos crea `driver_cmd_test`, con tablas temporales de
+perfil, y verifica concentradores con comillas/porcentajes, carga de comandos,
+consumo de su orden y marca de confirmación. No ejecuta esos comandos contra
+dispositivos. El caso SMS solo verifica el error del emisor desactivado.

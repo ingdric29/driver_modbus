@@ -14,7 +14,9 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #endif
+#ifdef _WIN32
 #pragma comment(lib, "ws2_32.lib")
+#endif
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>

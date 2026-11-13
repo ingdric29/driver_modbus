@@ -64,9 +64,7 @@ class cls_defalarmas {
 		
 		private:
 		string reemplazar_simbolos(const string& cadena1);
-		struct stres leertag (const string& dispositivo, const string& tag );
 		int leertag2 (const string& dispositivo, const string& tag, struct stres * local );
-		int prioridad(char op);
 		string reordenar_antes_evaluar(string in);
 		int evaluar1(string p);
 		string eliminar_espacios(string p);

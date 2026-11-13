@@ -8,6 +8,6 @@ int main() {
     ranges = merge_register_ranges({{0, 20}, {20, 1}});
     assert(ranges.size() == 2);
     assert(merge_register_ranges({{-1, 1}, {65535, 2}, {0, 0}}).empty());
-    { RegisterCycle cycle; register_blocks().push_back({1, 1, 3, 0, {5}}); assert(register_blocks().size() == 1); }
+    { RegisterCycle cycle; register_blocks().push_back({1, 1, 3, 0, {5}, 100}); assert(register_blocks().size() == 1); }
     assert(register_blocks().empty());
 }

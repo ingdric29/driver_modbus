@@ -30,11 +30,7 @@ Hecha por: Javier Flores
 #include "include/estructuras.h"
 #include <chrono>
 #include "include/worker_group.h"
-#include "include/pending_batch.h"
-#include <map>
 #include "include/modbus_transport.h"
-#include "include/register_batch.h"
-#include "include/sql_session.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
 #ifdef _WIN32
@@ -60,7 +56,7 @@ cls_cmd* cmd; // se instancias la clase
 cls_email* emaillist; //directorio
 cls_defeventos* defeventos;
 cls_sms* smslist; // dista de numeros de telefonos
-thread* hilosseriales; //puntero de arrego de hilos seriales
+
 
 
 // definicion de estructuras para almacenar parametros
@@ -244,7 +240,11 @@ int main(int argc, char* argv[]) {
 	};	
 	insertar_eventos_tbhistoalarmas("registrador iniciado!","");
 	logger_main.registrarError("INFO: Start Devlog.");
-	return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+	try { return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS; }
+    catch (const std::exception& error) {
+        logger_main.registrarError(std::string("Fatal worker failure: ") + error.what());
+        ModbusLease::clear(); liberarmemoria(); return EXIT_FAILURE;
+    }
 };
 
 
@@ -433,121 +433,6 @@ int ordenejecucionciclico() {
 
 
 // lee valores de los equipos indicados y los inserta en las bases de datos locales y externa
-namespace {
-int requested_registers(const cls_equipos& tag) {
-    if (tag.interpretacion == "longle64") return 4;
-    if (tag.interpretacion.compare(0, 7, "float32") == 0 || tag.interpretacion == "longle" || tag.interpretacion == "longbe") return 2;
-    return std::max(1, std::min(tag.cantidad1, 20));
-}
-void prefetch_due_tags(cls_equipos* tags, int count) {
-    std::map<std::string, std::vector<int>> due;
-    const auto now = PeriodicDeadline::Clock::now();
-    for (int i = 0; i < count; ++i) {
-        auto& tag = tags[i];
-        std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
-        if (!tag.read_deadline.due(now) || *tag.pcontador_errores > tag.cuenta_errores_maximo
-            || (tag.protocolo != "MBTCP" && tag.protocolo != "MBSERIAL")
-            || (tag.funcion != "hr" && tag.funcion != "rr")) continue;
-        std::string endpoint = tag.protocolo == "MBTCP" ? tag.direccion_ip + ":" + std::to_string(tag.puerto)
-            : tag.interface1 + ":" + std::to_string(tag.velocidad) + ":" + tag.paridad + ":" + std::to_string(tag.numerodebits) + ":" + std::to_string(tag.bitsparada);
-        due[endpoint + ":" + std::to_string(tag.direccion_esclavo) + ":" + tag.funcion].push_back(i);
-    }
-    for (const auto& group : due) {
-        if (group.second.size() < 2) continue;
-        const auto& tag = tags[group.second.front()];
-        std::vector<RegisterRange> ranges;
-        for (int i : group.second) ranges.push_back({tags[i].registro, requested_registers(tags[i])});
-        // Only optimize if merging actually reduces the number of transactions.
-        if (merge_register_ranges(ranges).size() >= ranges.size()) continue;
-        auto lease = tag.protocolo == "MBTCP" ? ModbusLease::tcp(tag.direccion_ip, tag.puerto)
-            : ModbusLease::rtu(tag.interface1, tag.velocidad, tag.paridad.empty() ? 'N' : tag.paridad[0], tag.numerodebits, tag.bitsparada);
-        if (lease.connect(G_modbus_timeout) == 0) prefetch_registers(lease, tag.direccion_esclavo, tag.funcion == "hr" ? 3 : 4, ranges);
-    }
-}
-}
-
-int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
-    RegisterCycle cycle;
-    prefetch_due_tags(equipo, arge_cantidad);
-	/* ORDENES DE LECTURAS DE LOS DISPOSITIVOS SEGUN TABLECOM*/
-	double diferencia = 0.0;
-	int resultado=-1;
-	try {
-		for (int i = 0; i < arge_cantidad; i++) {
-            std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
-
-			const auto now = PeriodicDeadline::Clock::now();
-			resultado = -1;
-			if (equipo[i].read_deadline.due(now)) {
-				//cout << "*";
-				resultado = equipo[i].leer();
-                equipo[i].read_deadline.advance(equipo[i].periodo);
-
-			} // end if 1 */
-
-		} // end for
-		GLOBAL_estado_primera_ejecucion_programa = 3;
-		return resultado;
-	}
-	catch (...) {
-		imprimir_mensaje("falla ordenlecturaequipos");
-
-		std::string mensajeError = std::string("DEBUG: ordenlecturaequipos fail!") +
-                               " | File: " + __FILE__ +
-                               " | Function: " + __FUNCTION__ +
-                               " | Line: " + std::to_string(__LINE__);
-
-    	logger_main.registrarError(mensajeError);
-		return -1;
-	}
-}
-//Correccion: Se habilita y deshabilita la escritura en la base de datos en base a un error de comunicacion.
-//Fecha de Correccion: 30/10/24
-int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
-	int res_ordenlecturaequipos;
-	bool iniciado = false;
-	if (arge_cantidad) {cout << " iniciado hilo con protocolo: " << equipo[0].protocolo << endl;};
-	long contador = 0;
-	try
-	{
-		while (driver_running()) {
-			//contador++; //Que hace esta variable??¿?¿?¿?¿
-			if (arge_cantidad == 0) 
-			{
-				cout << "no hay equipos" << endl;
-				break;
-			};
-			res_ordenlecturaequipos = ordenlecturaequipos(equipo, arge_cantidad);
-			//printf("EJECUTAR_HILOS = %d CONTADOR = %d \n",GLOBAL_EJECUTARHILOS,contador);
-			iniciado = true;
-
-			auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
-            for (int tag = 0; tag < arge_cantidad; ++tag) {
-                std::lock_guard<std::recursive_mutex> state(*equipo[tag].state_mutex);
-                wake = std::min(wake, equipo[tag].read_deadline.next());
-            }
-            wait_driver_until(wake);
-		}
-		if (iniciado){ 
-		cout << " fin hilo lectura variables protocolo " << equipo[0].protocolo << endl;};
-		return 1;	
-	}
-	catch (...){
-
-		cout << "falla en ordenlecturaequiposciclico" << endl;
-		
-		std::string mensajeError = std::string("DEBUG: ordenlecturaequiposciclico fail!")  +
-                               " | File: " + __FILE__ +
-                               " | Function: " + __FUNCTION__ +
-                               " | Line: " + std::to_string(__LINE__);
-
-    	logger_main.registrarError(mensajeError);
-		return 2;
-	}
-		
-}
-
-
 //ordenrevisarposiblesalarmasciclico
 int ordenrevisarposiblesalarmasciclico() {
 	int res_ordenrevisarposiblesalarmasciclico;
@@ -897,17 +782,7 @@ int orden_actualizarvalores_clsdefeventos() {
 
 }
 
-void lectura_puertos_seriales() {
-	int i=0;
-	if (GLOBAL_contador_equipos_rs232_distintos > 0) {
-		for (i = 0; i < GLOBAL_contador_equipos_rs232_distintos; i++) {
-			hilosseriales[i] = std::thread(lectura_puerto_serial, &equipo_rs232_distintos[i]);
-		}
-	}
-	else {
-		return;
-	}
-}
+
 
 void lectura_puerto_serial(cls_equipos* equipo_serial) {
 	char modo[4];
@@ -973,163 +848,4 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 
 	}
 	
-}
-
-
-
-namespace {
-struct HistoricalWrite {
-    PendingBatch pending;
-    std::string tag, name, trace;
-    int id = 0;
-    uint64_t revision = 0;
-    std::weak_ptr<std::recursive_mutex> generation;
-    PeriodicDeadline retry;
-};
-// Only the writer thread touches this map. It outlives configuration workers
-// so an acknowledged prefix or pending suffix survives a reload.
-std::map<std::string, HistoricalWrite> historical_pending;
-std::string sample_key(const cls_equipos& tag) {
-    return tag.protocolo + "\x1f" + tag.nombre + "\x1f" + tag.tag + "\x1f" + std::to_string(tag.id);
-}
-void flush_historical() {
-    for (auto it = historical_pending.begin(); it != historical_pending.end() && !GLOBAL_stop_requested;) {
-        auto& write = it->second;
-        if (!write.retry.due()) { ++it; continue; }
-        const bool stored = write.pending.persist([&](const std::vector<SampleValue>& samples) {
-            try {
-                auto connection = sql_connection("tcp://" + GLOBAL_db_direccion + ":" + GLOBAL_db_puerto,
-                    GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre);
-                store_sample_batch(connection, "tbvalores", samples, write.tag, write.id, write.trace,
-                    GLOBAL_nombre_concentrador, write.name);
-                return true;
-            } catch (const std::exception& error) {
-                sql_sessions().invalidate();
-                ++DriverMetrics::instance().sql_failures;
-                logger_main.registrarError(std::string("Historical transaction failed: ") + error.what());
-                return false;
-            }
-        });
-        if (!stored) { write.retry.defer(1); ++it; continue; }
-        auto confirm = [&](cls_equipos* tags, int count) {
-            for (int i = 0; i < count; ++i) {
-                if (sample_key(tags[i]) != it->first || tags[i].state_mutex != write.generation.lock()) continue;
-                std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
-                tags[i].fueescritodb = tags[i].change_revision == write.revision;
-                tags[i].ultimo_insertar = time(nullptr);
-                tags[i].history_deadline.advance(std::max(tags[i].periodo, GLOBAL_periodo_minimo_escritura_tbvalores));
-            }
-        };
-        confirm(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
-        confirm(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
-        confirm(equipo_rs232, GLOBAL_contador_equipos_rs232);
-        it = historical_pending.erase(it);
-        DriverMetrics::instance().pending_windows = historical_pending.size();
-    }
-}
-}
-
-int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
-    int result = 0;
-    for (int i = 0; i < arge_cantidad; ++i) {
-        auto& tag = equipo[i];
-        SampleValue sample;
-        std::string name, tag_name, trace;
-        int id, errors, total_errors;
-        bool online, instant_due, status_due;
-        {
-            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
-            const auto now = PeriodicDeadline::Clock::now();
-            sample = tag.latest_sample;
-            name = tag.nombre; tag_name = tag.tag; trace = tag.rastro; id = tag.id;
-            errors = *tag.pcontador_errores; total_errors = *tag.pcontador_errores_acumulados;
-            online = *tag.pestadocomunicacion;
-            instant_due = tag.resultado_leer && tag.instant_deadline.due(now);
-            status_due = tag.status_deadline.due(now);
-            const auto key = sample_key(tag);
-            if (tag.resultado_leer && tag.registrable && tag.history_deadline.due(now)
-                && habilitarescribir(tag.fueescritodb, tag.solocambios)
-                && !tag.sample_window.empty() && historical_pending.count(key) == 0) {
-                HistoricalWrite write;
-                write.pending = PendingBatch(tag.sample_window.samples(tag.preservar_picos));
-                write.tag = tag.tag; write.name = tag.nombre; write.trace = tag.rastro;
-                write.id = tag.id; write.revision = tag.change_revision;
-                write.generation = tag.state_mutex;
-                historical_pending.emplace(key, std::move(write));
-                DriverMetrics::instance().pending_windows = historical_pending.size();
-                tag.sample_window.clear();
-            }
-        }
-        // Database I/O operates exclusively on immutable copies. Acquisition
-        // never waits for SQL while trying to publish a sample.
-        if (status_due) {
-            string fields[] = {"nombre", "errores", "errores_acumulados", "estado", "fechatiempo", "concentrador"};
-            string values[] = {name, std::to_string(errors), std::to_string(total_errors), online ? "1" : "0",
-                cast_time_to_datetime(time(nullptr)), GLOBAL_nombre_concentrador};
-            const int stored = insertar_inteligente(&stdblocal, "tbdispositivos_sta", 0, fields, values, 6);
-            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
-            if (stored == 0) tag.status_deadline.advance(GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
-            else { tag.status_deadline.defer(1); result = -1; }
-        }
-        if (instant_due) {
-            string fields[] = {"timedate", "fechatiempo", "tag", "valorstr", "valorfloat", "dispositivo", "rastro", "concentrador", "nombredispositivo"};
-            string values[] = {cast_time_to_datetime(time(nullptr)), cast_time_to_datetime(sample.acquired), tag_name,
-                sample.text, cast_double_to_string(sample.value), std::to_string(id), trace, GLOBAL_nombre_concentrador, name};
-            const int stored = insertar_inteligente3(&stdblocal, "tbinstantaneos", 2, 7, 8, fields, values, 9);
-            std::lock_guard<std::recursive_mutex> state(*tag.state_mutex);
-            if (stored == 0) {
-                tag.ultima_escritura_tbinstantaneo = time(nullptr);
-                tag.instant_deadline.advance(tag.periodo);
-            } else { tag.instant_deadline.defer(1); result = -1; }
-        }
-    }
-    return result;
-}
-
-// Correccion: Habilitacion y deshabilitacion de la escritura en la base de datos cuando se pierde la comunicacion
-// Fecha de correccion: 30/10/24
-int ordenescrituraequiposciclico() {
-	int res_ordenlecturaequipos;
-	bool iniciado = false;
-	double menor;
-	//cout << "GLOBAL_EJECUTARHILOS: " << GLOBAL_EJECUTARHILOS << endl;
-	while (driver_running()) {
-		//cout << "escrituras de tags " << endl;
-		{ // Each tag carries its own communication status.
-
-			if (GLOBAL_contador_equipos_mbtcp > 0) {
-				ordenescrituraequipos(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
-			}
-			if (GLOBAL_contador_equipos_mbserial > 0) {
-				ordenescrituraequipos(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
-			}
-
-			//cout << "GLOBAL_contador_equipos_rs232: " << GLOBAL_contador_equipos_rs232 << endl;
-			if (GLOBAL_contador_equipos_rs232 > 0) {
-				ordenescrituraequipos(equipo_rs232, GLOBAL_contador_equipos_rs232);
-			}
-		}
-		
-		flush_historical();
-		menor = funmenor(GLOBAL_periodo_minimo_escritura_tbvalores, GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
-//		cout << "esperar: " << menor << endl;
-		auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
-        auto inspect = [&](cls_equipos* tags, int count) {
-            for (int i = 0; i < count; ++i) {
-                std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
-                if (!tags[i].resultado_leer) continue;
-                wake = std::min(wake, tags[i].instant_deadline.next());
-                if (tags[i].registrable && habilitarescribir(tags[i].fueescritodb, tags[i].solocambios)
-                    && historical_pending.count(sample_key(tags[i])) == 0)
-                    wake = std::min(wake, tags[i].history_deadline.next());
-            }
-        };
-        inspect(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
-        inspect(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
-        inspect(equipo_rs232, GLOBAL_contador_equipos_rs232);
-        wait_driver_until(std::max(wake, PeriodicDeadline::Clock::now() + std::chrono::milliseconds(1)));
-		iniciado = true;
-	}
-	if (iniciado) cout << " fin hilo escritura en base de datos local" << endl;
-	return 1;
 }
