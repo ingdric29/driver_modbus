@@ -156,14 +156,12 @@ int enviar_email(storigen origen, stdestino destino) {
     const bool implicit_tls = origen.smtp.compare(0, 8, "smtps://") == 0;
     const bool starttls = origen.smtp.compare(0, 7, "smtp://") == 0;
     if ((!implicit_tls && !starttls) || origen.from.empty() || destino.to.empty()
-        || origen.connect_timeout < 1 || origen.connect_timeout > 300
-        || origen.timeout < origen.connect_timeout || origen.timeout > 300
         || origen.smtp.find_first_of("\r\n@?#") != std::string::npos
         || origen.from.find_first_of("\r\n") != std::string::npos
         || destino.to.find_first_of("\r\n") != std::string::npos
         || destino.cc.find_first_of("\r\n") != std::string::npos
         || destino.asunto.find_first_of("\r\n") != std::string::npos) {
-        email_log.registrarError("ERROR: SMTP: " + context + " configuracion de servidor/remitente/destinatario o timeout invalida");
+        email_log.registrarError("ERROR: SMTP: " + context + " configuracion de servidor/remitente/destinatario invalida");
         return CURLE_BAD_FUNCTION_ARGUMENT;
     }
     std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), &curl_easy_cleanup);
@@ -179,10 +177,11 @@ int enviar_email(storigen origen, stdestino destino) {
     curl_easy_setopt(curl.get(), CURLOPT_URL, origen.smtp.c_str());
     curl_easy_setopt(curl.get(), CURLOPT_ERRORBUFFER, error_buffer);
     curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
-    // smtp:// uses mandatory STARTTLS; smtps:// negotiates TLS from the outset.
-    // Never downgrade to plaintext or bypass certificate/hostname checks.
-    curl_easy_setopt(curl.get(), CURLOPT_USE_SSL, static_cast<long>(CURLUSESSL_ALL));
-    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYPEER, 1L);
+    // Restore the original SMTPS path: implicit TLS from the configured URL,
+    // the inherited peer policy and no application-imposed transfer deadlines.
+    // Keep explicit STARTTLS support for an explicitly configured smtp:// URL.
+    if (starttls) curl_easy_setopt(curl.get(), CURLOPT_USE_SSL, static_cast<long>(CURLUSESSL_ALL));
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYPEER, origen.ca_file.empty() ? 0L : 1L);
     curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYHOST, 2L);
     if (!origen.ca_file.empty()) curl_easy_setopt(curl.get(), CURLOPT_CAINFO, origen.ca_file.c_str());
     curl_easy_setopt(curl.get(), CURLOPT_MAIL_FROM, origen.from.c_str());
@@ -200,8 +199,6 @@ int enviar_email(storigen origen, stdestino destino) {
     curl_easy_setopt(curl.get(), CURLOPT_READDATA, &upload);
     curl_easy_setopt(curl.get(), CURLOPT_UPLOAD, 1L);
     curl_easy_setopt(curl.get(), CURLOPT_VERBOSE, 0L);
-    curl_easy_setopt(curl.get(), CURLOPT_CONNECTTIMEOUT, origen.connect_timeout);
-    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, origen.timeout);
     const CURLcode result = curl_easy_perform(curl.get());
     long smtp_code = 0;
     double dns = 0, tcp = 0, tls = 0, total = 0;
@@ -215,7 +212,8 @@ int enviar_email(storigen origen, stdestino destino) {
         : tls == 0 ? "TLS" : "SMTP";
     std::ostringstream log; log.imbue(std::locale::classic());
     log << (result == CURLE_OK ? "INFO: SMTP: " : "ERROR: SMTP: ") << context
-        << " modo=" << (implicit_tls ? "SMTPS" : "STARTTLS")
+        << " modo=" << (implicit_tls ? "SMTPS_ORIGINAL" : "STARTTLS")
+        << " limites=libcurl_original"
         << " codigo=" << result << " smtp=" << smtp_code
         << std::fixed << std::setprecision(1) << " dns_ms=" << dns * 1000
         << " conexion_ms=" << tcp * 1000 << " tls_ms=" << tls * 1000 << " total_ms=" << total * 1000;

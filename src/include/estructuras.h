@@ -37,8 +37,6 @@ struct storigen {
 	std::string password;
 	std::string smtp;
     std::string ca_file;
-    long connect_timeout = 10;
-    long timeout = 30;
 };
 
 struct stdestino {

@@ -3,8 +3,9 @@
 SIGINT y SIGTERM solicitan parada. Las esperas del driver se interrumpen en
 intervalos de hasta 20 ms; las operaciones de red en curso terminan o alcanzan
 su timeout antes de unir trabajadores. No hay garantía de apagado en 20 ms.
-SQL utiliza límites de conexión/lectura/escritura de tres segundos, y correo
-un timeout total de treinta segundos por defecto (configurable). Un cierre pierde históricos no confirmados
+SQL utiliza límites de conexión/lectura/escritura de tres segundos. El correo
+recupera los tiempos predeterminados de libcurl, sin límite total añadido
+por el driver; una operación SMTP en curso puede retrasar el cierre. Un cierre pierde históricos no confirmados
 que aún estén en memoria; las métricas muestran las ventanas pendientes.
 
 Las conexiones Modbus fallidas aplican espera progresiva desde 100 ms hasta

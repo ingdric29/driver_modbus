@@ -26,8 +26,8 @@ class TransportTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def send(self, url, trusted=True, timeouts=()):
-        result = subprocess.run([str(BINARY), url, str(self.cert) if trusted else '-'] + [str(value) for value in timeouts], cwd=self.base / 'run',
+    def send(self, url, trusted=True, ca_file=None):
+        result = subprocess.run([str(BINARY), url, str(ca_file or self.cert) if trusted else '-'], cwd=self.base / 'run',
                                 capture_output=True, text=True, timeout=8)
         output = result.stdout + result.stderr
         self.assertNotIn('fixture-secret', output)
@@ -56,20 +56,16 @@ class TransportTests(unittest.TestCase):
             finally:
                 server.close()
 
-    def test_regression_slow_tls_legacy_timeout_fails_corrected_timeout_succeeds(self):
-        for timeout, total, expected in ((3, 10, 28), (10, 30, 0)):
-            server = Server(self.cert, self.key, tls_delay=4)
-            try:
-                result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), timeouts=(timeout, total))
-                self.assertEqual(result, expected, output)
-                if expected:
-                    self.assertNotIn(b'AUTH', server.commands)
-                    self.assertFalse(server.messages)
-                else:
-                    self.assertIn('aceptado por el servidor', output)
-                    self.assertEqual(len(server.messages), 1)
-            finally:
-                server.close()
+    def test_original_defaults_allow_slow_smtps_without_added_deadlines(self):
+        server = Server(self.cert, self.key, tls_delay=4)
+        try:
+            result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), trusted=False)
+            self.assertEqual(result, 0, output)
+            self.assertIn('modo=SMTPS_ORIGINAL limites=libcurl_original', output)
+            self.assertIn('aceptado por el servidor', output)
+            self.assertEqual(len(server.messages), 1)
+        finally:
+            server.close()
 
     def test_no_plaintext_fallback_when_starttls_unavailable(self):
         server = Server(self.cert, self.key, implicit=False, offer_starttls=False)
@@ -92,15 +88,25 @@ class TransportTests(unittest.TestCase):
         finally:
             server.close()
 
-    def test_certificate_failure_is_not_bypassed(self):
+    def test_original_peer_policy_and_explicit_ca_override(self):
+        # No CA override reproduces the original peer-chain setting; host checking stays on.
         server = Server(self.cert, self.key)
         try:
             result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), trusted=False)
-            self.assertEqual(result, 60, output)
-            self.assertNotIn(b'AUTH', server.commands)
-            self.assertFalse(server.messages)
+            self.assertEqual(result, 0, output)
+            self.assertEqual(len(server.messages), 1)
         finally:
             server.close()
+        with tempfile.TemporaryDirectory() as directory:
+            unrelated_ca, _ = certificate(directory)
+            server = Server(self.cert, self.key)
+            try:
+                result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), ca_file=unrelated_ca)
+                self.assertEqual(result, 60, output)
+                self.assertNotIn(b'AUTH', server.commands)
+                self.assertFalse(server.messages)
+            finally:
+                server.close()
 
     def test_server_rejection_after_data_is_not_success(self):
         server = Server(self.cert, self.key, reject_data=True)

@@ -133,14 +133,14 @@ La plantilla de correo vacía evita cualquier envío SMTP.
 
 `make test` incluye el diagnóstico Python y `run_email_test.sh` con ASan/UBSan.
 Requiere Python 3 y `openssl` para emitir un certificado temporal de loopback.
-El emisor real de libcurl se prueba con SMTPS y STARTTLS obligatorio, AUTH
-rechazado, certificado no confiable, ausencia de STARTTLS y rechazo tras DATA.
-Una descripción de 120 kB comprueba que el callback de subida respeta el buffer.
-Los destinatarios son exclusivamente example.invalid y los servidores escuchan
-en 127.0.0.1; ningún correo sale a Internet. El runner de estado confirma que
-tres alarmas conservan su envío pendiente después de error y no repiten una
-notificación aceptada. Las pruebas no usan claves de configdb.cfg.
+El emisor real de libcurl se prueba con SMTPS y con STARTTLS para URL SMTP,
+AUTH rechazado, política de certificado heredada y CA explícita, ausencia
+de STARTTLS y rechazo tras DATA. Una descripción de 120 kB comprueba que el
+callback de subida respeta el buffer. Los destinatarios son exclusivamente
+example.invalid y los servidores escuchan en 127.0.0.1; ningún correo sale
+a Internet. El runner de estado confirma que tres alarmas conservan su envío
+pendiente después de error y no repiten una notificación aceptada. Las
+pruebas no usan claves de configdb.cfg.
 
-La regresión de timeout SMTP retrasa TLS cuatro segundos: comprueba que el
-límite antiguo de tres segundos falla con código 28 y que 10/30 permite
-completar el mismo envío con verificación de certificado activa.
+La prueba de conexión original retrasa TLS cuatro segundos y verifica que
+el emisor completa el envío sin añadir límites CONNECTTIMEOUT/TIMEOUT.

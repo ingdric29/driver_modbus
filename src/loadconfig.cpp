@@ -170,8 +170,6 @@ int loadconfigdb()
 		GLOBAL_email_origen.password = reader.Get(*sectionsIt, "smtp_pass", "");
 		GLOBAL_email_origen.smtp = reader.Get(*sectionsIt, "smtp_servidor", "");
         GLOBAL_email_origen.ca_file = reader.Get(*sectionsIt, "smtp_ca_file", "");
-        GLOBAL_email_origen.connect_timeout = reader.GetInteger(*sectionsIt, "smtp_timeout_conexion", 10);
-        GLOBAL_email_origen.timeout = reader.GetInteger(*sectionsIt, "smtp_timeout_total", 30);
 
 		GLOBAL_direccionip_dns = reader.Get(*sectionsIt, "direccionip_dns", "1.0.0.1");
 
