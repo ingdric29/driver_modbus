@@ -13,7 +13,12 @@
 #include <chrono>
 #include <random>
 
-#define SKIP_PEER_VERIFICATION 1
+#include <algorithm>
+#include <cstring>
+#include <iomanip>
+#include <locale>
+#include <limits>
+#include <memory>
 
 using namespace std;
 
@@ -74,19 +79,38 @@ void replaceAll(std::string &str, const std::string &from, const std::string &to
 }
 
 static size_t payload_source(void *ptr, size_t size, size_t nmemb, void *userp) {
-    upload_status *upload_ctx = (upload_status *)userp;
-    if (!upload_ctx || !upload_ctx->payload) return 0;
-
-    vector<string>& payload = *upload_ctx->payload;
-
-    if (upload_ctx->lines_read >= payload.size()) {
-        return 0;
+    auto* upload = static_cast<upload_status*>(userp);
+    if (!upload || !upload->payload) return 0;
+    if (size && nmemb > std::numeric_limits<size_t>::max() / size) return CURL_READFUNC_ABORT;
+    const size_t capacity = size * nmemb;
+    size_t written = 0;
+    while (written < capacity && upload->lines_read < upload->payload->size()) {
+        const auto& line = (*upload->payload)[upload->lines_read];
+        const size_t count = std::min(capacity - written, line.size() - upload->line_offset);
+        std::memcpy(static_cast<char*>(ptr) + written, line.data() + upload->line_offset, count);
+        written += count; upload->line_offset += count;
+        if (upload->line_offset == line.size()) { ++upload->lines_read; upload->line_offset = 0; }
     }
+    return written;
+}
 
-    const string &data = payload[upload_ctx->lines_read++];
-    size_t len = data.size();
-    memcpy(ptr, data.c_str(), len);
-    return len;
+namespace {
+std::string rfc_mail_date() {
+    const auto now = std::time(nullptr); std::tm utc{}; gmtime_r(&now, &utc);
+    std::ostringstream date; date.imbue(std::locale::classic());
+    date << std::put_time(&utc, "%a, %d %b %Y %H:%M:%S +0000"); return date.str();
+}
+std::string safe_detail(std::string detail, const storigen& origin) {
+    replaceAll(detail, origin.password, "[oculto]");
+    replaceAll(detail, origin.username, "[oculto]");
+    for (char& c : detail) if (static_cast<unsigned char>(c) < 32 || c == 127) c = ' ';
+    return detail.substr(0, 512);
+}
+std::string smtp_context(const stdestino& destination) {
+    std::string context = destination.context;
+    for (char& c : context) if (static_cast<unsigned char>(c) < 32 || c == 127) c = ' ';
+    return context.substr(0, 256);
+}
 }
 
 
@@ -94,7 +118,7 @@ int enviar_email(storigen origen, stdestino destino) {
     string html_template = cargarPlantillaHTML(dir_plantilla_html);
     
     if (html_template.empty()) {
-        email_log.registrarError("ERROR: HTML vacío");
+        email_log.registrarError("ERROR: HTML vacío; SMTP " + smtp_context(destino));
         return -1;
     }
 	
@@ -109,10 +133,9 @@ int enviar_email(storigen origen, stdestino destino) {
 	std::string message_id_str = "Message-ID: " + generar_message_id(origen.from) + "\r\n";
 
     vector<string> payload_text = {
-        "Date: " + fecha_para_emails_local() + "\r\n",
+        "Date: " + rfc_mail_date() + "\r\n",
         "To: " + destino.to + "\r\n",
         "From: " + origen.from + " (Alarma " + GLOBAL_nombre_concentrador + ")\r\n",
-        "Cc: " + destino.cc + " (Usuario)\r\n",
         message_id_str,
         "Reply-To: " + origen.from + "\r\n",
         "Subject: " + destino.asunto + "\r\n",
@@ -121,53 +144,83 @@ int enviar_email(storigen origen, stdestino destino) {
         "\r\n",
         "--MIME_boundary\r\n",
         "Content-Type: text/html; charset=UTF-8\r\n",
-        "Content-Transfer-Encoding: 7bit\r\n",
+        "Content-Transfer-Encoding: 8bit\r\n",
         "\r\n",
         html_template + "\r\n"
     };
 
-    payload_text.push_back("\r\n--MIME_boundary--");
+    if (!destino.cc.empty()) payload_text.insert(payload_text.begin() + 1, "Cc: " + destino.cc + "\r\n");
+    payload_text.push_back("\r\n--MIME_boundary--\r\n");
 
-    imprimir_mensaje("Preparando email para enviar...");
-
-    CURL *curl;
-    CURLcode res = CURLE_OK;
-    struct curl_slist *recipients = NULL;
-    upload_status upload_ctx = {0, &payload_text};
-
-    curl = curl_easy_init();
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_USERNAME, origen.username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, origen.password.c_str());
-        curl_easy_setopt(curl, CURLOPT_URL, origen.smtp.c_str());
-
-    #ifdef SKIP_PEER_VERIFICATION
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    #endif
-
-        curl_easy_setopt(curl, CURLOPT_MAIL_FROM, origen.from.c_str());
-        recipients = curl_slist_append(recipients, destino.to.c_str());
-        if (!destino.cc.empty()) {
-            recipients = curl_slist_append(recipients, destino.cc.c_str());
-        }
-        curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
-
-        curl_easy_setopt(curl, CURLOPT_READFUNCTION, payload_source);
-        curl_easy_setopt(curl, CURLOPT_READDATA, &upload_ctx);
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-
-        res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK) {
-            email_log.registrarError(std::string("ERROR: SMTP: ") + curl_easy_strerror(res) + " (codigo=" + std::to_string(res) + ")");
-        }
-
-        curl_slist_free_all(recipients);
-        curl_easy_cleanup(curl);
+    const std::string context = smtp_context(destino);
+    const bool implicit_tls = origen.smtp.compare(0, 8, "smtps://") == 0;
+    const bool starttls = origen.smtp.compare(0, 7, "smtp://") == 0;
+    if ((!implicit_tls && !starttls) || origen.from.empty() || destino.to.empty()
+        || origen.connect_timeout < 1 || origen.connect_timeout > 300
+        || origen.timeout < origen.connect_timeout || origen.timeout > 300
+        || origen.smtp.find_first_of("\r\n@?#") != std::string::npos
+        || origen.from.find_first_of("\r\n") != std::string::npos
+        || destino.to.find_first_of("\r\n") != std::string::npos
+        || destino.cc.find_first_of("\r\n") != std::string::npos
+        || destino.asunto.find_first_of("\r\n") != std::string::npos) {
+        email_log.registrarError("ERROR: SMTP: " + context + " configuracion de servidor/remitente/destinatario o timeout invalida");
+        return CURLE_BAD_FUNCTION_ARGUMENT;
     }
-
-    return static_cast<int>(res);
+    std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), &curl_easy_cleanup);
+    if (!curl) {
+        email_log.registrarError("ERROR: SMTP: " + context + " no se pudo inicializar cURL (codigo=2)");
+        return CURLE_FAILED_INIT;
+    }
+    char error_buffer[CURL_ERROR_SIZE] = {};
+    if (!origen.username.empty()) {
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, origen.username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, origen.password.c_str());
+    }
+    curl_easy_setopt(curl.get(), CURLOPT_URL, origen.smtp.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_ERRORBUFFER, error_buffer);
+    curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
+    // smtp:// uses mandatory STARTTLS; smtps:// negotiates TLS from the outset.
+    // Never downgrade to plaintext or bypass certificate/hostname checks.
+    curl_easy_setopt(curl.get(), CURLOPT_USE_SSL, static_cast<long>(CURLUSESSL_ALL));
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYHOST, 2L);
+    if (!origen.ca_file.empty()) curl_easy_setopt(curl.get(), CURLOPT_CAINFO, origen.ca_file.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_MAIL_FROM, origen.from.c_str());
+    curl_slist* recipients = curl_slist_append(nullptr, destino.to.c_str());
+    if (!recipients) return CURLE_OUT_OF_MEMORY;
+    if (!destino.cc.empty()) {
+        curl_slist* updated = curl_slist_append(recipients, destino.cc.c_str());
+        if (!updated) { curl_slist_free_all(recipients); return CURLE_OUT_OF_MEMORY; }
+        recipients = updated;
+    }
+    std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)> list(recipients, &curl_slist_free_all);
+    upload_status upload = {0, &payload_text, 0};
+    curl_easy_setopt(curl.get(), CURLOPT_MAIL_RCPT, list.get());
+    curl_easy_setopt(curl.get(), CURLOPT_READFUNCTION, payload_source);
+    curl_easy_setopt(curl.get(), CURLOPT_READDATA, &upload);
+    curl_easy_setopt(curl.get(), CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_VERBOSE, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_CONNECTTIMEOUT, origen.connect_timeout);
+    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, origen.timeout);
+    const CURLcode result = curl_easy_perform(curl.get());
+    long smtp_code = 0;
+    double dns = 0, tcp = 0, tls = 0, total = 0;
+    curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &smtp_code);
+    curl_easy_getinfo(curl.get(), CURLINFO_NAMELOOKUP_TIME, &dns);
+    curl_easy_getinfo(curl.get(), CURLINFO_CONNECT_TIME, &tcp);
+    curl_easy_getinfo(curl.get(), CURLINFO_APPCONNECT_TIME, &tls);
+    curl_easy_getinfo(curl.get(), CURLINFO_TOTAL_TIME, &total);
+    const std::string stage = result == CURLE_COULDNT_RESOLVE_HOST ? "DNS"
+        : result == CURLE_LOGIN_DENIED ? "AUTH" : tcp == 0 ? "CONEXION"
+        : tls == 0 ? "TLS" : "SMTP";
+    std::ostringstream log; log.imbue(std::locale::classic());
+    log << (result == CURLE_OK ? "INFO: SMTP: " : "ERROR: SMTP: ") << context
+        << " modo=" << (implicit_tls ? "SMTPS" : "STARTTLS")
+        << " codigo=" << result << " smtp=" << smtp_code
+        << std::fixed << std::setprecision(1) << " dns_ms=" << dns * 1000
+        << " conexion_ms=" << tcp * 1000 << " tls_ms=" << tls * 1000 << " total_ms=" << total * 1000;
+    if (result == CURLE_OK) log << " aceptado por el servidor";
+    else log << " etapa=" << stage << " detalle=" << safe_detail(error_buffer[0] ? error_buffer : curl_easy_strerror(result), origen);
+    email_log.registrarError(log.str());
+    return static_cast<int>(result);
 }

@@ -27,7 +27,8 @@
  
 struct upload_status {
     size_t lines_read;
-    std::vector<std::string>* payload; 
+    std::vector<std::string>* payload;
+    size_t line_offset;
 };
  
 struct storigen {
@@ -35,9 +36,13 @@ struct storigen {
 	std::string username;
 	std::string password;
 	std::string smtp;
+    std::string ca_file;
+    long connect_timeout = 10;
+    long timeout = 30;
 };
 
 struct stdestino {
+    std::string context; // Alarm/directory identifiers, never credentials.
 	std::string to;
 	std::string cc;
 	std::string asunto;

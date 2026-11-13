@@ -37,6 +37,7 @@ $(BUILD_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
 test: all
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
+	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_email_test.sh
 	python3 tests/test_mailcheck.py
 	python3 tests/test_monitor_client.py
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"

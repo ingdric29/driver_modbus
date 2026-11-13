@@ -48,3 +48,51 @@ Un TLS correcto confirma acceso al servidor, no autenticación ni entrega en
 la bandeja de entrada. Solo cambiar `smtp_servidor` por una opción compatible
 con las instrucciones del proveedor. La configuración SMTP se carga al iniciar
 el driver: modificarla requiere un reinicio controlado de esa instancia.
+
+## Configuración de envío corregida
+
+La prueba realizada desde la Raspberry del usuario mostró timeout en 465 y
+STARTTLS con certificado válido en 587 (5,10 segundos). Para esa instalación:
+
+```ini
+smtp_servidor = smtp://p3plzcpnl463001.prod.phx3.secureserver.net:587
+smtp_timeout_conexion = 10
+smtp_timeout_total = 30
+```
+
+El archivo versionado incorpora estos tres valores. Si mantienes una
+configuración local diferente, conserva tus parámetros de base de datos,
+remitente, usuario y contraseña, y aplica únicamente esas líneas SMTP.
+
+El transporte pide STARTTLS obligatorio con `smtp://` y TLS implícito con
+`smtps://`. Verifica la cadena del certificado y el nombre del servidor;
+no degrada el envío a texto plano. `smtp_ca_file` permite indicar un archivo
+CA para una instalación privada; vacío utiliza las CA del sistema.
+Los límites de conexión y envío son configurables de 1 a 300 segundos;
+el tiempo total debe ser mayor o igual al de conexión. Los valores por
+defecto son 10 y 30 segundos. El saludo, TLS y autenticación consumen parte
+del tiempo total. No se usan credenciales predeterminadas ocultas cuando
+faltan campos SMTP; la adquisición sigue funcionando aunque falle el correo.
+
+Cada intento registra alarma, dispositivo, ID del directorio, activación o
+desactivación, modo TLS, resultado cURL, respuesta SMTP y marcas de tiempo
+acumuladas de DNS, conexión, TLS y operación total. Los detalles de cURL
+ocultan el usuario y la clave configurados. Un resultado de autenticación
+fallida se identifica como etapa AUTH; un fallo de TLS mantiene la alarma
+pendiente de notificar, nunca como correo enviado.
+
+Una línea `INFO: SMTP: ... aceptado por el servidor` confirma que el servidor
+aceptó el mensaje, no que llegó a la bandeja de entrada. Si aparece
+`codigo=67 smtp=535 etapa=AUTH`, comprobar las credenciales y las condiciones
+de acceso del proveedor sin publicarlas en el chat. Tras un fallo, las
+alarmas que continúan cumpliendo su condición vuelven a intentar el envío
+en su siguiente evaluación; una aceptación evita repetir el correo de esa
+activación. Cada alarma conserva su estado independiente.
+
+La construcción del mensaje usa una fecha RFC en inglés con zona horaria,
+contenido HTML UTF-8 de 8 bits y omite Cc si está vacío. La subida respeta el
+tamaño del buffer de cURL incluso con plantillas/descripciones grandes.
+
+Actualizar y compilar, detener la instancia antigua con SIGINT/SIGTERM y
+arrancar el binario nuevo desde `.build`. Cambiar solo la URL del archivo no
+basta si se conserva el transporte anterior sin STARTTLS explícito.

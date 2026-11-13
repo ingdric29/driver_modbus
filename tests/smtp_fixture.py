@@ -16,11 +16,12 @@ def certificate(directory):
 
 
 class Server:
-    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False):
+    def __init__(self, cert, key, implicit=True, authenticate=True, reject_auth=False, reject_data=False, offer_starttls=True):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.context.load_cert_chain(str(cert), str(key))
         self.implicit, self.authenticate = implicit, authenticate
         self.reject_auth, self.reject_data = reject_auth, reject_data
+        self.offer_starttls = offer_starttls
         self.commands, self.messages, self.errors = [], [], []
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
@@ -48,6 +49,7 @@ class Server:
                 tls = self.implicit
                 data_mode = False
                 finished = False
+                auth_pending = False
                 message = []
                 while not self.stop.is_set() and not finished:
                     block = connection.recv(4096)
@@ -64,11 +66,15 @@ class Server:
                             else:
                                 message.append(line[1:] if line.startswith(b'..') else line)
                             continue
+                        if auth_pending:
+                            connection.sendall(b'235 authenticated\r\n')
+                            auth_pending = False
+                            continue
                         verb = line.split(b' ', 1)[0].upper()
                         self.commands.append(verb)
                         if verb == b'EHLO':
                             response = b'250-localhost\r\n'
-                            if not tls:
+                            if not tls and self.offer_starttls:
                                 response += b'250-STARTTLS\r\n'
                             if self.authenticate:
                                 response += b'250-AUTH PLAIN\r\n'
@@ -79,7 +85,13 @@ class Server:
                             tls = True
                             buffer = b''
                         elif verb == b'AUTH':
-                            connection.sendall(b'535 wrong fixture credentials\r\n' if self.reject_auth else b'235 authenticated\r\n')
+                            if self.reject_auth:
+                                connection.sendall(b'535 wrong fixture credentials\r\n')
+                            elif len(line.split()) >= 3:
+                                connection.sendall(b'235 authenticated\r\n')
+                            else:
+                                connection.sendall(b'334 \r\n')
+                                auth_pending = True
                         elif verb in (b'MAIL', b'RCPT', b'RSET'):
                             connection.sendall(b'250 OK\r\n')
                         elif verb == b'DATA':

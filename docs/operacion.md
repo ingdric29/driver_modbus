@@ -4,7 +4,7 @@ SIGINT y SIGTERM solicitan parada. Las esperas del driver se interrumpen en
 intervalos de hasta 20 ms; las operaciones de red en curso terminan o alcanzan
 su timeout antes de unir trabajadores. No hay garantía de apagado en 20 ms.
 SQL utiliza límites de conexión/lectura/escritura de tres segundos, y correo
-un timeout total de diez segundos. Un cierre pierde históricos no confirmados
+un timeout total de treinta segundos por defecto (configurable). Un cierre pierde históricos no confirmados
 que aún estén en memoria; las métricas muestran las ventanas pendientes.
 
 Las conexiones Modbus fallidas aplican espera progresiva desde 100 ms hasta
@@ -44,3 +44,5 @@ El [monitor SSH](monitor.md) permite consultar en vivo el estado de cada
 dispositivo/tag, alarmas, SQL y eventos desde otra terminal, sin iniciar otra
 adquisición. Tras instalar esta versión, el driver debe reiniciarse una vez
 para habilitar el socket local; abrir/cerrar visores posteriores no requiere reinicio.
+
+Para problemas de envío de alarmas, ver [diagnóstico y configuración SMTP](correo.md).

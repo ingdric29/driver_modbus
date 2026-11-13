@@ -12,6 +12,7 @@
 		//parametros
 		
 		int id;
+		string context;
 		string from;
 		string to;
 		string cc;

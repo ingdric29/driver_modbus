@@ -224,6 +224,25 @@ void alarm_directory_test() {
     alarm.ejecutado_activar_email = false;
     assert(alarm.evaluarcompleto() == 1); // Defensive handling of null directory.
     assert(!alarm.ejecutado_activar_email && test_email::deliveries.size() == 3);
+    emaillist = new cls_email[1]; emaillist[0].id = 7; emaillist[0].to = "retry@example.invalid";
+    GLOBAL_contador_directorio = 1;
+    cls_defalarmas alarms[3] = {alarm, alarm, alarm};
+    test_email::result = 28;
+    const auto before_retry = test_email::deliveries.size();
+    for (int i = 0; i < 3; ++i) {
+        alarms[i].id = 42 + i;
+        assert(alarms[i].evaluarcompleto() == 1);
+        assert(!alarms[i].ejecutado_activar_email);
+        assert(test_email::deliveries.back().context.find("alarma=" + std::to_string(42 + i)) != std::string::npos);
+    }
+    assert(test_email::deliveries.size() == before_retry + 3);
+    test_email::result = 0;
+    for (auto& pending : alarms) {
+        assert(pending.evaluarcompleto() == 1 && pending.ejecutado_activar_email);
+        assert(pending.evaluarcompleto() == 1); // Accepted notification is not sent again.
+    }
+    assert(test_email::deliveries.size() == before_retry + 6);
+    delete[] emaillist; emaillist = nullptr;
     GLOBAL_contador_directorio = 0;
 }
 void shutdown_test() {

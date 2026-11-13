@@ -340,6 +340,8 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 					indice = email_buscarid(cast_string_to_int(indicestr));
 					if (emaillist && (indice >= 0) && (indice < GLOBAL_contador_directorio)) {
                         cls_email notification = emaillist[indice];
+                        notification.context = "alarma=" + std::to_string(id) + " dispositivo=" + clsdispositivo
+                            + " directorio=" + indicestr + (alarmaactivada ? " evento=activar" : " evento=desactivar");
 						//"activar   : " + expresionactivar + "[ " + expresionactivar_numerica + " ]"
 						
 						//"desactivar: " + expresiondesactivar + "[ " + expresiondesactivar_numerica + " ]"

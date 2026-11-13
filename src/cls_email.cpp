@@ -15,6 +15,7 @@
 		
 		int res;
 		stdestino LOCAL_destino;
+		LOCAL_destino.context = context.empty() ? "directorio=" + std::to_string(id) : context;
 		LOCAL_destino.to = to;
 		LOCAL_destino.cc = cc;
 		LOCAL_destino.asunto = asunto;

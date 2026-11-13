@@ -128,3 +128,15 @@ Con MariaDB local de pruebas, `make test-sql` ejecuta el proceso completo con
 159 tags TCP simulados, consulta el monitor y el CLI, conecta varios espectadores,
 recarga el catálogo mediante tbcambios y verifica el cierre ordenado del socket.
 La plantilla de correo vacía evita cualquier envío SMTP.
+
+## Correo sin servicios externos
+
+`make test` incluye el diagnóstico Python y `run_email_test.sh` con ASan/UBSan.
+Requiere Python 3 y `openssl` para emitir un certificado temporal de loopback.
+El emisor real de libcurl se prueba con SMTPS y STARTTLS obligatorio, AUTH
+rechazado, certificado no confiable, ausencia de STARTTLS y rechazo tras DATA.
+Una descripción de 120 kB comprueba que el callback de subida respeta el buffer.
+Los destinatarios son exclusivamente example.invalid y los servidores escuchan
+en 127.0.0.1; ningún correo sale a Internet. El runner de estado confirma que
+tres alarmas conservan su envío pendiente después de error y no repiten una
+notificación aceptada. Las pruebas no usan claves de configdb.cfg.
