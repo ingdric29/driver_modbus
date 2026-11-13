@@ -2,7 +2,7 @@
 
 | Componente | Responsabilidad |
 | --- | --- |
-| `main.cpp` | Configuración inicial, licencia, coordinador, comandos y señales |
+| `main.cpp` | Configuración inicial, coordinador, comandos y señales |
 | `acquisition.cpp` | Vencimientos individuales y agrupación de tags ya vencidos |
 | `persistence.cpp` | Snapshots, ventanas pendientes, reintento y confirmación SQL |
 | `cls_equipos.cpp` | Lectura y publicación de valores TCP/RTU/RS232 |

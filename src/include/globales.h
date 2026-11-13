@@ -104,8 +104,6 @@ extern string GLOBAL_direccionip_dns;
 extern double GLOBAL_periodo_reseteo_mysqlexterno;
 extern double GLOBAL_ultimo_reseteo_mysqlexterno;
 
-extern string GLOBAL_clave1;
-extern string GLOBAL_clave2;
 
 int loadconfigdb();
 int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat, int dispositivo, string rastro, string nombre_concentrador, string nombre_dispositivo, string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db, string dbtabla);

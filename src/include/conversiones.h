@@ -111,6 +111,4 @@ string fecha_para_emails_utc_es();
 int listainterfaces();
 unsigned long long valormac_from_ifrname(char* if_name);
 int imprimirmac_from_ifrname(char* if_name);
-int check_key(long long key);
-int probarclave();
 #endif

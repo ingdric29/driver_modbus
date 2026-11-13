@@ -34,8 +34,10 @@ Para compiladores sin sanitizadores, establecer `TEST_CXXFLAGS` explícitamente.
 [tests/README.md](../tests/README.md). No es el esquema de producción. Los
 programas usan perfiles locales reservados de pruebas y no consultan las
 credenciales de configdb.cfg. La prueba de comandos crea `driver_cmd_test`.
+La prueba de arranque utiliza Python 3 y confirma que la ausencia o el formato
+de las antiguas claves de licencia no impiden alcanzar el coordinador.
 
-No se han validado equipos industriales físicos, una licencia real, correo,
+No se han validado equipos industriales físicos, correo,
 SMS ni una ejecución completa sobre el esquema del usuario. El envío SMS
 heredado sigue desactivado; ahora devuelve error determinista en vez de usar
 un resultado sin inicializar. La compilación conserva advertencias heredadas

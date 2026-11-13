@@ -28,9 +28,10 @@ orquesta: $(BUILD_DIR)/orquesta
 $(BUILD_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) -lboost_filesystem -lboost_system -o $@
-test:
+test: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
+	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
 test-sql:
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_sql_test.sh
 clean:

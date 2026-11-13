@@ -25,5 +25,7 @@ fijas, para que el driver utilice exclusivamente su configuración de datos.
 RTU y RS232 directo no pueden configurarse en la misma interfaz a la vez.
 
 Una carga de configuración inválida o fallida impide iniciar trabajadores;
-una licencia inválida sigue deteniendo el programa. El formato incorrecto de
-la clave devuelve un error controlado y no modifica la validación de licencia.
+el arranque no requiere licencia ni está vinculado a las interfaces de red.
+Los parámetros antiguos `clave1` y `clave2` se ignoran y pueden retirarse de
+configdb.cfg. La autenticación configurada para bases de datos y correo sigue
+siendo necesaria cuando esos servicios la exigen.

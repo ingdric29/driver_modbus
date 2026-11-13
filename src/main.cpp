@@ -171,8 +171,6 @@ double GLOBAL_tiempo_restablecimiento_comunicacion = 60;
 string GLOBAL_ultimomensajemostrado = "";
 std::recursive_mutex GLOBAL_output_mutex;
 
-string GLOBAL_clave1;
-string GLOBAL_clave2;
 
 /*
 ============================================================
@@ -182,9 +180,6 @@ MAIN
 
 int main(int argc, char* argv[]) {
     install_driver_signals();
-	int res = 0;
-	long long valorclave1 = 0;
-	long long valorclave2 = 0;
 
 	if (argc > 1) GLOBAL_habilitar_imprimir = atoi(argv[1]);
 	cout << separadorigual << endl;
@@ -224,20 +219,6 @@ int main(int argc, char* argv[]) {
 	GLOBAL_ultimo_reseteo_mysqlexterno = 0;
 	GLOBAL_contador_defeventos = -1;
 
-	try {
-        valorclave1 = std::stoull(GLOBAL_clave1, nullptr, 16);
-        valorclave2 = std::stoull(GLOBAL_clave2, nullptr, 16);
-    } catch (const std::exception&) { logger_main.registrarError("Invalid license key format"); return EXIT_FAILURE; }
-	if (!(check_key(valorclave1) || check_key(valorclave2))) {
-		cout << "Ambas claves invalidas" << endl;
-		cout << "favor suministrar los siguientes codigos" << endl;
-		cout << "a su vendedor para conseguir sus claves:" << endl;
-		logger_main.registrarError("ERROR: INVALID KEYS DETECTED! Please contact your provider to obtain the correct keys. License not activated. Devlog stopped.");
-		listainterfaces();
-		insertar_eventos_tbhistoalarmas("licencia no activada!","");
-		esperar(60);
-		return 1;
-	};	
 	insertar_eventos_tbhistoalarmas("registrador iniciado!","");
 	logger_main.registrarError("INFO: Start Devlog.");
 	try { return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS; }

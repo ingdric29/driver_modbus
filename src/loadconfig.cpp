@@ -181,8 +181,6 @@ int loadconfigdb()
 
 		GLOBAL_cantidadregistrossubir = cast_string_to_int(reader.Get(*sectionsIt, "cantidadregistrossubir", "500"));
 		
-		GLOBAL_clave1 = reader.Get(*sectionsIt, "clave1", "0");
-		GLOBAL_clave2 = reader.Get(*sectionsIt, "clave2", "0");
 
 		for (std::set<std::string>::iterator fieldsIt = fields.begin();
 			fieldsIt != fields.end();

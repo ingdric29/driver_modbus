@@ -91,3 +91,9 @@ La integración de comandos crea `driver_cmd_test`, con tablas temporales de
 perfil, y verifica concentradores con comillas/porcentajes, carga de comandos,
 consumo de su orden y marca de confirmación. No ejecuta esos comandos contra
 dispositivos. El caso SMS solo verifica el error del emisor desactivado.
+
+`make test` también ejecuta `test_startup_without_license.py` con Python 3 y
+el binario construido. Usa configuración temporal y un puerto loopback sin
+servicio para verificar tres arranques: sin claves antiguas, con cero y con
+texto inválido. Los tres deben alcanzar el coordinador y devolver el fallo SQL
+esperado; no se afirma adquisición funcional con la base de datos ausente.
