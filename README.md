@@ -11,7 +11,7 @@ Devlog es un sistema multiplataforma para registrar variables (eléctricas, mec�
 2. Visualización de datos a través de una interfaz web dinámica.
 
 Compatibilidad:
-- **Protocolos soportados**: Modbus TCP, Modbus RTU, HTML.
+- **Protocolos soportados**: Modbus TCP, Modbus RTU, RS232.
 - **Plataformas**: Linux (Debian, Raspbian) y Windows 10.
 
 ---

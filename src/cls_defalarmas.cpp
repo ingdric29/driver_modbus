@@ -139,20 +139,7 @@ struct stres cls_defalarmas::leertag (const string& dispositivo, const string& t
 	 }
 	}
 	
-	if (encontrado == false) {
-	 for (int i=0; i<clscantidad_equipo_htmls9; i++) {
-	   if (&clsequipo_htmls9[i])	{ 
-		if ((clsequipo_htmls9[i].nombre.compare(dispositivo) ==0) && (clsequipo_htmls9[i].tag.compare(tag) ==0)) {
-			local.valorfloat = clsequipo_htmls9[i].clsvalorfloat;
-			local.valorstr = clsequipo_htmls9[i].clsvalorstr;
-			local.indice = i;
-			local.puntero_equipo = &clsequipo_htmls9[0];
-			encontrado = true;
-			break;
-		}
-	   }
-	 }
-	}
+
 	
 
 
@@ -198,23 +185,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	 }
 	}
 	
-	if (encontrado == false) {
-	 for (int i=0; i<clscantidad_equipo_htmls9; i++) {
-	   if (&clsequipo_htmls9[i])	{ 
-		if ((clsequipo_htmls9[i].nombre.compare(dispositivo) ==0) && (clsequipo_htmls9[i].tag.compare(tag) ==0)) {
-			local->valorfloat = clsequipo_htmls9[i].clsvalorfloat;
-			local->valorstr = clsequipo_htmls9[i].clsvalorstr;
-			local->indice = i;
-			local->puntero_equipo = &clsequipo_htmls9[0];
-			local->time_fechatiempo = clsequipo_htmls9[i].ultimo_muestreo;
-			clsorigen = clsequipo_htmls9[i].direccion_ip;
-			clsregistro = clsequipo_htmls9[i].tag;
-			encontrado = true;
-			break;
-		}
-	   }
-	 }
-	}
+
 	
 	if (encontrado == false) {
 		for (int i = 0; i < clscantidad_equipo_rs232; i++) {

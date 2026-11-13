@@ -24,7 +24,7 @@
 
 using namespace std;
 
-enum GLOBAL_enum_protocolo { MBTCP = 0, MBSERIAL =1, HTML_S9 = 2, RS232 = 3};
+enum GLOBAL_enum_protocolo { MBTCP = 0, MBSERIAL =1, RS232 = 3};
 
 //typedef std::vector<std::string>  StringVector;
 
@@ -44,7 +44,6 @@ public:
 	int numerodebits;
 	int controldeflujo;
 	string equipo;
-	string url_miner;
 	string usuario;
 	string password;
 	bool habilitar;
@@ -94,11 +93,9 @@ public:
 	string temp7;
 	string temp8;
 
+	// Nombres heredados del esquema SQL: delimitadores de mensajes RS232.
 	string  html_id;
-	int 	html_posicion;
 	string  html_final;
-	string  html_separador;
-	int  html_indice;
 
 	double  periodo;
 	int 	bit1; // especifica cual bit dentro del word se va usar si es -1 entonces se leen todos
@@ -132,7 +129,6 @@ public:
 	// metodos
 	cls_equipos();
 	int leer();
-	int resetear_s9();
 	unsigned char* buf;
 	int tamanobuffer;
 	int tamanoventana;
@@ -142,7 +138,6 @@ public:
 private:
 	void leer_mbtcp(void);
 	void leer_mbserial(void);
-	void leer_htmls9(void);
 	void leer_rs232(void);
 
 	float convert_float_fp(float regVal);

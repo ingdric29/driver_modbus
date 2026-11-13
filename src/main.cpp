@@ -45,7 +45,6 @@ using namespace std;
 
 cls_equipos* equipo_mbtcp; // se instancias la clase
 cls_equipos* equipo_mbserial;
-cls_equipos* equipo_htmls9;
 cls_equipos* equipo_rs232;
 cls_equipos* equipo_rs232_distintos;
 cls_defalarmas* defalarmas;
@@ -65,7 +64,6 @@ storigen GLOBAL_email_origen;
 
 int GLOBAL_contador_equipos_mbtcp;
 int GLOBAL_contador_equipos_mbserial;
-int GLOBAL_contador_equipos_html_s9;
 int GLOBAL_contador_equipos_rs232;
 int GLOBAL_contador_equipos_rs232_distintos;
 int GLOBAL_contador_defalarmas;
@@ -267,37 +265,7 @@ float getValfloat(string cadena1) { // convierte un valor cadena string a float
 	return valor;
 }
 // 1 consiguio etiqueta y -1 no consiguio etiqueta
-int leeretiqueta(string buffer1, string delimitadorinicio, string delimitadorfinal, string& valorstr, size_t apartirde, int aparicion)
-{
-	size_t found1;
-	size_t found2;
-	size_t ubicacionanterior;
-	size_t valorstr_len;
-	ubicacionanterior = apartirde;
-	int rs = -1;
 
-	for (int j = 0; j < aparicion; j++) { //inicio for
-		rs = -1;
-		found1 = buffer1.find(delimitadorinicio, ubicacionanterior);
-		if (found1 != std::string::npos) {  //if 1
-			found2 = buffer1.find(delimitadorfinal, found1 + 1);
-			if (found2 != std::string::npos) { // if 2
-				rs = 1;
-				ubicacionanterior = found2;
-				valorstr_len = found2 - (found1 + delimitadorinicio.size());
-				valorstr = buffer1.substr(found1 + delimitadorinicio.size(), valorstr_len);
-			} // fin del if 2
-			else
-			{ // else 2
-				valorstr = "no encontrada!";
-				return -1;
-			}; // fin else 2
-		}; // if 1
-	}; // fin del for
-
-
-	return rs;
-}
 /*
 ==================================================
 MUESTREO
@@ -316,7 +284,6 @@ int muestrear(void) {
 
 	actualizar_leer_equipo(MBTCP);
 	actualizar_leer_equipo(MBSERIAL);
-	actualizar_leer_equipo(HTML_S9);
 	actualizar_leer_equipo(RS232);
 	actualizar_directorio(&stdblocal);
 	actualizar_smslist(&stdblocal);
@@ -336,8 +303,6 @@ int muestrear(void) {
 		imprimir_mensaje("hilo leer mbtcp iniciado ok");
 		std::thread hilo_leer_mbserial(ordenlecturaequiposciclico, &equipo_mbserial[0], GLOBAL_contador_equipos_mbserial);
 		imprimir_mensaje("hilo leer mbserial iniciado ok");
-		std::thread hilo_leer_htmls9(ordenlecturaequiposciclico, &equipo_htmls9[0], GLOBAL_contador_equipos_html_s9);
-		imprimir_mensaje("hilo leer htmls9 iniciado  ok");
 		std::thread hilo_leer_rs232(ordenlecturaequiposciclico, &equipo_rs232[0], GLOBAL_contador_equipos_rs232);
 		imprimir_mensaje("hilo leer rs232 iniciado  ok");
 
@@ -361,8 +326,6 @@ int muestrear(void) {
 		imprimir_mensaje("fin hilo_leer_mbtcp");
 		hilo_leer_mbserial.join();
 		imprimir_mensaje("fin hilo_leer_mbserial");
-		hilo_leer_htmls9.join();
-		imprimir_mensaje("fin hilo_leer_htmls9");
 		hilo_leer_rs232.join();
 		imprimir_mensaje("fin hilo_leer_rs232");
 		hilo_revisarposiblesalarmas.join();
@@ -598,7 +561,6 @@ int ordenlecturaconfiguracion() {
 		GLOBAL_EJECUTARHILOS = false;
 		actualizar_leer_equipo(MBTCP);
 		actualizar_leer_equipo(MBSERIAL);
-		actualizar_leer_equipo(HTML_S9);
 		actualizar_leer_equipo(RS232);
 		leer_tbcmd(GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave);
 		actualizar_defalarmas(&stdblocal);
@@ -1107,9 +1069,7 @@ int ordenescrituraequiposciclico() {
 			if (GLOBAL_contador_equipos_mbserial > 0) {
 				ordenescrituraequipos(&equipo_mbserial[0], GLOBAL_contador_equipos_mbserial);
 			}
-			if (GLOBAL_contador_equipos_html_s9 > 0) {
-				ordenescrituraequipos(&equipo_htmls9[0], GLOBAL_contador_equipos_html_s9);
-			}
+
 			//cout << "GLOBAL_contador_equipos_rs232: " << GLOBAL_contador_equipos_rs232 << endl;
 			if (GLOBAL_contador_equipos_rs232 > 0) {
 				ordenescrituraequipos(&equipo_rs232[0], GLOBAL_contador_equipos_rs232);

@@ -48,8 +48,6 @@ class cls_defalarmas {
 		int 		 clscantidad_equipo_mbtcp;
 		cls_equipos* clsequipo_mbserial;
 		int 		 clscantidad_equipo_mbserial;
-		cls_equipos* clsequipo_htmls9;
-		int 		 clscantidad_equipo_htmls9;
 		cls_equipos* clsequipo_rs232;
 		int 		 clscantidad_equipo_rs232;
 		cls_cmd* 	 clscmd;

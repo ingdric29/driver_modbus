@@ -36,7 +36,6 @@ public:
 	string paridad;
 	int bitsparada;
 	string equipo;
-	string url_miner;
 	string usuario;
 	string password;
 	bool habilitar;
@@ -44,7 +43,6 @@ public:
 
 	int registro;
 	int clsvalor;
-	bool resetear_s9;
 	string datetime;
 	bool hab_ejecutar;
 	string lote;
@@ -52,7 +50,6 @@ public:
 	// metodos
 
 	int ejecutar(void);
-	int cmdresetear_s9(void);
 	int cmdescribir_serial(void);
 	int cmdescribir_tcp(void);
 

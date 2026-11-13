@@ -17,52 +17,7 @@ using namespace std;
 extern void esperar(double segundos);
 extern uint32_t G_modbus_timeout;
 
-// retorna 1 si reseteo el minador y -1 si hay error
-int cls_cmd::cmdresetear_s9(void) {
-	CURL* curl;
-	FILE* fp;
-	FILE* fp2;
-	CURLcode result;
-	char* urlminador;
-	char* archivo;
-	char* usuariopass;
-	char caracter;
-	string buffer1;
-	int rc = -1;
-	urlminador = (char*)calloc(256, sizeof(char));
-	archivo = (char*)calloc(32, sizeof(char));
-	usuariopass = (char*)calloc(32, sizeof(char));
-	sprintf(urlminador, "http://%s/cgi-bin/reboot.cgi", direccion_ip.c_str());
-	sprintf(usuariopass, "%s:%s", usuario.c_str(), password.c_str());
-	sprintf(archivo, "logreset%s.txt", direccion_ip.c_str());
-	string valoretiquetastr;
-	fp = fopen(archivo, "wb");
-	curl = curl_easy_init();
-	if (curl) { // inicio del if 1
-		curl_easy_setopt(curl, CURLOPT_URL, urlminador);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-		curl_easy_setopt(curl, CURLOPT_USERPWD, usuariopass);
-		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
-		result = curl_easy_perform(curl);
 
-		if (result == CURLE_OK) { //inicio del if 2
-			printf("%s - reset del ant miner s9 ok! | url:%s |user:%s \n", direccion_ip.c_str(), urlminador, usuariopass);
-			rc = 1;
-		}
-
-		else
-		{ // 3
-			printf("%s - reset del ant miner - error %s \n", direccion_ip.c_str(), curl_easy_strerror(result));
-			return -1;
-		}; // fin 3
-	};		// fin del if 1
-	fclose(fp);
-
-	curl_easy_cleanup(curl);
-
-	return rc;
-}
 
 // retorna 1 si tiene exito escribiendo un registro, sino retorna -1
 int cls_cmd::cmdescribir_serial(void) {
@@ -144,10 +99,7 @@ int cls_cmd::ejecutar(void) {
 	int res = -1;
 	int resultadofinal = 0;
 	//cout << "comando ejecutar" << endl;
-	if (protocolo.compare("HTML_S9") == 0) {
-		res = cmdresetear_s9();  // devuelve un 1 su todo ok
-	}
-	else if (protocolo.compare("MBSERIAL") == 0) {
+	if (protocolo.compare("MBSERIAL") == 0) {
 		res = cmdescribir_serial();
 	}
 	else if (protocolo.compare("MBTCP") == 0) {

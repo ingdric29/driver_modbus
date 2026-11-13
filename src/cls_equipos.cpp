@@ -97,8 +97,6 @@ cls_equipos::cls_equipos() {
 	ultimo_insertar_ex = 0; // ultimo comando insertar en bd externa
 	ultima_escritura_tbinstantaneo = 0;
 	html_final = "</div>";
-	html_separador = "-";
-	html_indice = 0;
 	contador_errores = 0;
 	contador_errores_acumulados = 0;
 	pcontador_errores = &contador_errores;
@@ -173,9 +171,6 @@ int cls_equipos::leer() {
 	}
 	else if (protocolo.compare("MBSERIAL") == 0) {
 		leer_mbserial();
-	}
-	else if (protocolo.compare("HTML_S9") == 0) {
-		leer_htmls9();
 	}
 	else if (protocolo.compare("RS232") == 0) {
 		//cout << " lectura rs232 ";
@@ -1436,158 +1431,6 @@ void cls_equipos::leer_mbserial(void) {
 
 
 //-------------------------------------
-void cls_equipos::leer_htmls9(void) {
-	int rc = -1;
-	CURL* curl;
-	FILE* fp;
-	FILE* fp2;
-	CURLcode result;
-	char* urlminador;
-	char* archivo;
-	char* usuariopass;
-	char caracter;
-	string buffer1;
-	size_t ubicacionanterior;
-	size_t found1;
-	size_t found2;
-	size_t found3;
-	string valorstr = "";
-	size_t valorstr_len;
-	string delimitadorinicio;
-	string delimitadorfinal;
-	int i = 0;
-	bool bandera1 = false;
-	bool bandera2 = false;
-	vector<string> vector_valores1;
-	resultado_leer = false;
-	int html_cont_temperaturas = 0;
-	stringstream ssdatos;
-	bool conectadocondispositivo = true;
-	string mensajedeerror = "";
-
-	urlminador = (char*)calloc(256, sizeof(char));
-	archivo = (char*)calloc(32, sizeof(char));
-	usuariopass = (char*)calloc(32, sizeof(char));
-	//strcpy(urlminador, url_miner); //"http://192.168.0.105/cgi-bin/minerStatus.cgi"
-	sprintf(urlminador, url_miner.c_str(), direccion_ip.c_str());
-	sprintf(usuariopass, "%s:%s", usuario.c_str(), password.c_str());
-	//strcpy(archivo, "log2.txt");
-	sprintf(archivo, "log%s_%u.txt", direccion_ip.c_str(), huella(url_miner));
-	string archivo_nuevo = string(archivo);
-	time_t archivo_nuevo_tiempo = time(NULL);
-	string valoretiquetastr;
-	rastro = nombre + ";" + direccion_ip;
-	if ((archivo_nuevo.compare(clsarchivo) != 0) || (difftime(archivo_nuevo_tiempo, clsarchivo_tiempo) > 20.0)) {
-		imprimir_mensaje("lectura html: " + rastro, negro);
-		fp = std::fopen(archivo, "wb");
-		if (fp == NULL) {
-			incrementarerrores();
-			return;
-		}
-		curl = curl_easy_init();
-
-		if (curl) { // inicio del if 1
-			curl_easy_setopt(curl, CURLOPT_URL, urlminador);
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-			curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-			curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
-			curl_easy_setopt(curl, CURLOPT_USERPWD, usuariopass);
-			curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
-			result = curl_easy_perform(curl);
-
-			if (result == CURLE_OK) { //inicio del if 2
-				bandera2 = true;
-				cls_equipos::clsarchivo = string(archivo);
-				cls_equipos::clsarchivo_tiempo = time(NULL);
-				//printf("leer minador | %s - archivo cgi ok! \n", direccion_ip.c_str());
-			}
-
-			else
-			{ // 3
-				printf("leer minador | %s - error %s \n", direccion_ip.c_str(), curl_easy_strerror(result));
-				//clsvalor = 0;
-				//clsvalorfloat = 0.0;
-				//clsvalorstr = "no responde";
-				logger.registrarError("ERROR: " + std::string(curl_easy_strerror(result)) + " .In miner: " + direccion_ip);
-				incrementarerrores();
-				descripcionerror = rastro + " - no hay comunicacion - web server no responde! - ";
-				imprimir_mensaje(descripcionerror, rojo);
-				logger.registrarError("ERROR: Communication error.The web server is not responding. " +rastro);
-				rc = -2;
-				//return -2;
-
-			}; // fin 3
-		};		// fin del if 1
-		
-		if (fp != NULL) std::fclose(fp);
-
-		curl_easy_cleanup(curl);
-
-	}
-	else {
-		imprimir_mensaje("se usara el mismo archivo: " + rastro, negro);
-		bandera2 = true;
-	}
-
-	if (bandera2) {
-
-		// abre el archivo como solo lectura
-		fp2 = std::fopen(archivo, "r");
-		if (fp2 == NULL)
-		{
-			rc = -3;
-			incrementarerrores();
-			descripcionerror = rastro + " - comunicacion buena con dispositivo pero el archivo resultado no se puede leer!";
-			logger.registrarError("WARN: Result file cannot be read. "+rastro);
-			imprimir_mensaje(descripcionerror, rojo);
-			//return -3;		
-			;
-		}
-		else {
-			while (!feof(fp2))
-			{
-				caracter = fgetc(fp2);
-				i += 1;
-				buffer1 = buffer1 + caracter;
-				if (i > 62000) { break; };
-			};
-
-			ubicacionanterior = 0;
-			delimitadorinicio = html_id;
-			delimitadorfinal = html_final;
-			//-1 no consiguio la etiqueta y 1 si la consiguio
-			rc = leeretiqueta(buffer1, delimitadorinicio, delimitadorfinal, valoretiquetastr, ubicacionanterior, html_posicion);
-			imprimir_mensaje("ini: " + delimitadorinicio + " | " + valoretiquetastr + " | fin: " + delimitadorfinal, negro);
-			vector_valores1 = split1(valoretiquetastr, html_separador[0]);
-			imprimir_mensaje("dimension: " + cast_int_to_string(vector_valores1.size()), negro);
-			if (rc > 0) {
-				if (vector_valores1.size() > html_indice) {
-
-					setvalorstring(vector_valores1[html_indice].substr(0, 20)); // esta funcion actualiza el valor
-												//leido del tag
-
-					imprimir_mensaje("valor: " + clsvalorstr, negro);
-					*pcontador_errores = 0;
-				}
-			}
-			else {
-				incrementarerrores();
-				descripcionerror = rastro + " - comunicacion buena dispositivo pero tag no encontrado!";
-				logger.registrarError("WARN: Tag not found. "+rastro);
-				imprimir_mensaje(descripcionerror, rojo);
-				//cout << buffer1 << endl;
-			}
-
-		}; // fin de if del archivo abrir archivo fp2 para lectura
-
-		if (fp2 != NULL) std::fclose(fp2);
-
-	}; // fin del if de bandera2 que equivale a CURLE_OK
-
-	resultadoleer_rc = rc;
-
-};
 
 void cls_equipos::leer_rs232(void) {
 
@@ -1679,55 +1522,7 @@ void cls_equipos::esperar(double segundos) {
 }
 
 
-int cls_equipos::resetear_s9(void) {
-	CURL* curl;
-	FILE* fp;
-	FILE* fp2;
-	CURLcode result;
-	char* urlminador;
-	char* archivo;
-	char* usuariopass;
-	char caracter;
-	string buffer1;
-	int rc = -1;
-	urlminador = (char*)calloc(256, sizeof(char));
-	archivo = (char*)calloc(32, sizeof(char));
-	usuariopass = (char*)calloc(32, sizeof(char));
-	sprintf(urlminador, "http://%s/cgi-bin/reboot.cgi", direccion_ip.c_str());
-	sprintf(usuariopass, "%s:%s", usuario.c_str(), password.c_str());
-	sprintf(archivo, "logreset%s.txt", direccion_ip.c_str());
-	string valoretiquetastr;
-	fp = std::fopen(archivo, "wb");
-	curl = curl_easy_init();
-	if (curl) { // inicio del if 1
-		curl_easy_setopt(curl, CURLOPT_URL, urlminador);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
-		curl_easy_setopt(curl, CURLOPT_USERPWD, usuariopass);
-		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
 
-		//--connect-timeout <seconds>
-		result = curl_easy_perform(curl);
-
-		if (result == CURLE_OK) { //inicio del if 2
-			printf("%s - reset del ant miner s9 ok! \n", direccion_ip.c_str());
-			rc = 1;
-		}
-
-		else
-		{ // 3
-			printf("%s - reset del ant miner - error %s \n", direccion_ip.c_str(), curl_easy_strerror(result));
-			return -1;
-		}; // fin 3
-	};		// fin del if 1
-	if (fp != NULL) std::fclose(fp);
-
-	curl_easy_cleanup(curl);
-
-	return rc;
-}
 
 
 void cls_equipos::setvalorfloat(float nuevovalor) {

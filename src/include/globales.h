@@ -13,7 +13,6 @@
 
 extern cls_equipos* equipo_mbtcp;
 extern cls_equipos* equipo_mbserial;
-extern cls_equipos* equipo_htmls9;
 extern cls_equipos* equipo_rs232;
 extern cls_equipos* equipo_rs232_distintos;
 extern cls_cmd* cmd; // se instancias la clase
@@ -24,7 +23,6 @@ extern thread* hilosseriales;
 
 extern int GLOBAL_contador_equipos_mbtcp;
 extern int GLOBAL_contador_equipos_mbserial;
-extern int GLOBAL_contador_equipos_html_s9;
 extern int GLOBAL_contador_equipos_rs232;
 extern int GLOBAL_contador_equipos_rs232_distintos;
 extern int GLOBAL_contador_defalarmas;
@@ -137,7 +135,6 @@ void imprimir_mensaje(string str, GLOBAL_colores color = nada);
 void imprimir_mensaje_importante(string str, GLOBAL_colores = nada);
 std::vector<string> split1(const string& cadena, const char& delim);
 int muestrear(void);
-int leeretiqueta(string buffer1, string delimitadorinicio, string delimitadorfinal, string& valorstr, size_t apartirde, int aparicion);
 int getVal(string);
 float getValfloat(string);
 void esperar(double segundos);

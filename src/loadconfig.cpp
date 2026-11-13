@@ -254,7 +254,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 	switch (protocoloenum) {
 	case MBTCP: query = "SELECT * FROM `qrytablacom` WHERE `habilitar`=TRUE AND `protocolo`= 'MBTCP' ORDER BY `id` ASC"; break;
 	case MBSERIAL: query = "SELECT * FROM `qrytablacom` WHERE `habilitar`=TRUE AND `protocolo`= 'MBSERIAL' ORDER BY `id` ASC"; break;
-	case HTML_S9: query = "SELECT * FROM `qrytablacom` WHERE `habilitar`=TRUE AND `protocolo`= 'HTML_S9' ORDER BY `id` ASC"; break;
 	case RS232: query = "SELECT * FROM `qrytablacom` WHERE `habilitar`=TRUE AND `protocolo`= 'RS232' ORDER BY `id` ASC"; break;
 	}
 
@@ -285,7 +284,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 		switch (protocoloenum) {
 		case MBTCP: 	GLOBAL_contador_equipos_mbtcp = cuenta; cout << "numero tags mbtcp:" << cuenta << endl; break;
 		case MBSERIAL: 	GLOBAL_contador_equipos_mbserial = cuenta; cout << "numero tags mbserial:" << cuenta << endl; break;
-		case HTML_S9: 	GLOBAL_contador_equipos_html_s9 = cuenta; cout << "numero tags htmls9:" << cuenta << endl; break;
 		case RS232:		GLOBAL_contador_equipos_rs232 = cuenta;
 						GLOBAL_contador_equipos_rs232_distintos = 0; //mas adelante se completa
 						cout << "numero tags rs232:" << cuenta << endl; break;
@@ -297,7 +295,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 		switch (protocoloenum) {
 		case MBTCP: 	equipo_mbtcp = new cls_equipos[GLOBAL_contador_equipos_mbtcp + 2]; break;
 		case MBSERIAL: 	equipo_mbserial = new cls_equipos[GLOBAL_contador_equipos_mbserial + 2]; break;
-		case HTML_S9: 	equipo_htmls9 = new cls_equipos[GLOBAL_contador_equipos_html_s9 + 2]; break;
 		case RS232: 	equipo_rs232 = new cls_equipos[GLOBAL_contador_equipos_rs232 + 2]; 
 						equipo_rs232_distintos = new cls_equipos[GLOBAL_contador_equipos_rs232 + 2];
 						break;
@@ -322,7 +319,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbtcp[ind].paridad = res->getString("paridad"); //
 				equipo_mbtcp[ind].bitsparada = res->getInt("bitsparada"); //
 				equipo_mbtcp[ind].equipo = res->getInt("equipo"); //
-				equipo_mbtcp[ind].url_miner = res->getString("url_miner"); //
 				equipo_mbtcp[ind].usuario = res->getString("usuario"); //
 				equipo_mbtcp[ind].password = res->getString("password"); //
 				equipo_mbtcp[ind].habilitar = ((res->getInt("habilitar")) != 0); //
@@ -364,7 +360,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].paridad = res->getString("paridad"); //
 				equipo_mbserial[ind].bitsparada = res->getInt("bitsparada"); //
 				equipo_mbserial[ind].equipo = res->getInt("equipo"); //
-				equipo_mbserial[ind].url_miner = res->getString("url_miner"); //
 				equipo_mbserial[ind].usuario = res->getString("usuario"); //
 				equipo_mbserial[ind].password = res->getString("password"); //
 				equipo_mbserial[ind].habilitar = ((res->getInt("habilitar")) != 0); //
@@ -375,8 +370,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].interpretacion = res->getString("interpretacion"); //
 				cadena = res->getString("escalamiento"); //
 				equipo_mbserial[ind].escalamiento = getValfloat(cadena);
-				//equipo_mbserial[ind].html_id = res->getString("html_id"); //
-				//equipo_mbserial[ind].html_posicion = res->getInt("html_posicion"); //
 				equipo_mbserial[ind].periodo = getValfloat(res->getString("periodo")); //
 				equipo_mbserial[ind].bit1 = res->getInt("bit1"); //
 				equipo_mbserial[ind].cantidad1 = res->getInt("cantidad1"); //
@@ -385,49 +378,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].solocambios = res->getInt("solocambios"); //
 				equipo_mbserial[ind].registrable = res->getInt("registrable"); //
 				ind++;
-			}
-			break;
-
-		case HTML_S9:
-			ind = 0;
-			equipo_htmls9[0].protocolo = "HTML_S9";
-			while (res->next() && (ind < 512)) {
-				id = res->getInt("id"); //
-				equipo_htmls9[ind].id = id;
-				equipo_htmls9[ind].nombre = res->getString("nombre"); //
-				equipo_htmls9[ind].direccion_ip = res->getString("direccion_ip"); //
-				equipo_htmls9[ind].puerto = res->getInt("puerto"); //
-				equipo_htmls9[ind].direccion_esclavo = res->getInt("direccion_esclavo"); //
-				equipo_htmls9[ind].interface1 = res->getString("interface"); //
-				equipo_htmls9[ind].velocidad = res->getInt("velocidad"); //
-				equipo_htmls9[ind].paridad = res->getString("paridad"); //
-				equipo_htmls9[ind].bitsparada = res->getInt("bitsparada"); //
-				equipo_htmls9[ind].equipo = res->getInt("equipo"); //
-				equipo_htmls9[ind].url_miner = res->getString("url_miner"); //
-				equipo_htmls9[ind].usuario = res->getString("usuario"); //
-				equipo_htmls9[ind].password = res->getString("password"); //
-				equipo_htmls9[ind].habilitar = ((res->getInt("habilitar")) != 0); //
-				equipo_htmls9[ind].tag = res->getString("tag"); //
-				equipo_htmls9[ind].protocolo = res->getString("protocolo"); //
-				equipo_htmls9[ind].registro = res->getInt("registro"); //
-				equipo_htmls9[ind].funcion = res->getString("funcion"); //
-				equipo_htmls9[ind].interpretacion = res->getString("interpretacion"); //
-				cadena = res->getString("escalamiento"); //
-				equipo_htmls9[ind].escalamiento = getValfloat(cadena);
-				equipo_htmls9[ind].html_id = tratamientocadena(res->getString("html_id")); //
-				equipo_htmls9[ind].html_posicion = res->getInt("html_posicion"); //
-				equipo_htmls9[ind].html_final = tratamientocadena(res->getString("html_final")); //
-				equipo_htmls9[ind].html_separador = res->getString("html_separador"); //
-				equipo_htmls9[ind].html_indice = res->getInt("html_indice"); //
-				equipo_htmls9[ind].periodo = getValfloat(res->getString("periodo")); //
-
-				equipo_htmls9[ind].bit1 = res->getInt("bit1"); //
-				equipo_htmls9[ind].comentario = res->getString("comentario"); //
-				equipo_htmls9[ind].unidad = res->getString("unidad"); //
-				equipo_htmls9[ind].solocambios = res->getInt("solocambios"); //
-				equipo_htmls9[ind].registrable = res->getInt("registrable"); //
-				ind++;
-
 			}
 			break;
 
@@ -499,24 +449,6 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 						equipo_mbserial[i].ptiempotranscurridoerrores = equipo_mbserial[j].ptiempotranscurridoerrores;
 						equipo_mbserial[i].ptiemporeset_cuenta_errores = equipo_mbserial[j].ptiemporeset_cuenta_errores;
 						equipo_mbserial[i].pultima_llamada_leer = equipo_mbserial[j].pultima_llamada_leer;
-						break;
-					}
-				}
-				if (i == j) {
-					//solo se ejecuta uno por cada dispositivo
-				}
-			}
-			break;
-		case HTML_S9:
-			for (int i = 0; i < cantidaddispo; i++) {
-				int j;
-				for (j = 0; j < i; j++) {
-					if (equipo_htmls9[i].nombre.compare(equipo_htmls9[j].nombre) == 0) {
-						equipo_htmls9[i].pcontador_errores = equipo_htmls9[j].pcontador_errores;
-						equipo_htmls9[i].pcontador_errores_acumulados = equipo_htmls9[j].pcontador_errores_acumulados;
-						equipo_htmls9[i].ptiempotranscurridoerrores = equipo_htmls9[j].ptiempotranscurridoerrores;
-						equipo_htmls9[i].ptiemporeset_cuenta_errores = equipo_htmls9[j].ptiemporeset_cuenta_errores;
-						equipo_htmls9[i].pultima_llamada_leer = equipo_htmls9[j].pultima_llamada_leer;
 						break;
 					}
 				}
@@ -836,7 +768,6 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 	cadenaquerycmd += "`tbdispositivos`.`habilitar` AS `habilitar`,";
 	cadenaquerycmd += "`tbcmd`.`registro` AS `registro`,";
 	cadenaquerycmd += "`tbcmd`.`valor` AS `valor`,";
-	cadenaquerycmd += "`tbcmd`.`resetear_s9` AS `resetear_s9`,";
 	cadenaquerycmd += "`tbcmd`.`cmd_datetime` AS `datetime`,";
 	cadenaquerycmd += "`tbcmd`.`hab_ejecutar` AS `hab_ejecutar`,";
 	cadenaquerycmd += "`tbcmd`.`concentrador` AS `concentrador`, ";
@@ -892,7 +823,6 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 			cmd[ind].protocolo = res->getString("protocolo"); //
 			cmd[ind].registro = res->getInt("registro"); //
 			cmd[ind].clsvalor = res->getInt("valor"); //
-			cmd[ind].resetear_s9 = ((res->getInt("resetear_s9")) != 0); //
 			cmd[ind].datetime = res->getString("datetime"); //
 			cmd[ind].hab_ejecutar = ((res->getInt("hab_ejecutar")) != 0); //
 			cmd[ind].lote = res->getString("lote"); //
@@ -1358,8 +1288,6 @@ int actualizar_defalarmas(struct stdatabase* db) {
 			defalarmas[ind].clscantidad_equipo_mbtcp = GLOBAL_contador_equipos_mbtcp;
 			defalarmas[ind].clsequipo_mbserial = &equipo_mbserial[0];
 			defalarmas[ind].clscantidad_equipo_mbserial = GLOBAL_contador_equipos_mbserial;
-			defalarmas[ind].clsequipo_htmls9 = &equipo_htmls9[0];
-			defalarmas[ind].clscantidad_equipo_htmls9 = GLOBAL_contador_equipos_html_s9;
 			defalarmas[ind].clsequipo_rs232 = &equipo_rs232[0];
 			defalarmas[ind].clscantidad_equipo_rs232 = GLOBAL_contador_equipos_rs232;
 
@@ -2487,7 +2415,6 @@ int actualizar_smslist(struct stdatabase* db) {
 	
 		delete equipo_mbtcp;
 		delete equipo_mbserial;
-		delete equipo_htmls9;
 		delete equipo_rs232;
 		delete equipo_rs232_distintos;
 		return;
