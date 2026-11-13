@@ -426,11 +426,12 @@ int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
 		for (int i = 0; i < arge_cantidad; i++) {
             std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
 
-			diferencia = difftime(time(NULL), equipo[i].ultimo_muestreo);
+			const auto now = PeriodicDeadline::Clock::now();
 			resultado = -1;
-			if ((diferencia > equipo[i].periodo)) {
+			if (equipo[i].read_deadline.due(now)) {
 				//cout << "*";
 				resultado = equipo[i].leer();
+                equipo[i].read_deadline.advance(equipo[i].periodo);
 
 			} // end if 1 */
 
@@ -470,7 +471,12 @@ int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
 			//printf("EJECUTAR_HILOS = %d CONTADOR = %d \n",GLOBAL_EJECUTARHILOS,contador);
 			iniciado = true;
 
-			esperar(0.2); // espera 200ms
+			auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
+            for (int tag = 0; tag < arge_cantidad; ++tag) {
+                std::lock_guard<std::recursive_mutex> state(*equipo[tag].state_mutex);
+                wake = std::min(wake, equipo[tag].read_deadline.next());
+            }
+            std::this_thread::sleep_until(wake);
 		}
 		if (iniciado){ 
 		cout << " fin hilo lectura variables protocolo " << equipo[0].protocolo << endl;};
@@ -957,13 +963,14 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
 		for (int i = 0; i < arge_cantidad; i++) {
             std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
 
-			diferencia = difftime(time(NULL), equipo[i].ultima_escritura_tbinstantaneo);
+			const auto now = PeriodicDeadline::Clock::now();
 			resultado = -1;
 			//cout << "diferencia - periodo " << diferencia << "\t" << equipo[i].periodo << endl;
-			if ((diferencia >= equipo[i].periodo)) {
+			if (equipo[i].instant_deadline.due(now)) {
 				resultado = equipo[i].resultadoleer_rc;
 				diferencia_tbdispositivo_sta = difftime(time(NULL), GLOBAL_tiempo_ultimaescritura_tbdispositivos_sta);
-				if (diferencia_tbdispositivo_sta >= GLOBAL_periodo_minimo_escritura_tbdispositivos_sta) {
+				if (equipo[i].status_deadline.due(now)) {
+                    equipo[i].status_deadline.advance(GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
 					valorst[0] = equipo[i].nombre;
 					valorst[1] = cast_int_to_string(*equipo[i].pcontador_errores);
 					valorst[2] = cast_int_to_string(*equipo[i].pcontador_errores_acumulados);
@@ -988,17 +995,18 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
 					imprimir_mensaje("insertar bd local tabla tbinstantaneos: " + equipo[i].tag, negro);
 					res_insertardb = insertar_inteligente3(&stdblocal, "tbinstantaneos", 2, 7, 8, &campoin[0], &valorin[0], 9);
 					equipo[i].ultima_escritura_tbinstantaneo = time(NULL);
+                    equipo[i].instant_deadline.advance(equipo[i].periodo);
 
 				} // end del if 2 
 			} // end if 1 */
 			diferencia_tbvalores = difftime(time(NULL), equipo[i].ultimo_insertar);
 			if ((equipo[i].resultado_leer) && (equipo[i].registrable)) {
-				if ((diferencia_tbvalores >= GLOBAL_periodo_minimo_escritura_tbvalores) &&
-					(diferencia_tbvalores >= equipo[i].periodo)) { // if 3
+				if (equipo[i].history_deadline.due(now)) { // if 3
 					imprimir_mensaje("insertar bd local tabla tbvalores: " + equipo[i].tag, negro);
 					if (habilitarescribir(equipo[i].fueescritodb, equipo[i].solocambios)) {
 						res_insertardb = insertardb(time(NULL), equipo[i].tag, equipo[i].clsvalorstr, equipo[i].clsvalorfloat, equipo[i].id, equipo[i].rastro, GLOBAL_nombre_concentrador, equipo[i].nombre, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores");
 						equipo[i].ultimo_insertar = time(NULL);
+                        equipo[i].history_deadline.advance(std::max(GLOBAL_periodo_minimo_escritura_tbvalores, equipo[i].periodo));
 						equipo[i].fueescritodb = true;
 					}
 					if (res_insertardb == 0) {
@@ -1049,7 +1057,20 @@ int ordenescrituraequiposciclico() {
 		
 		menor = funmenor(GLOBAL_periodo_minimo_escritura_tbvalores, GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
 //		cout << "esperar: " << menor << endl;
-		esperar(menor);
+		auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
+        auto inspect = [&](cls_equipos* tags, int count) {
+            for (int i = 0; i < count; ++i) {
+                std::lock_guard<std::recursive_mutex> state(*tags[i].state_mutex);
+                if (!tags[i].resultado_leer) continue;
+                wake = std::min(wake, tags[i].instant_deadline.next());
+                if (tags[i].registrable && habilitarescribir(tags[i].fueescritodb, tags[i].solocambios))
+                    wake = std::min(wake, tags[i].history_deadline.next());
+            }
+        };
+        inspect(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
+        inspect(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
+        inspect(equipo_rs232, GLOBAL_contador_equipos_rs232);
+        std::this_thread::sleep_until(std::max(wake, PeriodicDeadline::Clock::now() + std::chrono::milliseconds(1)));
 		iniciado = true;
 	}
 	if (iniciado) cout << " fin hilo escritura en base de datos local" << endl;

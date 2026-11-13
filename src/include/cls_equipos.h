@@ -11,6 +11,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include "periodic_deadline.h"
 #include <errno.h>
 #include <modbus.h>
 #include "mysql_connection.h"
@@ -101,6 +102,7 @@ public:
 	string  html_id;
 	string  html_final;
 
+	PeriodicDeadline read_deadline, instant_deadline, history_deadline, status_deadline;
 	double  periodo;
 	int 	bit1; // especifica cual bit dentro del word se va usar si es -1 entonces se leen todos
 	// los bits para obtener el valor

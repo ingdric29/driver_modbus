@@ -332,7 +332,9 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbtcp[ind].escalamiento = getValfloat(cadena);
 
 
-				equipo_mbtcp[ind].periodo = getValfloat(res->getString("periodo")); //
+				equipo_mbtcp[ind].periodo = cast_string_to_double(res->getString("periodo"));
+                try { PeriodicDeadline::interval(equipo_mbtcp[ind].periodo); }
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
 				equipo_mbtcp[ind].bit1 = res->getInt("bit1"); //
 				equipo_mbtcp[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_mbtcp[ind].comentario = res->getString("comentario"); //
@@ -371,7 +373,9 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].interpretacion = res->getString("interpretacion"); //
 				cadena = res->getString("escalamiento"); //
 				equipo_mbserial[ind].escalamiento = getValfloat(cadena);
-				equipo_mbserial[ind].periodo = getValfloat(res->getString("periodo")); //
+				equipo_mbserial[ind].periodo = cast_string_to_double(res->getString("periodo"));
+                try { PeriodicDeadline::interval(equipo_mbserial[ind].periodo); }
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
 				equipo_mbserial[ind].bit1 = res->getInt("bit1"); //
 				equipo_mbserial[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_mbserial[ind].comentario = res->getString("comentario"); //
@@ -405,7 +409,9 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_rs232[ind].escalamiento = getValfloat(cadena);
 				equipo_rs232[ind].html_id = tratamientocadena(res->getString("html_id")); // delimitador inicial
 				equipo_rs232[ind].html_final = tratamientocadena(res->getString("html_final")); // delimitador final
-				equipo_rs232[ind].periodo = getValfloat(res->getString("periodo")); //
+				equipo_rs232[ind].periodo = cast_string_to_double(res->getString("periodo"));
+                try { PeriodicDeadline::interval(equipo_rs232[ind].periodo); }
+                catch (const std::invalid_argument& e) { logger_loadconfig.registrarError(std::string("Invalid tag period: ")+e.what()); delete res; delete stmt; delete con; return -1; } //
 				equipo_rs232[ind].bit1 = res->getInt("bit1"); //
 				equipo_rs232[ind].cantidad1 = res->getInt("cantidad1"); //
 				equipo_rs232[ind].comentario = res->getString("comentario"); //

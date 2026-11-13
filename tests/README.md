@@ -28,3 +28,8 @@ valida parsing RS232, invalidez de una lectura vacía y mil publicaciones
 concurrentes con lectura coherente de valor entero/flotante. Requiere las
 bibliotecas de desarrollo del driver, pero no SQL, licencia ni hardware.
 Acepta `CPPFLAGS` y `LDFLAGS` para bibliotecas instaladas fuera del sistema.
+
+`test_periods.cpp` utiliza tiempo simulado: verifica 101 lecturas a 100 ms,
+6 a 2 s y 3 escrituras a 5 s durante diez segundos, además de saltos de
+intervalos vencidos y rechazo de periodos inválidos. Compilar como las
+pruebas de decodificación, con `-Isrc/include` y ASan/UBSan.
