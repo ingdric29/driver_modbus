@@ -49,9 +49,10 @@ la bandeja de entrada. Solo cambiar `smtp_servidor` por una opción compatible
 con las instrucciones del proveedor. La configuración SMTP se carga al iniciar
 el driver: modificarla requiere un reinicio controlado de esa instancia.
 
-## Conexión original restaurada
+## Rutina de envío original restaurada
 
-A petición del usuario se restaura la conexión del emisor original (`0c80b7f`):
+Se toma directamente la rutina `enviar_email` del commit inicial `0c80b7f`,
+incluida la construcción del mensaje y las opciones SMTP de libcurl:
 
 ```ini
 smtp_servidor=smtps://p3plzcpnl463001.prod.phx3.secureserver.net
@@ -72,11 +73,13 @@ curso puede prolongar el cierre del proceso, como en el emisor original.
 Se restablece también la política TLS heredada: con la configuración original
 no se verifica la cadena del certificado (`SSL_VERIFYPEER=0`), pero continúa
 la comprobación del nombre (`SSL_VERIFYHOST=2`). SMTPS sigue cifrando la conexión.
-Si se proporciona `smtp_ca_file`, se activa la verificación de la cadena con
-ese archivo CA. Para una URL `smtp://` configurada expresamente se mantiene
-STARTTLS obligatorio; no se envían credenciales en texto plano.
+Se retiran `smtp_ca_file` y la imposición de STARTTLS añadidos durante los
+intentos de reparación. El emisor vuelve a utilizar la URL tal como la usaba
+el original. La configuración restaurada usa SMTPS para cifrar el envío.
 
-Las credenciales SMTP y los campos de base de datos existentes no cambian.
+Se restaura la lectura de los cuatro campos SMTP y sus valores por defecto
+del cargador original. Los valores presentes en configdb.cfg se mantienen,
+al igual que todos los campos de base de datos.
 Se mantienen los resultados de error correctos, el buffer de subida seguro,
 los logs por alarma y la aceptación por el servidor como condición de éxito.
 La traza SMTP verbosa permanece desactivada para no volcar autenticación ni
@@ -95,16 +98,26 @@ Detener la instancia existente con SIGINT/SIGTERM y arrancar una sola instancia
 actualizada desde `.build`. No ejecutar el binario nuevo encima del existente.
 
 El log mantiene alarma, dispositivo, directorio, resultado cURL/SMTP y tiempos.
-El modo `SMTPS_ORIGINAL limites=libcurl_original` identifica esta restauración.
+El modo `EMISOR_ORIGINAL limites=libcurl_original` identifica esta restauración.
 `INFO: SMTP: ... aceptado por el servidor` confirma la aceptación del mensaje;
 no garantiza su llegada a la bandeja de entrada. Si persiste `smtp=535`, el
 servidor está rechazando AUTH y la restauración no permite afirmar que el
 correo quedó resuelto. No publicar contraseñas para comprobar ese resultado.
 
-## Validación local
+## Equivalencia con el original
 
-Se comprueban subida grande, envío SMTPS con negociación TLS demorada cuatro
-segundos sin límites de aplicación, política de certificado original, CA
-explícita, AUTH rechazado y rechazo tras DATA. Las alarmas con error conservan
-su envío pendiente y las aceptadas no se repiten. Las pruebas usan TLS en
-loopback y destinatarios example.invalid, sin correo externo.
+Se restauran la fecha y las cabeceras originales, el formato multipart/related,
+la plantilla y sus sustituciones, Cc y la declaración de contenido del emisor
+inicial. Las diferencias que se conservan son el callback acotado al buffer,
+el resultado de error si falla la inicialización de cURL y el registro compacto
+de los resultados sin activar trazas de autenticación ni volcados del cuerpo.
+
+La prueba compila tanto el emisor actual como una copia sin modificaciones de
+`0c80b7f:src/enviarmail.cpp`, guardada en `tests/fixtures/original_enviarmail.cpp`.
+Ambos envían a un servidor TLS de loopback con credenciales ficticias y una
+fecha fija. Se comparan la autenticación SASL, MAIL FROM, RCPT TO y los bytes
+del mensaje completo, con y sin Cc. Solo se normaliza Message-ID, que es único
+en cada envío. El resultado de ambas versiones debe coincidir exactamente.
+También se prueban una descripción de 120 kB con ASan/UBSan, una negociación
+TLS lenta, AUTH rechazado y rechazo tras DATA. Ningún correo sale a Internet.
+La aceptación real en la Raspberry sigue necesitando el resultado del servidor.

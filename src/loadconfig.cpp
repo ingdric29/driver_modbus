@@ -165,11 +165,11 @@ int loadconfigdb()
 		GLOBAL_periodo_revision_alarmas = cast_string_to_double(reader.Get(*sectionsIt, "periodo_revision_alarmas", "60"));
 
 
-		GLOBAL_email_origen.from = reader.Get(*sectionsIt, "smtp_from", "");
-		GLOBAL_email_origen.username = reader.Get(*sectionsIt, "smtp_usuario", "");
-		GLOBAL_email_origen.password = reader.Get(*sectionsIt, "smtp_pass", "");
-		GLOBAL_email_origen.smtp = reader.Get(*sectionsIt, "smtp_servidor", "");
-        GLOBAL_email_origen.ca_file = reader.Get(*sectionsIt, "smtp_ca_file", "");
+		GLOBAL_email_origen.from = reader.Get(*sectionsIt, "smtp_from", "automonitor@cd-solec.com");
+		GLOBAL_email_origen.username = reader.Get(*sectionsIt, "smtp_usuario", "automonitor@cd-solec.com");
+		GLOBAL_email_origen.password = reader.Get(*sectionsIt, "smtp_pass", "automa2424.e");
+		GLOBAL_email_origen.smtp = reader.Get(*sectionsIt, "smtp_servidor", "smtps://cd-solec.com");
+
 
 		GLOBAL_direccionip_dns = reader.Get(*sectionsIt, "direccionip_dns", "1.0.0.1");
 

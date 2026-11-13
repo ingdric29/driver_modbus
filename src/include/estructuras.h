@@ -36,7 +36,6 @@ struct storigen {
 	std::string username;
 	std::string password;
 	std::string smtp;
-    std::string ca_file;
 };
 
 struct stdestino {

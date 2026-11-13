@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Exercise actual libcurl sender over loopback TLS, never external SMTP."""
-import os
+"""Compare the real original/current senders over loopback SMTP; no external mail."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -9,6 +9,7 @@ import unittest
 from smtp_fixture import Server, certificate
 
 BINARY = Path(sys.argv.pop(1)).resolve(strict=True)
+ORIGINAL = Path(sys.argv.pop(1)).resolve(strict=True)
 TEMPLATE = Path(__file__).resolve().parents[1] / 'html' / 'plantilla_emails.html'
 
 
@@ -26,54 +27,61 @@ class TransportTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def send(self, url, trusted=True, ca_file=None):
-        result = subprocess.run([str(BINARY), url, str(ca_file or self.cert) if trusted else '-'], cwd=self.base / 'run',
-                                capture_output=True, text=True, timeout=8)
+    def send(self, url, payload='large', binary=BINARY):
+        result = subprocess.run([str(binary), url, payload], cwd=self.base / 'run',
+                                capture_output=True, text=True, timeout=10)
         output = result.stdout + result.stderr
-        self.assertNotIn('fixture-secret', output)
-        self.assertNotIn('fixture-user', output)
+        if binary == BINARY:
+            self.assertNotIn('fixture-secret', output)
+            self.assertNotIn('fixture-user', output)
         self.assertNotIn('runtime error:', output)
         self.assertNotIn('AddressSanitizer', output)
         return result.returncode, output
 
-    def test_smtps_and_mandatory_starttls_large_payload(self):
-        for implicit in (True, False):
-            server = Server(self.cert, self.key, implicit=implicit)
+    def test_actual_original_and_current_senders_match(self):
+        for payload in ('small', 'cc'):
+            server = Server(self.cert, self.key)
             try:
-                result, output = self.send('{}://127.0.0.1:{}'.format('smtps' if implicit else 'smtp', server.port))
-                self.assertEqual(result, 0, output)
-                self.assertIn('aceptado por el servidor', output)
-                self.assertIn('alarma=42 dispositivo=meter directorio=7', output)
-                self.assertIn('smtp=250', output)
-                self.assertIn(b'AUTH', server.commands)
-                if not implicit:
-                    self.assertLess(server.commands.index(b'STARTTLS'), server.commands.index(b'AUTH'))
-                self.assertEqual(len(server.messages), 1)
-                self.assertIn(b'X' * 120000 + b'END_LARGE_DESCRIPTION', server.messages[0])
-                self.assertIn(b'Content-Transfer-Encoding: 8bit', server.messages[0])
-                self.assertNotIn(b'Cc: ', server.messages[0])
-                self.assertRegex(server.messages[0].decode(), r'Date: [A-Z][a-z]{2}, .* \+0000')
+                url = 'smtps://127.0.0.1:{}'.format(server.port)
+                for binary in (ORIGINAL, BINARY):
+                    result, output = self.send(url, payload=payload, binary=binary)
+                    self.assertEqual(result, 0, output)
+                self.assertEqual(len(server.messages), 2)
+                # Message-ID is intentionally fresh per call; every other byte must match.
+                messages = [re.sub(rb'^Message-ID:[^\r]*\r\n', b'Message-ID: <normalized>\r\n', m, flags=re.M)
+                            for m in server.messages]
+                self.assertEqual(messages[0], messages[1])
+                self.assertEqual(len(server.auth_payloads), 2)
+                self.assertEqual(server.auth_payloads[0], server.auth_payloads[1])
+                n = len(server.envelopes) // 2
+                self.assertEqual(server.envelopes[:n], server.envelopes[n:])
             finally:
                 server.close()
 
-    def test_original_defaults_allow_slow_smtps_without_added_deadlines(self):
-        server = Server(self.cert, self.key, tls_delay=4)
+    def test_smtps_large_payload_uses_original_message_format(self):
+        server = Server(self.cert, self.key)
         try:
-            result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), trusted=False)
+            result, output = self.send('smtps://127.0.0.1:{}'.format(server.port))
             self.assertEqual(result, 0, output)
-            self.assertIn('modo=SMTPS_ORIGINAL limites=libcurl_original', output)
+            self.assertIn('modo=EMISOR_ORIGINAL', output)
             self.assertIn('aceptado por el servidor', output)
+            self.assertIn('alarma=42 dispositivo=meter directorio=7', output)
+            self.assertIn('smtp=250', output)
             self.assertEqual(len(server.messages), 1)
+            self.assertIn(b'X' * 120000 + b'END_LARGE_DESCRIPTION', server.messages[0])
+            self.assertIn(b'Content-Transfer-Encoding: 7bit', server.messages[0])
+            self.assertIn(b'Cc:  (Usuario)\r\n', server.messages[0])
+            self.assertIn(b'Date: Vie, 13 Nov 2026 13:00:00\r\n', server.messages[0])
         finally:
             server.close()
 
-    def test_no_plaintext_fallback_when_starttls_unavailable(self):
-        server = Server(self.cert, self.key, implicit=False, offer_starttls=False)
+    def test_original_defaults_allow_slow_smtps(self):
+        server = Server(self.cert, self.key, tls_delay=4)
         try:
-            result, output = self.send('smtp://127.0.0.1:{}'.format(server.port))
-            self.assertEqual(result, 64, output)
-            self.assertNotIn(b'AUTH', server.commands)
-            self.assertFalse(server.messages)
+            result, output = self.send('smtps://127.0.0.1:{}'.format(server.port))
+            self.assertEqual(result, 0, output)
+            self.assertIn('limites=libcurl_original', output)
+            self.assertEqual(len(server.messages), 1)
         finally:
             server.close()
 
@@ -87,26 +95,6 @@ class TransportTests(unittest.TestCase):
             self.assertFalse(server.messages)
         finally:
             server.close()
-
-    def test_original_peer_policy_and_explicit_ca_override(self):
-        # No CA override reproduces the original peer-chain setting; host checking stays on.
-        server = Server(self.cert, self.key)
-        try:
-            result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), trusted=False)
-            self.assertEqual(result, 0, output)
-            self.assertEqual(len(server.messages), 1)
-        finally:
-            server.close()
-        with tempfile.TemporaryDirectory() as directory:
-            unrelated_ca, _ = certificate(directory)
-            server = Server(self.cert, self.key)
-            try:
-                result, output = self.send('smtps://127.0.0.1:{}'.format(server.port), ca_file=unrelated_ca)
-                self.assertEqual(result, 60, output)
-                self.assertNotIn(b'AUTH', server.commands)
-                self.assertFalse(server.messages)
-            finally:
-                server.close()
 
     def test_server_rejection_after_data_is_not_success(self):
         server = Server(self.cert, self.key, reject_data=True)

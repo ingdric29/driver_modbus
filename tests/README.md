@@ -133,14 +133,18 @@ La plantilla de correo vacía evita cualquier envío SMTP.
 
 `make test` incluye el diagnóstico Python y `run_email_test.sh` con ASan/UBSan.
 Requiere Python 3 y `openssl` para emitir un certificado temporal de loopback.
-El emisor real de libcurl se prueba con SMTPS y con STARTTLS para URL SMTP,
-AUTH rechazado, política de certificado heredada y CA explícita, ausencia
-de STARTTLS y rechazo tras DATA. Una descripción de 120 kB comprueba que el
-callback de subida respeta el buffer. Los destinatarios son exclusivamente
-example.invalid y los servidores escuchan en 127.0.0.1; ningún correo sale
-a Internet. El runner de estado confirma que tres alarmas conservan su envío
-pendiente después de error y no repiten una notificación aceptada. Las
-pruebas no usan claves de configdb.cfg.
 
-La prueba de conexión original retrasa TLS cuatro segundos y verifica que
-el emisor completa el envío sin añadir límites CONNECTTIMEOUT/TIMEOUT.
+La prueba compara el emisor real actual con `fixtures/original_enviarmail.cpp`,
+copia exacta de `0c80b7f:src/enviarmail.cpp`. Compila los dos, fija la fecha de
+los mensajes y compara autenticación SASL, envelope y mensaje con/sin Cc.
+Solo se normaliza Message-ID. El fixture permite ejecutar la prueba también
+sin acceso al historial Git. La comparación usa mensajes pequeños para no
+activar el desbordamiento del callback del emisor antiguo.
+
+El emisor actual se prueba además con una descripción de 120 kB (callback
+acotado), TLS demorado cuatro segundos, AUTH rechazado y rechazo tras DATA.
+Solo se usan credenciales ficticias y servidores 127.0.0.1; las pruebas no
+leen configdb.cfg ni envían correo externo. El runner de estado comprueba que
+tres alarmas conservan sus envíos pendientes tras un error y no repiten una
+notificación aceptada. El diagnóstico independiente comprueba TLS/STARTTLS
+sin autenticación ni comandos de envío.

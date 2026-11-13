@@ -25,6 +25,7 @@ class Server:
         self.offer_starttls = offer_starttls
         self.tls_delay = tls_delay
         self.commands, self.messages, self.errors = [], [], []
+        self.auth_payloads, self.envelopes = [], []
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
         self.listener.listen(8)
@@ -70,6 +71,7 @@ class Server:
                                 message.append(line[1:] if line.startswith(b'..') else line)
                             continue
                         if auth_pending:
+                            self.auth_payloads.append(line)
                             connection.sendall(b'235 authenticated\r\n')
                             auth_pending = False
                             continue
@@ -89,6 +91,8 @@ class Server:
                             tls = True
                             buffer = b''
                         elif verb == b'AUTH':
+                            if len(line.split()) >= 3:
+                                self.auth_payloads.append(line.split(b' ', 2)[2])
                             if self.reject_auth:
                                 connection.sendall(b'535 wrong fixture credentials\r\n')
                             elif len(line.split()) >= 3:
@@ -97,6 +101,7 @@ class Server:
                                 connection.sendall(b'334 \r\n')
                                 auth_pending = True
                         elif verb in (b'MAIL', b'RCPT', b'RSET'):
+                            self.envelopes.append(line)
                             connection.sendall(b'250 OK\r\n')
                         elif verb == b'DATA':
                             connection.sendall(b'354 send data\r\n')
