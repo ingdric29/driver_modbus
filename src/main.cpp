@@ -32,6 +32,7 @@ Hecha por: Javier Flores
 #include "include/worker_group.h"
 #include "include/pending_batch.h"
 #include <map>
+#include "include/modbus_transport.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -307,6 +308,7 @@ int muestrear(void) {
         for (int serial = 0; serial < GLOBAL_contador_equipos_rs232_distintos; ++serial)
             workers.start(lectura_puerto_serial, &equipo_rs232_distintos[serial]);
         workers.join();
+        ModbusLease::clear();
 
 		cout << separadorigual << endl;
 		

@@ -9,6 +9,7 @@ Define la estructura de datos llamada Equipos - tcp y serial
 #include <vector>
 #include <ctype.h>
 #include <modbus.h>
+#include "include/modbus_transport.h"
 
 
 using namespace std;
@@ -27,7 +28,8 @@ int cls_cmd::cmdescribir_serial(void) {
 	int intentosmax = 3;
 	int intento = 0;
 	int resultado_escribir = false;
-	ctx_tcp = modbus_new_rtu(interface1.c_str(), velocidad, paridad.c_str()[0], 8, bitsparada);
+	auto lease = ModbusLease::rtu(interface1, velocidad, paridad.empty() ? 'N' : paridad[0], 8, bitsparada);
+	ctx_tcp = lease.get();
 	if (ctx_tcp == NULL) { // if 1
 		fprintf(stderr, "=cmdescribir:falla en iniciar libmodbus\n");
 		resultado_escribir = false;
@@ -35,9 +37,9 @@ int cls_cmd::cmdescribir_serial(void) {
 	} // fin if 1
 	if (direccion_esclavo == 0) direccion_esclavo = 1;
 	modbus_set_slave(ctx_tcp, direccion_esclavo);
-	if (modbus_connect(ctx_tcp) == -1) { // if 3
+	if (lease.connect(G_modbus_timeout) == -1) { // if 3
 		fprintf(stderr, "cmdescribir:conexion ha fallado: %s\n", modbus_strerror(errno));
-		modbus_free(ctx_tcp);
+		lease.invalidate();
 		resultado_escribir = false;
 		return -1;
 	} // fin del if 3
@@ -50,8 +52,7 @@ int cls_cmd::cmdescribir_serial(void) {
 		rc = modbus_write_register(ctx_tcp, registro, clsvalor);
 	} // fin del while 1
 
-	modbus_close(ctx_tcp);
-	modbus_free(ctx_tcp);
+	if (rc < 0) lease.invalidate();
 	return rc;
 }
 
@@ -63,7 +64,8 @@ int cls_cmd::cmdescribir_tcp(void) {
 	int intentosmax = 3;
 	int intento = 0;
 	int resultado_escribir = false;
-	ctx_tcp = modbus_new_tcp(direccion_ip.c_str(), puerto);
+	auto lease = ModbusLease::tcp(direccion_ip, puerto);
+	ctx_tcp = lease.get();
 	if (ctx_tcp == NULL) { // if 1
 		fprintf(stderr, "=cmdescribir_tcp:falla en iniciar libmodbus\n");
 		resultado_escribir = false;
@@ -71,9 +73,9 @@ int cls_cmd::cmdescribir_tcp(void) {
 	} // fin if 1
 	if (direccion_esclavo == 0) direccion_esclavo = 1;
 	modbus_set_slave(ctx_tcp, direccion_esclavo);
-	if (modbus_connect(ctx_tcp) == -1) { // if 3
+	if (lease.connect(G_modbus_timeout) == -1) { // if 3
 		fprintf(stderr, "cmdescribir_tcp:conexion ha fallado: %s\n", modbus_strerror(errno));
-		modbus_free(ctx_tcp);
+		lease.invalidate();
 		resultado_escribir = false;
 		return -1;
 	} // fin del if 3
@@ -86,8 +88,7 @@ int cls_cmd::cmdescribir_tcp(void) {
 		rc = modbus_write_register(ctx_tcp, registro, clsvalor);
 		//cout << "cmdescribir_tcp | registro: " << registro << " valor: " << clsvalor << endl; 
 	} // fin del while 1
-	modbus_close(ctx_tcp);
-	modbus_free(ctx_tcp);
+	if (rc < 0) lease.invalidate();
 	return rc;
 
 

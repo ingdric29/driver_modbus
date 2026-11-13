@@ -41,3 +41,9 @@ deduplicación y rechazo de NaN. Compilar con C++11 y `-Isrc/include`.
 `test_pending_batch.cpp` inyecta un fallo en la segunda de tres muestras:
 comprueba que el reintento guarda solo el sufijo pendiente y que un lote
 confirmado no se vuelve a enviar. No requiere SQL.
+
+`test_modbus_transport.cpp` requiere libmodbus. Ejecuta servidores de prueba
+TCP en un puerto loopback libre y RTU mediante pseudoterminales Linux.
+En ambos casos realiza lectura/escritura/lectura en la conexión retenida,
+comprueba los valores y cierra los recursos. Añadir `-pthread`, los includes
+y `-lmodbus` a la compilación. Usar un timeout externo de 10 segundos.

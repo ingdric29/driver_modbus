@@ -27,6 +27,7 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include <cmath>
 #include "include/modbus_decode.h"
 #include <limits>
+#include "include/modbus_transport.h"
 ////////////////////////////
 
 
@@ -236,7 +237,8 @@ void cls_equipos::leer_mbtcp(void) {
     int rc = -1;
 
     static_clsnombre_mbtcp = nombre;
-    ctx_mbtcp = modbus_new_tcp(direccion_ip.c_str(), puerto);
+    auto lease = ModbusLease::tcp(direccion_ip, puerto);
+    ctx_mbtcp = lease.get();
     rastro = nombre + ";" + direccion_ip + ":" + cast_int_to_string(puerto) + ";" + tag + ";" + "idslave=" + cast_int_to_string(direccion_esclavo) + ";reg=" + cast_int_to_string(registro);
 
     if (ctx_mbtcp == NULL) {
@@ -251,13 +253,13 @@ void cls_equipos::leer_mbtcp(void) {
     if (direccion_esclavo == 0) direccion_esclavo = 1;
     modbus_set_slave(ctx_mbtcp, direccion_esclavo);
 
-    if (modbus_connect(ctx_mbtcp) == -1) {
+    if (lease.connect(G_modbus_timeout) == -1) {
         string smsmodbus = string(modbus_strerror(errno));
         mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";
         mensajedeerror += rastro;
         imprimir_mensaje(mensajedeerror, rojo); //Loggin
         logger.registrarError("WARN: Modbus TCP read fail."+smsmodbus+" "+rastro);
-        modbus_free(ctx_mbtcp);
+        lease.invalidate();
         conectadocondispositivo = false;
         resultado_leer = false;
         rc = -1;
@@ -544,10 +546,7 @@ void cls_equipos::leer_mbtcp(void) {
         imprimir_mensaje(descripcionerror, rojo);
     }
 
-    if (conectadocondispositivo) {
-        modbus_close(ctx_mbtcp);
-        modbus_free(ctx_mbtcp);
-    };
+    if (rc < 0) lease.invalidate();
 
     resultadoleer_rc = rc;
 };
@@ -575,7 +574,8 @@ void cls_equipos::leer_mbserial(void) {
     int rc = -1;
 
     static_clsnombre_mbserial = nombre;
-    ctx_mbserial = modbus_new_rtu(interface1.c_str(), velocidad, paridad.c_str()[0], numerodebits, bitsparada);
+    auto lease = ModbusLease::rtu(interface1, velocidad, paridad.empty() ? 'N' : paridad[0], numerodebits, bitsparada);
+    ctx_mbserial = lease.get();
     rastro = nombre + ";" + interface1 + ";" + "idslave=" + cast_int_to_string(direccion_esclavo) + ";" + tag + ";" + "reg=" + cast_int_to_string(registro);
 
     if (ctx_mbserial == NULL) {
@@ -590,13 +590,13 @@ void cls_equipos::leer_mbserial(void) {
     if (direccion_esclavo == 0) direccion_esclavo = 1;
     modbus_set_slave(ctx_mbserial, direccion_esclavo);
 
-    if (modbus_connect(ctx_mbserial) == -1) {
+    if (lease.connect(G_modbus_timeout) == -1) {
         string smsmodbus = string(modbus_strerror(errno));
         mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";//Loggin
         mensajedeerror += rastro;
         imprimir_mensaje(mensajedeerror, rojo);
         logger.registrarError("WARN: Modbus serial fail." + smsmodbus + " " + rastro);
-        modbus_free(ctx_mbserial);
+        lease.invalidate();
         conectadocondispositivo = false;
         resultado_leer = false;
         rc = -1;
@@ -874,10 +874,7 @@ void cls_equipos::leer_mbserial(void) {
         imprimir_mensaje(descripcionerror, rojo);
     }
 
-    if (conectadocondispositivo) {
-        modbus_close(ctx_mbserial);
-        modbus_free(ctx_mbserial);
-    };
+    if (rc < 0) lease.invalidate();
 
     resultadoleer_rc = rc;
 };
