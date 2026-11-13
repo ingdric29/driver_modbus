@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Alarma</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #ffffff; margin: 0; padding: 0;">
+    <div style="border: 1px solid #1D2E59; padding: 20px; max-width: 600px; margin: auto;">
+        
+        <div style="font-size: 20px; font-weight: bold; color: #000000; border-bottom: 2px solid #1D2E59; padding-bottom: 10px;">
+            ⚠️ NOTIFICACIÓN DE ALARMA
+        </div>
+        
+        <p>Estimado equipo técnico,</p>
+        <p>Se ha detectado una alarma en <strong>{{system_name}}</strong>. A continuación, los detalles del evento:</p>
+        <ul>
+            <li><strong>Fecha y hora de activación:</strong> {{alarm_date}}</li>
+            <li><strong>Descripción de la alarma:</strong> {{alarm_description}}</li>
+			<li><strong>Valor:</strong> {{alarm_value}} {{value_unit}}</li>
+
+        </ul>
+        <p>Se recomienda revisar el equipo a la brevedad para evitar daños mayores o interrupciones en el servicio.</p>
+        <br>
+        <div style="text-align: center;">
+            <img src="https://automatroni.com/automonitor/imagenes/logo_automonitor.png" alt="Logo Automonitor" style="width: 300px;">
+            <br>
+            <a href="http://automatroni.com" target="_blank" style="color: #1D2E59; text-decoration: none;">www.automatroni.com</a>
+        </div>
+        <br>
+        <div style="text-align: center; font-size: 14px;">
+            <a href="https://www.instagram.com/automatroni.ca/" target="_blank" style="margin: 0 10px; color: #1D2E59;">Instagram</a> |
+            <a href="https://www.linkedin.com/company/automatroni/?viewAsMember=true" target="_blank" style="margin: 0 10px; color: #1D2E59;">LinkedIn</a> |
+            <a href="https://www.youtube.com/channel/UC8pUBavci6XWVjfsyofnNwA/about?view_as=subscriber" target="_blank" style="margin: 0 10px; color: #1D2E59;">YouTube</a> |
+            <a href="https://wa.me/+584123135985" target="_blank" style="margin: 0 10px; color: #1D2E59;">WhatsApp</a>
+        </div>
+    </div>
+</body>
+</html>

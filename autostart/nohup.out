@@ -1,0 +1,330 @@
+Iniciando automonitorv1 en el directorio: "/home/pi/devlog.d/bin"
+================================================================================
+servicio de registro de variables diversas. Contacto: Sigge diomede3009@gmail.com
+version 3.6 - 4-3-2024 2:13pm
+================================================================================
+leyendo archivo 'configdb.cfg'
+
+nombre del concentrador      : DepurandoDevlog
+Direccion base de datos local: 127.0.0.1
+Nombre base de datos         : dbdevlog
+Puerto base de datos         : 3306
+Usuario base de datos        : automatroni
+--------------------------------------------------------------------------------
+Direccion base de datos externo: 66.45.226.178
+Nombre base de datos           : automatr_appweb
+Puerto base de datos           : 3306
+Usuario base de datos          : automatr_uappweb
+Habilitar acceso externo       : 0
+Periodo sincronizacion local>>externo   : 500
+Cantidad de registros a subir >> externo: 500
+Periodo muestreo tbejecutar local       :   5
+Periodo muestreo tbejecutar externo     : 5
+Periodo muestreo tbcambios              : 30
+Periodo minimo escritura tbvalores      : 5
+--------------------------------------------------------------------------------
+archivo de configuracion de base de datos cargado!
+Error registrado en /home/pi/devlog.d/log/devlog.log: INFO: Devlog initialized. Configuration file loaded.
+Ambas claves invalidas
+favor suministrar los siguientes codigos
+a su vendedor para conseguir sus claves:
+Error registrado en /home/pi/devlog.d/log/devlog.log: ERROR: INVALID KEYS DETECTED! Please contact your provider to obtain the correct keys. License not activated. Devlog stopped.
+longitud = 40 
+lo 00:00:00:00:00:00
+serial decimal = 0
+ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Can't connect to server on '127.0.0.1' (115) (MySQL error code: 2002, SQLState: HY000 )
+Error registrado en /home/pi/devlog.d/log/devlog.log: ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Can't connect to server on '127.0.0.1' (115) (MySQL error code: 2002, SQLState: HY000 )
+Error: automonitorv1 terminó con código de salida: 256
+INFO: Automonitorv1 ejecutado desde el directorio actual.
+Reiniciando el sistema en 60 seg
+Error registrado en /home/pi/log/devlog.log: INFO: Restarting automonitor in 60 seconds
+Iniciando automonitorv1 en el directorio: "/home/pi/devlog.d/bin"
+================================================================================
+servicio de registro de variables diversas. Contacto: Sigge diomede3009@gmail.com
+version 3.6 - 4-3-2024 2:13pm
+================================================================================
+leyendo archivo 'configdb.cfg'
+
+nombre del concentrador      : DepurandoDevlog
+Direccion base de datos local: 127.0.0.1
+Nombre base de datos         : dbdevlog
+Puerto base de datos         : 3306
+Usuario base de datos        : automatroni
+--------------------------------------------------------------------------------
+Direccion base de datos externo: 66.45.226.178
+Nombre base de datos           : automatr_appweb
+Puerto base de datos           : 3306
+Usuario base de datos          : automatr_uappweb
+Habilitar acceso externo       : 0
+Periodo sincronizacion local>>externo   : 500
+Cantidad de registros a subir >> externo: 500
+Periodo muestreo tbejecutar local       :   5
+Periodo muestreo tbejecutar externo     : 5
+Periodo muestreo tbcambios              : 30
+Periodo minimo escritura tbvalores      : 5
+--------------------------------------------------------------------------------
+archivo de configuracion de base de datos cargado!
+Error registrado en /home/pi/devlog.d/log/devlog.log: INFO: Devlog initialized. Configuration file loaded.
+ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Cannot add or update a child row: a foreign key constraint fails (`dbdevlog`.`tbhistoalarmas`, CONSTRAINT `tbhistoalarmas_ibfk_2` FOREIGN KEY (`dispositivo`) REFERENCES `tbdispositivos` (`nombre`) ON UPDATE CASCADE) (MySQL error code: 1452, SQLState: 23000 )
+Error registrado en /home/pi/devlog.d/log/devlog.log: ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Cannot add or update a child row: a foreign key constraint fails (`dbdevlog`.`tbhistoalarmas`, CONSTRAINT `tbhistoalarmas_ibfk_2` FOREIGN KEY (`dispositivo`) REFERENCES `tbdispositivos` (`nombre`) ON UPDATE CASCADE) (MySQL error code: 1452, SQLState: 23000 )
+Error registrado en /home/pi/devlog.d/log/devlog.log: INFO: Start Devlog.
+numero tags mbtcp:145
+numero tags mbserial:0
+numero tags htmls9:0
+numero tags rs232:0
+numero dispositivos rs232:0
+direccion:tcp://127.0.0.1:3306
+base de datos:dbdevlog
+numero tags mbtcp:145
+numero tags mbserial:0
+numero tags htmls9:0
+numero tags rs232:0
+numero dispositivos rs232:0
+direccion:tcp://127.0.0.1:3306
+base de datos:dbdevlog
+empezar a ejecutar hilos
+ iniciado hilo con protocolo: MBTCP
+ordenescrituraequiposciclico: ok
+no hay equipos
+no hay equipos
+no hay equipos
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:45:51
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* Initializing NSS with certpath: none
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* loaded /usr/lib/aarch64-linux-gnu/libnssckbi.so
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:46:22 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:46:08
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:46:39 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:46:28
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:47:00 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:46:41
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:47:14 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:46:54
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:47:26 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:47:11
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:47:42 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
+to:marianisalguero@gmail.com
+cc:
+asunto:Alarma activada | Filtro Obstruido | DepurandoDevlog
+cuerpo:Fecha y hora: Mar, 19 Nov 2024 11:47:23
+*   Trying 173.201.184.88:465...
+* Connected to p3plzcpnl463001.prod.phx3.secureserver.net (173.201.184.88) port 465 (#0)
+* WARNING: ignoring value of ssl.verifyhost
+*  CAfile: none
+*  CApath: none
+* skipping SSL peer certificate verification
+* SSL connection using TLS_AES_128_GCM_SHA256
+* Server certificate:
+* subject: CN=*.prod.phx3.secureserver.net
+*  start date: Feb 15 21:45:33 2024 GMT
+*  expire date: Mar 18 21:45:33 2025 GMT
+*  common name: *.prod.phx3.secureserver.net
+*  issuer: CN=Starfield Secure Certificate Authority - G2,OU=http://certs.starfieldtech.com/repository/,O="Starfield Technologies, Inc.",L=Scottsdale,ST=Arizona,C=US
+< 220-p3plzcpnl463001.prod.phx3.secureserver.net ESMTP Exim 4.96.2 #2 Tue, 19 Nov 2024 08:47:55 -0700 
+< 220-We do not authorize the use of this system to transport unsolicited, 
+< 220 and/or bulk e-mail.
+> EHLO Automonitor-A001
+< 250-p3plzcpnl463001.prod.phx3.secureserver.net Hello 205.253.10.38.in-addr.arpa [38.10.253.205]
+< 250-SIZE 52428800
+< 250-8BITMIME
+< 250-PIPELINING
+< 250-PIPECONNECT
+< 250-AUTH PLAIN LOGIN
+< 250 HELP
+> AUTH PLAIN
+< 334 
+> AGF1dG9tb25pdG9yQGF1dG9tYXRyb25pLmNvbQAxMjNhdXRvbW9uaXRvcioqKg==
+< 535 Incorrect authentication data
+* Closing connection 0
+curl_easy_perform() failed: Login denied
