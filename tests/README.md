@@ -73,3 +73,8 @@ El runner de estado verifica búsqueda de eventos RTU/RS232 y referencias
 inexistentes. Con `DRIVER_SQL_TEST=1` requiere además `driver_test_replica`:
 replica fechas iguales en lotes 2/2/1, copia datos tardíos y comprueba rollback,
 checkpoint sin avance y recuperación posterior, usando `replication_fixture`.
+
+`test_retry.cpp` verifica crecimiento 100/200 ms, límite de 30 s y reinicio de
+la espera tras recuperación, usando tiempo simulado. La prueba enlazada de
+estado incluye SIGTERM: interrumpe una espera de 60 s en menos de un segundo,
+sin alterar las pruebas posteriores.

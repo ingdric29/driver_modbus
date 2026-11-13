@@ -10,6 +10,7 @@ Define la estructura de datos llamada Equipos - tcp y serial
 #include <ctype.h>
 #include <modbus.h>
 #include "include/modbus_transport.h"
+#include "include/runtime_control.h"
 
 
 using namespace std;
@@ -43,8 +44,8 @@ int cls_cmd::cmdescribir_serial(void) {
 		resultado_escribir = false;
 		return -1;
 	} // fin del if 3
-	modbus_set_response_timeout(ctx_tcp, 0, G_modbus_timeout);
-	while ((intento < intentosmax) && (rc == -1)) { //while 1
+
+	while ((intento < intentosmax) && driver_running() && (rc == -1)) { //while 1
 		  //cout << "la funcion es: " << funcion << endl;
 		  //cout << "la interpretacion es: " << interpretacion << endl;
 		intento++;
@@ -80,7 +81,7 @@ int cls_cmd::cmdescribir_tcp(void) {
 		return -1;
 	} // fin del if 3
 
-	while ((intento < intentosmax) && (rc == -1)) { //while 1
+	while ((intento < intentosmax) && driver_running() && (rc == -1)) { //while 1
 		  //cout << "la funcion es: " << funcion << endl;
 		  //cout << "la interpretacion es: " << interpretacion << endl;
 		intento++;

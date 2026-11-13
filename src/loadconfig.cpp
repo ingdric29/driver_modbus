@@ -64,6 +64,7 @@ std::shared_ptr<sql::Connection> database_session(const stdatabase* db) {
     return sql_connection("tcp://" + db->direccion + ":" + std::to_string(db->puerto), db->usuario, db->clave, db->nombre);
 }
 void database_failure(const std::exception& error) {
+    ++DriverMetrics::instance().sql_failures;
     sql_sessions().invalidate();
     logger_loadconfig.registrarError(std::string("SQL operation failed: ") + error.what());
 }
@@ -108,7 +109,7 @@ int loadconfigdb()
 	int contador_campos = 0;
 	INIReader reader(obtenerDirectorio("configdb.cfg"));
 
-	if (reader.ParseError() < 0) {
+	if (reader.ParseError() != 0) {
 		std::cout << "No se pudo cargar 'configdb.ini'\n";
 		return -1;
 	}
@@ -138,6 +139,8 @@ int loadconfigdb()
 
 		GLOBAL_picos_tags = reader.Get(*sectionsIt, "picos_tags", "");
         GLOBAL_replicacion_inicial_id = reader.GetInteger(*sectionsIt, "replicacion_inicial_id", -1);
+        G_modbus_timeout = reader.GetInteger(*sectionsIt, "modbus_timeout_us", 90000);
+        if (G_modbus_timeout < 1000 || G_modbus_timeout > 3000000) return -1;
 		GLOBAL_nombre_concentrador = reader.Get(*sectionsIt, "nombre_concentrador", "raspi");
 
 		GLOBAL_periodo_minimo_escritura_tbvalores = cast_string_to_double(reader.Get(*sectionsIt, "periodo_minimo_escritura_tbvalores", "30"));
@@ -213,6 +216,13 @@ int loadconfigdb()
 		std::cout << "Periodo minimo escritura tbvalores      : " << GLOBAL_periodo_minimo_escritura_tbvalores << endl;
 	}
 
+    try {
+        for (double period : {GLOBAL_periodo_muestreo_tbejecutar, GLOBAL_periodoext_muestreo_tbejecutar,
+            GLOBAL_periodo_muestreo_tbcambios, GLOBAL_periodo_revision_alarmas,
+            GLOBAL_periodo_revision_eventos, GLOBAL_periodo_minimo_escritura_tbdispositivos_sta})
+            PeriodicDeadline::interval(period);
+        if (!std::isfinite(GLOBAL_periodo_minimo_escritura_tbvalores) || GLOBAL_periodo_minimo_escritura_tbvalores < 0) return -1;
+    } catch (const std::invalid_argument& error) { logger_loadconfig.registrarError(error.what()); return -1; }
 	return 1;
 }
 
@@ -490,6 +500,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				for (j = 0; j < i; j++) {
 					if (equipo_mbtcp[i].nombre.compare(equipo_mbtcp[j].nombre) == 0) {
 						equipo_mbtcp[i].state_mutex = equipo_mbtcp[j].state_mutex;
+                        equipo_mbtcp[i].suspension_logged = equipo_mbtcp[j].suspension_logged;
 						equipo_mbtcp[i].pcontador_errores = equipo_mbtcp[j].pcontador_errores;
 						equipo_mbtcp[i].pcontador_errores_acumulados = equipo_mbtcp[j].pcontador_errores_acumulados;
 						equipo_mbtcp[i].ptiempotranscurridoerrores = equipo_mbtcp[j].ptiempotranscurridoerrores;
@@ -509,6 +520,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				for (j = 0; j < i; j++) {
 					if (equipo_mbserial[i].nombre.compare(equipo_mbserial[j].nombre) == 0) {
 						equipo_mbserial[i].state_mutex = equipo_mbserial[j].state_mutex;
+                        equipo_mbserial[i].suspension_logged = equipo_mbserial[j].suspension_logged;
 						equipo_mbserial[i].pcontador_errores = equipo_mbserial[j].pcontador_errores;
 						equipo_mbserial[i].pcontador_errores_acumulados = equipo_mbserial[j].pcontador_errores_acumulados;
 						equipo_mbserial[i].ptiempotranscurridoerrores = equipo_mbserial[j].ptiempotranscurridoerrores;
@@ -528,6 +540,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				for (j = 0; j < i; j++) {
 					if (equipo_rs232[i].nombre.compare(equipo_rs232[j].nombre) == 0) {
 						equipo_rs232[i].state_mutex = equipo_rs232[j].state_mutex;
+                        equipo_rs232[i].suspension_logged = equipo_rs232[j].suspension_logged;
 						equipo_rs232[i].pcontador_errores = equipo_rs232[j].pcontador_errores;
 						equipo_rs232[i].pcontador_errores_acumulados = equipo_rs232[j].pcontador_errores_acumulados;
 						equipo_rs232[i].ptiempotranscurridoerrores = equipo_rs232[j].ptiempotranscurridoerrores;
@@ -1029,6 +1042,7 @@ int sincronizar_tablas(stdatabase* local, stdatabase* remote, string table, int 
         }
         transaction.commit();
         if (copied) write_replication_cursor(path, identity, confirmed);
+        DriverMetrics::instance().replicated_samples += copied;
         return copied;
     } catch (const std::exception& error) { database_failure(error); return -1; }
 }

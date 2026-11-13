@@ -300,7 +300,8 @@ int cls_defalarmas::evaluarcompleto() {
 	
 	} // fin del try
 	
-	catch(...) {
+	catch(const std::exception& error) {
+        imprimir_mensaje(std::string("Invalid alarm: ")+error.what(), rojo);
 		imprimir_mensaje("falla - modulo cls_defalarmas :: evaluarcompleto");
 		return -1;
 	}

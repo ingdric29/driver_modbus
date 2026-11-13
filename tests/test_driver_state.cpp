@@ -9,6 +9,7 @@
 #include "cls_defeventos.h"
 #include "estructuras.h"
 #include <cstdlib>
+#include "runtime_control.h"
 void serial_test() {
     cls_equipos tag;
     tag.protocolo = "RS232";
@@ -150,7 +151,17 @@ void replication_test() {
     assert(rows->next() && rows->getInt(1) == 8); rows.reset();
     a->execute("DROP TABLE replication_fixture"); b->execute("DROP TABLE replication_fixture");
 }
-int main() {
+void shutdown_test() {
+    install_driver_signals(); GLOBAL_EJECUTARHILOS = true; GLOBAL_stop_requested = false;
+    const auto begin = std::chrono::steady_clock::now();
+    std::thread signaler([] { std::this_thread::sleep_for(std::chrono::milliseconds(30)); std::raise(SIGTERM); });
+    wait_driver_seconds(60);
+    signaler.join();
+    assert(GLOBAL_stop_requested && !GLOBAL_EJECUTARHILOS);
+    assert(std::chrono::steady_clock::now() - begin < std::chrono::seconds(1));
+    GLOBAL_stop_requested = false; GLOBAL_EJECUTARHILOS = true;
+}
+int main() { shutdown_test();
     serial_test(); batch_period_test(); event_lookup_test();
     if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); }
 }

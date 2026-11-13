@@ -29,6 +29,8 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include <limits>
 #include "include/modbus_transport.h"
 #include "include/register_batch.h"
+#include "include/runtime_control.h"
+#include "include/driver_metrics.h"
 ////////////////////////////
 
 
@@ -54,44 +56,9 @@ int cls_equipos::static_clsdatosleidos_mbtcp[20] = {};
 
 /////////////////////////////////////
 Logger logger;
-std::atomic<bool> GLOBAL_habilitar_log{true};
+
 ////////////////////////////////////
-int actualizarValores() {
-    std::string query = "UPDATE `tbinstantaneos` SET `valorstr` = ?, `valorfloat` = ? WHERE `tbinstantaneos`.tag = ?";
-    std::string direccionpuerto = "tcp://127.0.0.1:3306";
-    std::string usuario = "automatroni";
-    std::string password = "automa2424";
-    std::string schema = "dbdevlog";
 
-    try {
-        // Crear una conexión con la base de datos
-        sql::Driver* driver = get_driver_instance();
-        std::unique_ptr<sql::Connection> con(driver->connect(direccionpuerto, usuario, password));
-        con->setSchema(schema);
-
-        // Crear una consulta preparada
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(query));
-        pstmt->setString(1, "1");  // valorstr
-        pstmt->setDouble(2, 1.0);  // valorfloat
-        pstmt->setString(3, "wAlarmas04");  // tag
-
-        // Ejecutar la consulta
-        int rowsAffected = pstmt->executeUpdate();
-        std::cout << "Filas afectadas: " << rowsAffected << std::endl;
-
-        return (rowsAffected > 0) ? 0 : -1;
-    }
-    catch (sql::SQLException& e) {
-        std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) +
-            "(" + std::string(__FUNCTION__) + ") on line " + std::to_string(__LINE__) +
-            ".# Error description: " + e.what() +
-            " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-            ", SQLState: " + e.getSQLState() + " )";
-
-        std::cout << mensajeError << std::endl;
-        return -1;
-    }
-}
 
 
 cls_equipos::cls_equipos() {
@@ -151,6 +118,7 @@ int cls_equipos::leer() {
 	
 
 	resultadoleer_rc = -1;
+    ReadMeasurement measurement(resultadoleer_rc);
 	if (*pcontador_errores > cuenta_errores_maximo) {
 		*pestadocomunicacion = false;
 		*ptiempotranscurridoerrores = *ptiempotranscurridoerrores + difftime(time(NULL), *pultima_llamada_leer);
@@ -166,14 +134,14 @@ int cls_equipos::leer() {
 		mensajedeerror += "si hay conexion ";
 		imprimir_mensaje_importante(mensajedeerror, verde);
 		logger.registrarError("INFO: Connection verification. Device "+nombre+" activated.");
-		GLOBAL_habilitar_log = true;
+		*suspension_logged = false;
 	}
 
 	if (*pcontador_errores > cuenta_errores_maximo) {
 		mensajedeerror = "se suspende dispositivo " + nombre + " por exceso de error y ";
 		mensajedeerror += "se reanuda dentro de " + cast_double_to_string(tiemporeset_cuenta_errores - *ptiempotranscurridoerrores) + " segundos";
 		imprimir_mensaje_importante(mensajedeerror, rojo);//Loggin
-		if(GLOBAL_habilitar_log){logger.registrarError("INFO: Excess errors. Device "+nombre+" suspended.");GLOBAL_habilitar_log=false;actualizarValores();}
+		if(!*suspension_logged){logger.registrarError("INFO: Excess errors. Device "+nombre+" suspended.");*suspension_logged=true;}
 		return -2; 
 	}
 	imprimir_mensaje("leer: " + tag, negro);
@@ -255,6 +223,7 @@ void cls_equipos::leer_mbtcp(void) {
     modbus_set_slave(ctx_mbtcp, direccion_esclavo);
 
     if (lease.connect(G_modbus_timeout) == -1) {
+        if (errno == EAGAIN) { resultadoleer_rc = -3; resultado_leer = false; return; }
         string smsmodbus = string(modbus_strerror(errno));
         mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";
         mensajedeerror += rastro;
@@ -272,7 +241,7 @@ void cls_equipos::leer_mbtcp(void) {
     cantidad1 = std::max(1, std::min(cantidad1, 20));
     //modbus_set_response_timeout(ctx_mbtcp, 0, 200000);
 
-    while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) {
+    while ((intento < intentosmax) && driver_running() && (rc == -1) && (conectadocondispositivo == true)) {
         //cout << "la funcion es: " << funcion << endl;
         //cout << "la interpretacion es: " << interpretacion << endl;
 
@@ -592,6 +561,7 @@ void cls_equipos::leer_mbserial(void) {
     modbus_set_slave(ctx_mbserial, direccion_esclavo);
 
     if (lease.connect(G_modbus_timeout) == -1) {
+        if (errno == EAGAIN) { resultadoleer_rc = -3; resultado_leer = false; return; }
         string smsmodbus = string(modbus_strerror(errno));
         mensajedeerror = "fallo en modbus errno= " + smsmodbus + " ";//Loggin
         mensajedeerror += rastro;
@@ -609,7 +579,7 @@ void cls_equipos::leer_mbserial(void) {
     cantidad1 = std::max(1, std::min(cantidad1, 20));
     //modbus_set_response_timeout(ctx_mbserial, 0, 200000);
 
-    while ((intento < intentosmax) && (rc == -1) && (conectadocondispositivo == true)) {
+    while ((intento < intentosmax) && driver_running() && (rc == -1) && (conectadocondispositivo == true)) {
 
         intento++;
 
@@ -963,15 +933,7 @@ float cls_equipos::convert_float_fp(float regVal)
 }
 
 
-void cls_equipos::esperar(double segundos) {
-    if (!std::isfinite(segundos) || segundos <= 0.0) {
-        return;
-    }
-
-    std::this_thread::sleep_for(
-        std::chrono::duration<double>(segundos)
-    );
-}
+void cls_equipos::esperar(double segundos) { wait_driver_seconds(segundos); }
 
 
 

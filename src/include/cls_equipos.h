@@ -35,6 +35,7 @@ enum GLOBAL_enum_protocolo { MBTCP = 0, MBSERIAL =1, RS232 = 3};
 class cls_equipos {
 public:
 	std::shared_ptr<std::recursive_mutex> state_mutex = std::make_shared<std::recursive_mutex>();
+	std::shared_ptr<bool> suspension_logged = std::make_shared<bool>(false);
 	std::shared_ptr<std::mutex> buffer_mutex = std::make_shared<std::mutex>();
 	//propiedades
 

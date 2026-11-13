@@ -35,6 +35,8 @@ Hecha por: Javier Flores
 #include "include/modbus_transport.h"
 #include "include/register_batch.h"
 #include "include/sql_session.h"
+#include "include/runtime_control.h"
+#include "include/driver_metrics.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -78,6 +80,7 @@ int GLOBAL_contador_cmd;
 int GLOBAL_contador_directorio;
 int GLOBAL_contador_numerossms;
 std::atomic<bool> GLOBAL_EJECUTARHILOS{true};
+std::atomic<bool> GLOBAL_stop_requested{false};
 std::recursive_mutex GLOBAL_command_mutex;
 uint32_t G_modbus_timeout = 90000;
 //////////////////// Correccion.
@@ -182,6 +185,7 @@ MAIN
 */
 
 int main(int argc, char* argv[]) {
+    install_driver_signals();
 	int res = 0;
 	long long valorclave1 = 0;
 	long long valorclave2 = 0;
@@ -193,7 +197,7 @@ int main(int argc, char* argv[]) {
 	cout << "Rev. 1.1.2  26/11/24" << endl;
 	cout << separadorigual << endl;
 
-	if (loadconfigdb()) {
+	if (loadconfigdb() == 1) {
 		cout << separadorguion << endl;
 		cout << "archivo de configuracion de base de datos cargado!" << endl;
 		logger_main.registrarError("INFO: Devlog initialized. Configuration file loaded.");
@@ -201,6 +205,7 @@ int main(int argc, char* argv[]) {
 	else {
 		cout << "falla en el archivo de configuracion configdb.cfg!" << endl;
 		logger_main.registrarError("ERROR: Configuration file configdb.cfg failed to load!");
+        return EXIT_FAILURE;
 	};
 
 	stdblocal.direccion = GLOBAL_db_direccion;
@@ -223,8 +228,10 @@ int main(int argc, char* argv[]) {
 	GLOBAL_ultimo_reseteo_mysqlexterno = 0;
 	GLOBAL_contador_defeventos = -1;
 
-	valorclave1 = std::stoull(GLOBAL_clave1,NULL,16);
-	valorclave2 = std::stoull(GLOBAL_clave2,NULL,16);
+	try {
+        valorclave1 = std::stoull(GLOBAL_clave1, nullptr, 16);
+        valorclave2 = std::stoull(GLOBAL_clave2, nullptr, 16);
+    } catch (const std::exception&) { logger_main.registrarError("Invalid license key format"); return EXIT_FAILURE; }
 	if (!(check_key(valorclave1) || check_key(valorclave2))) {
 		cout << "Ambas claves invalidas" << endl;
 		cout << "favor suministrar los siguientes codigos" << endl;
@@ -237,19 +244,11 @@ int main(int argc, char* argv[]) {
 	};	
 	insertar_eventos_tbhistoalarmas("registrador iniciado!","");
 	logger_main.registrarError("INFO: Start Devlog.");
-	muestrear();
-	return 0;
+	return muestrear() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 };
 
 
-void esperar(double segundos) {
-	double milisegundos;
-	milisegundos = 1000 * segundos;
-
-	std::this_thread::sleep_for(std::chrono::milliseconds((int) milisegundos));
-	
-	
-}
+void esperar(double segundos) { wait_driver_seconds(segundos); }
 
 
 int getVal(string cadena1) { // convierte un valor cadena string a entero
@@ -294,9 +293,10 @@ int muestrear(void) {
 
 	GLOBAL_estado_primera_ejecucion_programa = 1;
 	cout << "empezar a ejecutar hilos" << endl;
-	while (1) {
+	while (!GLOBAL_stop_requested) {
 		if (ordenlecturaconfiguracion() < 0) { liberarmemoria(); return -1; }
-		GLOBAL_EJECUTARHILOS = true;
+		if (GLOBAL_stop_requested) { liberarmemoria(); break; }
+        GLOBAL_EJECUTARHILOS = true;
 		actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "estado", "0", "`id`>'0'");
         WorkerGroup workers(GLOBAL_EJECUTARHILOS);
         workers.start(ordenlecturaconfiguracionciclico);
@@ -319,6 +319,8 @@ int muestrear(void) {
 		liberarmemoria();
 
 	}
+    logger_main.registrarError(DriverMetrics::instance().summary());
+    return 0;
 }
 
 
@@ -346,7 +348,7 @@ int ordenejecucuionlocal() {
 						//cout << "registro:" << cmd[j].registro << " | valor:" << cmd[j].clsvalor << endl; 
 						res_ejecutar = cmd[j].ejecutar();
 						
-						if (res_ejecutar > 0) {
+						if (res_ejecutar == 0) {
 							escribir_tbcmd_fechahora(cmd[j].id, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave);
 						}
 					}
@@ -382,7 +384,7 @@ int ordenejecucuionexterna() {
 						//cout << "ejecucion externo lote:" << cmd[j].lote << " | res_lote:" << res_lote << endl;
 						//cout << "registro:" << cmd[j].registro << " | valor:" << cmd[j].clsvalor << endl; 
 						res_ejecutar_externa = cmd[j].ejecutar();
-						if (res_ejecutar_externa > 0) {
+						if (res_ejecutar_externa == 0) {
 							escribir_tbcmd_fechahora(cmd[j].id, GLOBAL_dbext_direccion, getVal(GLOBAL_dbext_puerto), GLOBAL_dbext_nombre, GLOBAL_dbext_usuario, GLOBAL_dbext_clave);
 						}
 					}
@@ -396,9 +398,14 @@ int ordenejecucuionexterna() {
 
 
 int ordenejecucionciclico() {
+    PeriodicDeadline metrics_deadline;
 	double diferencia1 = 0.0;
 	double diferencia2 = 0.0;
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
+        if (metrics_deadline.due()) {
+            logger_main.registrarError(DriverMetrics::instance().summary());
+            metrics_deadline.advance(60);
+        }
 		diferencia1 = difftime(time(NULL), GLOBAL_ultimo_tiempo_tbejecutar_dblocal);
 		if (diferencia1 > GLOBAL_periodo_muestreo_tbejecutar) { // if 1
 			GLOBAL_ultimo_tiempo_tbejecutar_dblocal = time(NULL);
@@ -418,7 +425,7 @@ int ordenejecucionciclico() {
 		else {
 			tiempominimo = GLOBAL_periodoext_muestreo_tbejecutar;
 		}
-		std::this_thread::sleep_for(std::chrono::seconds(tiempominimo));
+		esperar(std::min(GLOBAL_periodo_muestreo_tbejecutar, GLOBAL_periodoext_muestreo_tbejecutar));
 	}
 	cout << " fin hilo lectura ordenes de ejecucion " << endl;
 	return 1;
@@ -503,7 +510,7 @@ int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
 	long contador = 0;
 	try
 	{
-		while (GLOBAL_EJECUTARHILOS) {
+		while (driver_running()) {
 			//contador++; //Que hace esta variable??¿?¿?¿?¿
 			if (arge_cantidad == 0) 
 			{
@@ -519,7 +526,7 @@ int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
                 std::lock_guard<std::recursive_mutex> state(*equipo[tag].state_mutex);
                 wake = std::min(wake, equipo[tag].read_deadline.next());
             }
-            std::this_thread::sleep_until(wake);
+            wait_driver_until(wake);
 		}
 		if (iniciado){ 
 		cout << " fin hilo lectura variables protocolo " << equipo[0].protocolo << endl;};
@@ -544,14 +551,14 @@ int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
 //ordenrevisarposiblesalarmasciclico
 int ordenrevisarposiblesalarmasciclico() {
 	int res_ordenrevisarposiblesalarmasciclico;
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		double diferencia_tiempoalarmas = 0.0;
 		diferencia_tiempoalarmas = difftime(time(NULL), GLOBAL_ultima_revision_alarmas);
 		if (diferencia_tiempoalarmas >= GLOBAL_periodo_revision_alarmas) {
 			res_ordenrevisarposiblesalarmasciclico = ordenrevisarposiblesalarmas();
 		}
 		int tiempoentero = (int)(GLOBAL_periodo_revision_alarmas);
-		std::this_thread::sleep_for(std::chrono::seconds(tiempoentero));
+		esperar(GLOBAL_periodo_revision_alarmas);
 	}
 	cout << " fin hilo ordenrevisarposiblesalarmasciclico " << endl;
 	return 1;
@@ -583,6 +590,12 @@ int ordenlecturaconfiguracion() {
 		if (actualizar_directorio(&stdblocal) < 0) return -1;
 		if (actualizar_smslist(&stdblocal) < 0) return -1;
 		if (actualizar_defeventos(&stdblocal) < 0) return -1;
+        for (int rtu = 0; rtu < GLOBAL_contador_equipos_mbserial; ++rtu)
+            for (int serial = 0; serial < GLOBAL_contador_equipos_rs232; ++serial)
+                if (equipo_mbserial[rtu].interface1 == equipo_rs232[serial].interface1) {
+                    logger_main.registrarError("RTU and direct RS232 cannot share the same serial interface");
+                    return -1;
+                }
 		actualizar_posiciones_clsdefeventos();
 
 		//campo2[0] = "id";
@@ -615,7 +628,7 @@ int ordenlecturaconfiguracionciclico() {
 	double diferencia1 = 0.0;
 	double diferencia2 = 0.0;
 
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		// orden de lectura de configuracion
 		tbcambio_diferencia_tiempo = difftime(time(NULL), GLOBAL_tbcambio_tiempo_ultimochequeo);
 		//cout << tbcambio_diferencia_tiempo << " - " << GLOBAL_periodo_muestreo_tbcambios << endl;
@@ -678,7 +691,7 @@ int ordenborrarregistroslocalesciclico() {
 
 	double diferencia_tiempo = 0.0;
 
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		diferencia_tiempo = difftime(time(NULL), GLOBAL_ultima_revision_tablas_locales);
 		if (diferencia_tiempo > GLOBAL_periodo_revision_tablas_locales) {
 			GLOBAL_ultima_revision_tablas_locales = time(NULL);
@@ -697,7 +710,7 @@ int ordenborrarregistrosexternosciclico() {
 
 	double diferencia_tiempo = 0.0;
 
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		diferencia_tiempo = difftime(time(NULL), GLOBAL_ultima_revision_tablas_externas);
 		if (diferencia_tiempo > GLOBAL_periodo_revision_tablas_externas) {
 			GLOBAL_ultima_revision_tablas_externas = time(NULL);
@@ -731,7 +744,7 @@ int orden_sincronizar_tablas_ciclico() {
 
 	double diferencia_tiempo = 0.0;
 
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		diferencia_tiempo = difftime(time(NULL), GLOBAL_sicronizacion_tiempo);
 		if (diferencia_tiempo > GLOBAL_sicronizacion_periodo) {
 			GLOBAL_sicronizacion_tiempo = time(NULL);
@@ -867,7 +880,7 @@ int orden_actualizarvalores_clsdefeventos() {
 
 	double diferencia_tiempo = 0.0;
 
-	while (GLOBAL_EJECUTARHILOS) {
+	while (driver_running()) {
 		diferencia_tiempo = difftime(time(NULL), GLOBAL_tiempo_ultima_revision_eventos);
 		if (diferencia_tiempo > GLOBAL_periodo_revision_eventos) {
 			GLOBAL_tiempo_ultima_revision_eventos = time(NULL);
@@ -913,13 +926,13 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 		tamanobuffer = equipo_serial->tamanobuffer;
 
 		modo[0] = char(local_numbits + 48);
-		modo[1] = (char)toupper(equipo_serial->paridad[0]);
+		modo[1] = equipo_serial->paridad.empty() ? 'N' : (char)toupper(equipo_serial->paridad[0]);
 		modo[2] = char(equipo_serial->bitsparada + 48);
 		modo[3] = 0;
 
 		velocidadserial = equipo_serial->velocidad;
 		controldeflujo = equipo_serial->controldeflujo;
-		while (GLOBAL_EJECUTARHILOS) {  //while1
+		while (driver_running()) { //while1
 
 			if (RS232_OpenComport(numpuertoserial, velocidadserial, modo, controldeflujo)) // retorna 1 en caso de error
 			{
@@ -929,7 +942,7 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 
 			}
 			else {
-				while (GLOBAL_EJECUTARHILOS) {
+				while (driver_running()) {
 					{
                         std::lock_guard<std::mutex> serial(*equipo_serial->buffer_mutex);
                         n = RS232_PollComport(numpuertoserial, equipo_serial->buf, tamanobuffer);
@@ -942,7 +955,7 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 				RS232_CloseComport(numpuertoserial);
 			}
 			cout << "espere 10 seg para reabrir puerto serial (" << nombrepuerto << ") " << endl;
-			std::this_thread::sleep_for(std::chrono::seconds(10));
+			esperar(10);
 		} // primer while 1
 
 		return;
@@ -980,7 +993,7 @@ std::string sample_key(const cls_equipos& tag) {
     return tag.protocolo + "\x1f" + tag.nombre + "\x1f" + tag.tag + "\x1f" + std::to_string(tag.id);
 }
 void flush_historical() {
-    for (auto it = historical_pending.begin(); it != historical_pending.end();) {
+    for (auto it = historical_pending.begin(); it != historical_pending.end() && !GLOBAL_stop_requested;) {
         auto& write = it->second;
         if (!write.retry.due()) { ++it; continue; }
         const bool stored = write.pending.persist([&](const std::vector<SampleValue>& samples) {
@@ -992,6 +1005,7 @@ void flush_historical() {
                 return true;
             } catch (const std::exception& error) {
                 sql_sessions().invalidate();
+                ++DriverMetrics::instance().sql_failures;
                 logger_main.registrarError(std::string("Historical transaction failed: ") + error.what());
                 return false;
             }
@@ -1010,6 +1024,7 @@ void flush_historical() {
         confirm(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
         confirm(equipo_rs232, GLOBAL_contador_equipos_rs232);
         it = historical_pending.erase(it);
+        DriverMetrics::instance().pending_windows = historical_pending.size();
     }
 }
 }
@@ -1041,6 +1056,7 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
                 write.id = tag.id; write.revision = tag.change_revision;
                 write.generation = tag.state_mutex;
                 historical_pending.emplace(key, std::move(write));
+                DriverMetrics::instance().pending_windows = historical_pending.size();
                 tag.sample_window.clear();
             }
         }
@@ -1077,7 +1093,7 @@ int ordenescrituraequiposciclico() {
 	bool iniciado = false;
 	double menor;
 	//cout << "GLOBAL_EJECUTARHILOS: " << GLOBAL_EJECUTARHILOS << endl;
-	while (GLOBAL_EJECUTARHILOS) { 
+	while (driver_running()) {
 		//cout << "escrituras de tags " << endl;
 		{ // Each tag carries its own communication status.
 
@@ -1111,7 +1127,7 @@ int ordenescrituraequiposciclico() {
         inspect(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
         inspect(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
         inspect(equipo_rs232, GLOBAL_contador_equipos_rs232);
-        std::this_thread::sleep_until(std::max(wake, PeriodicDeadline::Clock::now() + std::chrono::milliseconds(1)));
+        wait_driver_until(std::max(wake, PeriodicDeadline::Clock::now() + std::chrono::milliseconds(1)));
 		iniciado = true;
 	}
 	if (iniciado) cout << " fin hilo escritura en base de datos local" << endl;

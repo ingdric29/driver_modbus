@@ -13,6 +13,7 @@
 #include <cctype>
 #include <ctime>
 #include "sample_window.h"
+#include "driver_metrics.h"
 
 class SqlSessionPool {
     using Key = std::tuple<std::string, std::string, std::string, std::string>;
@@ -77,5 +78,6 @@ inline void store_sample_batch(const std::shared_ptr<sql::Connection>& connectio
         if (statement->executeUpdate() != 1) throw std::runtime_error("historical insert did not affect one row");
     }
     transaction.commit();
+    DriverMetrics::instance().stored_samples += samples.size();
 }
 #endif
