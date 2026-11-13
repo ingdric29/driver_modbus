@@ -29,6 +29,7 @@ Hecha por: Javier Flores
 #include "include/globales.h"
 #include "include/estructuras.h"
 #include <chrono>
+#include "include/worker_group.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -71,10 +72,11 @@ int GLOBAL_contador_defeventos;
 int GLOBAL_contador_cmd;
 int GLOBAL_contador_directorio;
 int GLOBAL_contador_numerossms;
-bool GLOBAL_EJECUTARHILOS = true;
+std::atomic<bool> GLOBAL_EJECUTARHILOS{true};
+std::recursive_mutex GLOBAL_command_mutex;
 uint32_t G_modbus_timeout = 90000;
 //////////////////// Correccion.
-bool GLOBAL_HabilitarEscrituraBD=true;
+
 ///////////////////
 int GLOBAL_contador_equipos; // indica cuantos equipos se estan leyendo
 int GLOBAL_contador_comandos; // indica cuantos comandos hay en la tabla de tbcmd
@@ -142,7 +144,7 @@ double GLOBAL_ultimo_reseteo_mysqlexterno;
 // int ordenlecturaconfiguracionciclico(), en este metodo despues de cada
 // periodo de revision externa, se vuelve hacer GLOBAL_ACCESO_EXTERNO = true
 // y en cada fallo de acceso MYSQL se coloca GLOBAL_ACCESO_EXTERNO = false
-bool GLOBAL_ACCESO_EXTERNO = true;
+std::atomic<bool> GLOBAL_ACCESO_EXTERNO{true};
 int GLOBAL_habilitar_acceso_externo = 1; //0:no 1:si
 int GLOBAL_habilitar_imprimir = 0;
 
@@ -152,7 +154,7 @@ double GLOBAL_tiempo_ultimaescritura_tbdispositivos_sta = 0.0;
 //1=primera corrida en main
 //2=cargados todos los hilos de ejecucion
 //3=ya con valores leidos
-int GLOBAL_estado_primera_ejecucion_programa = 0;
+std::atomic<int> GLOBAL_estado_primera_ejecucion_programa{0};
 
 double GLOBAL_periodo_revision_eventos = 4;
 double GLOBAL_tiempo_ultima_revision_eventos = 0;
@@ -161,6 +163,7 @@ double GLOBAL_maxima_cuenta_errores = 50;
 double GLOBAL_tiempo_restablecimiento_comunicacion = 60;
 
 string GLOBAL_ultimomensajemostrado = "";
+std::recursive_mutex GLOBAL_output_mutex;
 
 string GLOBAL_clave1;
 string GLOBAL_clave2;
@@ -282,61 +285,25 @@ int muestrear(void) {
 	time_t tbcambio_tiempo_ultimochequeo = 0;
 	bool hilosenejecucion = false;
 
-	actualizar_leer_equipo(MBTCP);
-	actualizar_leer_equipo(MBSERIAL);
-	actualizar_leer_equipo(RS232);
-	actualizar_directorio(&stdblocal);
-	actualizar_smslist(&stdblocal);
-	actualizar_defalarmas(&stdblocal);
-	leer_tbcmd(GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave);
-	ordenlecturaconfiguracion();
 	GLOBAL_estado_primera_ejecucion_programa = 1;
 	cout << "empezar a ejecutar hilos" << endl;
 	while (1) {
+		if (ordenlecturaconfiguracion() < 0) { liberarmemoria(); return -1; }
 		GLOBAL_EJECUTARHILOS = true;
 		actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "estado", "0", "`id`>'0'");
-		std::thread hilo_leertbcambios(ordenlecturaconfiguracionciclico);
-		imprimir_mensaje("hilo mantenimiento de tablas tbvalores y tbinstantaneos");
-		std::thread hilo_leer_ejecutar(ordenejecucionciclico);
-		imprimir_mensaje("hilo ejecucion iniciado");
-		std::thread hilo_leer_mbtcp(ordenlecturaequiposciclico, &equipo_mbtcp[0], GLOBAL_contador_equipos_mbtcp);
-		imprimir_mensaje("hilo leer mbtcp iniciado ok");
-		std::thread hilo_leer_mbserial(ordenlecturaequiposciclico, &equipo_mbserial[0], GLOBAL_contador_equipos_mbserial);
-		imprimir_mensaje("hilo leer mbserial iniciado ok");
-		std::thread hilo_leer_rs232(ordenlecturaequiposciclico, &equipo_rs232[0], GLOBAL_contador_equipos_rs232);
-		imprimir_mensaje("hilo leer rs232 iniciado  ok");
-
-		std::thread hilo_revisarposiblesalarmas(ordenrevisarposiblesalarmasciclico);
-		imprimir_mensaje("hilo revisar posibles alarmas  ok");
-		std::thread hilo_orden_actualizarvalores_clsdefeventos(orden_actualizarvalores_clsdefeventos);
-		imprimir_mensaje("hilo revisar definiciones de eventos  ok");
-
-		std::thread hilo_escribirbd(ordenescrituraequiposciclico);
-		imprimir_mensaje("hilo escritura en bd iniciado ok");
-		cout << "ordenescrituraequiposciclico: ok"  << endl;
-		GLOBAL_estado_primera_ejecucion_programa = 2;
-		lectura_puertos_seriales();
-		imprimir_mensaje("hilo lectura de puertos seriales  ok");
-
-		hilo_leertbcambios.join();
-		imprimir_mensaje("fin hilo_leertbcambios");
-		hilo_leer_ejecutar.join();
-		imprimir_mensaje("fin hilo_ejecutar");
-		hilo_leer_mbtcp.join();
-		imprimir_mensaje("fin hilo_leer_mbtcp");
-		hilo_leer_mbserial.join();
-		imprimir_mensaje("fin hilo_leer_mbserial");
-		hilo_leer_rs232.join();
-		imprimir_mensaje("fin hilo_leer_rs232");
-		hilo_revisarposiblesalarmas.join();
-		imprimir_mensaje("fin hilo_orden_actualizarvalores_clsdefeventos");
-		hilo_orden_actualizarvalores_clsdefeventos.join();
-		imprimir_mensaje("fin hilo_escribirbd");
-		hilo_escribirbd.join();
-
-		for (int i = 0; i < GLOBAL_contador_equipos_rs232_distintos; i++) {
-			hilosseriales[i].join();
-		}
+        WorkerGroup workers(GLOBAL_EJECUTARHILOS);
+        workers.start(ordenlecturaconfiguracionciclico);
+        workers.start(ordenejecucionciclico);
+        workers.start(ordenlecturaequiposciclico, equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
+        workers.start(ordenlecturaequiposciclico, equipo_mbserial, GLOBAL_contador_equipos_mbserial);
+        workers.start(ordenlecturaequiposciclico, equipo_rs232, GLOBAL_contador_equipos_rs232);
+        workers.start(ordenrevisarposiblesalarmasciclico);
+        workers.start(orden_actualizarvalores_clsdefeventos);
+        workers.start(ordenescrituraequiposciclico);
+        GLOBAL_estado_primera_ejecucion_programa = 2;
+        for (int serial = 0; serial < GLOBAL_contador_equipos_rs232_distintos; ++serial)
+            workers.start(lectura_puerto_serial, &equipo_rs232_distintos[serial]);
+        workers.join();
 
 		cout << separadorigual << endl;
 		
@@ -348,6 +315,7 @@ int muestrear(void) {
 
 
 int ordenejecucuionlocal() {
+	std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 	int res_cmd_local = 0;
 	int res_leer_tbejecutar_local = -1;
 	time_t res_segundos;
@@ -385,6 +353,7 @@ int ordenejecucuionlocal() {
 
 
 int ordenejecucuionexterna() {
+	std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 	int res_leer_tbejecutar_externa = -1;
 	int res_cmd_externa = 0;
 	time_t res_segundos;
@@ -454,7 +423,8 @@ int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
 	double diferencia = 0.0;
 	int resultado=-1;
 	try {
-		for (int i = 0; i < arge_cantidad; i++) { // for 1
+		for (int i = 0; i < arge_cantidad; i++) {
+            std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
 
 			diferencia = difftime(time(NULL), equipo[i].ultimo_muestreo);
 			resultado = -1;
@@ -499,7 +469,7 @@ int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
 			res_ordenlecturaequipos = ordenlecturaequipos(equipo, arge_cantidad);
 			//printf("EJECUTAR_HILOS = %d CONTADOR = %d \n",GLOBAL_EJECUTARHILOS,contador);
 			iniciado = true;
-			GLOBAL_HabilitarEscrituraBD = (res_ordenlecturaequipos ==-2) ? false:true;
+
 			esperar(0.2); // espera 200ms
 		}
 		if (iniciado){ 
@@ -552,21 +522,18 @@ int ordenrevisarposiblesalarmas() {
 
 
 int ordenlecturaconfiguracion() {
-	int res_tbcambios = 0;
-	string campo2[5];
-	string valor2[1];
-	//cout << "lectura de tabla tbcambios para detectar cambios de configuracion" << endl;
-	res_tbcambios = lee_tbcambios();
-	if (res_tbcambios == 1) {
-		GLOBAL_EJECUTARHILOS = false;
-		actualizar_leer_equipo(MBTCP);
-		actualizar_leer_equipo(MBSERIAL);
-		actualizar_leer_equipo(RS232);
-		leer_tbcmd(GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave);
-		actualizar_defalarmas(&stdblocal);
-		actualizar_directorio(&stdblocal);
-		actualizar_smslist(&stdblocal);
-		actualizar_defeventos(&stdblocal);
+    // Coordinator only: no workers exist while definitions are replaced.
+    string campo2[5];
+    lee_tbcambios();
+    {
+		if (actualizar_leer_equipo(MBTCP) < 0) return -1;
+		if (actualizar_leer_equipo(MBSERIAL) < 0) return -1;
+		if (actualizar_leer_equipo(RS232) < 0) return -1;
+		if (leer_tbcmd(GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave) < 0) return -1;
+		if (actualizar_defalarmas(&stdblocal) < 0) return -1;
+		if (actualizar_directorio(&stdblocal) < 0) return -1;
+		if (actualizar_smslist(&stdblocal) < 0) return -1;
+		if (actualizar_defeventos(&stdblocal) < 0) return -1;
 		actualizar_posiciones_clsdefeventos();
 
 		//campo2[0] = "id";
@@ -607,7 +574,7 @@ int ordenlecturaconfiguracionciclico() {
 			GLOBAL_tbcambio_tiempo_ultimochequeo = time(NULL);
 			//cout << "se lee la configuracion" << endl;
 			imprimir_mensaje("revision tabla tbcambios", negro);
-			ordenlecturaconfiguracion();
+			if (lee_tbcambios() == 1) { GLOBAL_EJECUTARHILOS = false; break; }
 		}
 
 
@@ -732,6 +699,7 @@ int orden_sincronizar_tablas_ciclico() {
 
 
 void imprimir_mensaje(string str, GLOBAL_colores color) {
+	std::lock_guard<std::recursive_mutex> output(GLOBAL_output_mutex);
 	//imprimir_mensaje("\033[1;32mse leyeron las configuraciones\033[0m" );
 	if (GLOBAL_habilitar_imprimir && (str.compare(GLOBAL_ultimomensajemostrado) != 0)) {
 		if (color == nada) {
@@ -746,6 +714,7 @@ void imprimir_mensaje(string str, GLOBAL_colores color) {
 
 
 void imprimir_mensaje_importante(string str, GLOBAL_colores color) {
+	std::lock_guard<std::recursive_mutex> output(GLOBAL_output_mutex);
 	//imprimir_mensaje("\033[1;32mse leyeron las configuraciones\033[0m" );
 	if (str.compare(GLOBAL_ultimomensajemostrado) != 0) {
 		if (color == nada) {
@@ -836,9 +805,7 @@ int actualizarvalores_clsdefeventos() {
 	if (GLOBAL_estado_primera_ejecucion_programa < 3) {
 		return -1;
 	}
-	if (GLOBAL_contador_defeventos == -1) {
-		actualizar_posiciones_clsdefeventos();
-	}
+	if (GLOBAL_contador_defeventos < 0) return -1;
 	while (ind < GLOBAL_contador_defeventos) {
 		defeventos[ind].leer_valorenram();
 		ind++;
@@ -914,8 +881,11 @@ void lectura_puerto_serial(cls_equipos* equipo_serial) {
 			}
 			else {
 				while (GLOBAL_EJECUTARHILOS) {
-					n = RS232_PollComport(numpuertoserial, equipo_serial->buf, tamanobuffer); //4095
-					*equipo_serial->p_n_buf = n;
+					{
+                        std::lock_guard<std::mutex> serial(*equipo_serial->buffer_mutex);
+                        n = RS232_PollComport(numpuertoserial, equipo_serial->buf, tamanobuffer);
+                        *equipo_serial->p_n_buf = std::max(0, std::min(n, tamanobuffer));
+                    }
 					esperar(0.1); // espera 100 milisegundos
 					//sleep(100) o usleep(100000)
 				}
@@ -984,7 +954,8 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
 	campoin[8] = "nombredispositivo";
 
 	try {
-		for (int i = 0; i < arge_cantidad; i++) { // for 1
+		for (int i = 0; i < arge_cantidad; i++) {
+            std::lock_guard<std::recursive_mutex> state(*equipo[i].state_mutex); // for 1
 
 			diferencia = difftime(time(NULL), equipo[i].ultima_escritura_tbinstantaneo);
 			resultado = -1;
@@ -1061,18 +1032,18 @@ int ordenescrituraequiposciclico() {
 	//cout << "GLOBAL_EJECUTARHILOS: " << GLOBAL_EJECUTARHILOS << endl;
 	while (GLOBAL_EJECUTARHILOS) { 
 		//cout << "escrituras de tags " << endl;
-		if(GLOBAL_HabilitarEscrituraBD){
+		{ // Each tag carries its own communication status.
 
 			if (GLOBAL_contador_equipos_mbtcp > 0) {
-				ordenescrituraequipos(&equipo_mbtcp[0], GLOBAL_contador_equipos_mbtcp);
+				ordenescrituraequipos(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);
 			}
 			if (GLOBAL_contador_equipos_mbserial > 0) {
-				ordenescrituraequipos(&equipo_mbserial[0], GLOBAL_contador_equipos_mbserial);
+				ordenescrituraequipos(equipo_mbserial, GLOBAL_contador_equipos_mbserial);
 			}
 
 			//cout << "GLOBAL_contador_equipos_rs232: " << GLOBAL_contador_equipos_rs232 << endl;
 			if (GLOBAL_contador_equipos_rs232 > 0) {
-				ordenescrituraequipos(&equipo_rs232[0], GLOBAL_contador_equipos_rs232);
+				ordenescrituraequipos(equipo_rs232, GLOBAL_contador_equipos_rs232);
 			}
 		}
 		

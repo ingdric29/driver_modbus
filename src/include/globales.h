@@ -9,6 +9,9 @@
 #include <time.h>
 #include <vector>
 #include <thread>
+#include <atomic>
+#include <mutex>
+extern std::recursive_mutex GLOBAL_command_mutex;
 
 
 extern cls_equipos* equipo_mbtcp;
@@ -29,7 +32,7 @@ extern int GLOBAL_contador_defalarmas;
 extern int GLOBAL_contador_defeventos;
 extern int GLOBAL_contador_cmd;
 
-extern bool GLOBAL_EJECUTARHILOS;
+extern std::atomic<bool> GLOBAL_EJECUTARHILOS;
 extern uint32_t G_modbus_timeout;
 
 extern int GLOBAL_contador_equipos; // indica cuantos equipos se estan leyendo
@@ -89,7 +92,7 @@ extern string separadorguion;
 extern double G_diferencia;
 
 //extern char* payload_text[13];
-extern bool GLOBAL_ACCESO_EXTERNO;
+extern std::atomic<bool> GLOBAL_ACCESO_EXTERNO;
 extern int GLOBAL_habilitar_acceso_externo; //0=no,1=si
 
 enum GLOBAL_colores { nada = 0, negro = 30, rojo = 31, verde = 32, amarillo = 33, azul = 34, magenta = 35, cian = 36, blanco = 37 };
@@ -189,7 +192,7 @@ extern double GLOBAL_periodo_minimo_escritura_tbdispositivos_sta;
 
 extern double GLOBAL_tiempo_ultimaescritura_tbdispositivos_sta;
 
-extern int GLOBAL_estado_primera_ejecucion_programa;
+extern std::atomic<int> GLOBAL_estado_primera_ejecucion_programa;
 
 extern double GLOBAL_periodo_revision_eventos;
 extern double GLOBAL_tiempo_ultima_revision_eventos;

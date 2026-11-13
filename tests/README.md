@@ -16,3 +16,15 @@ Se comprueban el orden de palabras de 32/64 bits, valores máximos,
 conversiones a entero fuera de rango y formatos numéricos grandes.
 Estas pruebas no requieren licencia, base de datos ni dispositivos.
 No validan todavía concurrencia, adquisición física ni persistencia.
+
+## Ciclo de vida y concurrencia
+
+`test_workers.cpp` comprueba diez generaciones de cuatro trabajadores,
+incluyendo excepciones durante el arranque. Compilar con C++11, `-pthread`
+y `-Isrc/include`; admite ASan/UBSan.
+
+`bash tests/run_state_test.sh` enlaza el driver real sin ejecutar su `main`:
+valida parsing RS232, invalidez de una lectura vacía y mil publicaciones
+concurrentes con lectura coherente de valor entero/flotante. Requiere las
+bibliotecas de desarrollo del driver, pero no SQL, licencia ni hardware.
+Acepta `CPPFLAGS` y `LDFLAGS` para bibliotecas instaladas fuera del sistema.

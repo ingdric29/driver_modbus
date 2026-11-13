@@ -15,7 +15,9 @@ Permite hacer un registro de los eventos que sucedan en la ejecucion del program
 #include <sys/stat.h> // Para stat y mkdir
 #include <cstdio>     // Para rename y remove
 #include <cstring>    // Para manejar cadenas en C
-#include <vector>     // Para manejar la lista de archivos de log
+#include <vector>
+#include <mutex>
+namespace { std::mutex& log_mutex() { static std::mutex m; return m; } }     // Para manejar la lista de archivos de log
 
 std::string obtenerDirectorio(std::string nombreCarpeta) {
     boost::filesystem::path directorioPrograma = boost::filesystem::current_path();
@@ -35,6 +37,7 @@ Logger::Logger(size_t limiteBytes) : limiteBytes(limiteBytes), nombreArchivo("de
 }
 
 void Logger::registrarError(const std::string& mensajeError) {
+    std::lock_guard<std::mutex> lock(log_mutex());
     verificarTamañoArchivo();
 
     std::ofstream archivoLog(directorioLog + "/" + nombreArchivo, std::ios::app);
@@ -110,7 +113,8 @@ std::string Logger::obtenerNombreArchivoConIndice(int indice) {
 
 std::string Logger::obtenerFechaHoraActual() {
     auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
+    std::tm tm;
+    localtime_r(&t, &tm);
 
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");

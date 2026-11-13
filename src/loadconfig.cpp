@@ -169,7 +169,7 @@ int lee_tbcambios(void) {
 	int cont_tbregistros;
 	int cont_tbdispositivos;
 	int cont_tbdefequipos;
-	int cont_cambio_tablacom;
+	int cont_cambio_tablacom = GLOBAL_cont_cambio_tablacom;
 	int cont_tbdefalarmas;
 	int cambio = 0;
 	string direccionpuerto;
@@ -300,6 +300,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 						break;
 		}
 
+		delete res;
 		res = stmt->executeQuery(query.c_str());
 
 		switch (protocoloenum) {
@@ -426,6 +427,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				int j;
 				for (j = 0; j < i; j++) {
 					if (equipo_mbtcp[i].nombre.compare(equipo_mbtcp[j].nombre) == 0) {
+						equipo_mbtcp[i].state_mutex = equipo_mbtcp[j].state_mutex;
 						equipo_mbtcp[i].pcontador_errores = equipo_mbtcp[j].pcontador_errores;
 						equipo_mbtcp[i].pcontador_errores_acumulados = equipo_mbtcp[j].pcontador_errores_acumulados;
 						equipo_mbtcp[i].ptiempotranscurridoerrores = equipo_mbtcp[j].ptiempotranscurridoerrores;
@@ -444,6 +446,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				int j;
 				for (j = 0; j < i; j++) {
 					if (equipo_mbserial[i].nombre.compare(equipo_mbserial[j].nombre) == 0) {
+						equipo_mbserial[i].state_mutex = equipo_mbserial[j].state_mutex;
 						equipo_mbserial[i].pcontador_errores = equipo_mbserial[j].pcontador_errores;
 						equipo_mbserial[i].pcontador_errores_acumulados = equipo_mbserial[j].pcontador_errores_acumulados;
 						equipo_mbserial[i].ptiempotranscurridoerrores = equipo_mbserial[j].ptiempotranscurridoerrores;
@@ -462,11 +465,13 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				int j;
 				for (j = 0; j < i; j++) {
 					if (equipo_rs232[i].nombre.compare(equipo_rs232[j].nombre) == 0) {
+						equipo_rs232[i].state_mutex = equipo_rs232[j].state_mutex;
 						equipo_rs232[i].pcontador_errores = equipo_rs232[j].pcontador_errores;
 						equipo_rs232[i].pcontador_errores_acumulados = equipo_rs232[j].pcontador_errores_acumulados;
 						equipo_rs232[i].ptiempotranscurridoerrores = equipo_rs232[j].ptiempotranscurridoerrores;
 						equipo_rs232[i].ptiemporeset_cuenta_errores = equipo_rs232[j].ptiemporeset_cuenta_errores;
 						equipo_rs232[i].pultima_llamada_leer = equipo_rs232[j].pultima_llamada_leer;
+						equipo_rs232[i].buffer_mutex = equipo_rs232[j].buffer_mutex;
 						equipo_rs232[i].buffer_owner = equipo_rs232[j].buffer_owner;
 						equipo_rs232[i].buf = equipo_rs232[j].buf;
 						equipo_rs232[i].p_n_buf = equipo_rs232[j].p_n_buf;
@@ -723,6 +728,7 @@ int leer_tbejecutar(int& res_ejecutar, time_t& segundos, string& lote, string di
 // LA BASE DE DATOS TABLA dbcmd LA LLEVA A MEMORIA RAM
 int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db)
 {
+    std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 
 	if (direccion_db.compare(GLOBAL_dbext_direccion) == 0) {
 
@@ -747,6 +753,7 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 
 	}
 
+	int pending_count = 0;
 	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string cadena;
@@ -798,35 +805,35 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 		stmt = con->createStatement();
 		res = stmt->executeQuery(cadenaquerycmd3);
 		while (res->next()) {
-			GLOBAL_contador_cmd = res->getInt("contador");
+			pending_count = res->getInt("contador");
 		}
 
-		cmd = new cls_cmd[GLOBAL_contador_cmd + 1];
+		std::unique_ptr<cls_cmd[]> pending(new cls_cmd[pending_count + 1]());
 		memset(cadenaquerycmd3, 0, 2000);
 		sprintf(cadenaquerycmd3, "SELECT * FROM (%s) as vistacmd where `concentrador` = '%s' ORDER BY `id` ASC", cadenaquerycmd.c_str(), GLOBAL_nombre_concentrador.c_str());
 		res = stmt->executeQuery(cadenaquerycmd3);
 		//cout << cadenaquerycmd3 << endl;
 		while (res->next() && (ind < 128)) {
-			cmd[ind].id = res->getInt("id");
-			cmd[ind].nombre = res->getString("nombre"); //
-			cmd[ind].direccion_ip = res->getString("direccion_ip"); //
-			cmd[ind].puerto = res->getInt("puerto"); //
-			cmd[ind].direccion_esclavo = res->getInt("direccion_esclavo"); //
-			cmd[ind].interface1 = res->getString("interface"); //
-			cmd[ind].velocidad = res->getInt("velocidad"); //
-			cmd[ind].paridad = res->getString("paridad"); //
-			cmd[ind].bitsparada = res->getInt("bitsparada"); //
-			cmd[ind].equipo = res->getString("equipo"); //
+			pending[ind].id = res->getInt("id");
+			pending[ind].nombre = res->getString("nombre"); //
+			pending[ind].direccion_ip = res->getString("direccion_ip"); //
+			pending[ind].puerto = res->getInt("puerto"); //
+			pending[ind].direccion_esclavo = res->getInt("direccion_esclavo"); //
+			pending[ind].interface1 = res->getString("interface"); //
+			pending[ind].velocidad = res->getInt("velocidad"); //
+			pending[ind].paridad = res->getString("paridad"); //
+			pending[ind].bitsparada = res->getInt("bitsparada"); //
+			pending[ind].equipo = res->getString("equipo"); //
 
-			cmd[ind].usuario = res->getString("usuario"); //
-			cmd[ind].password = res->getString("password"); //
-			cmd[ind].habilitar = ((res->getInt("habilitar")) != 0); //
-			cmd[ind].protocolo = res->getString("protocolo"); //
-			cmd[ind].registro = res->getInt("registro"); //
-			cmd[ind].clsvalor = res->getInt("valor"); //
-			cmd[ind].datetime = res->getString("datetime"); //
-			cmd[ind].hab_ejecutar = ((res->getInt("hab_ejecutar")) != 0); //
-			cmd[ind].lote = res->getString("lote"); //
+			pending[ind].usuario = res->getString("usuario"); //
+			pending[ind].password = res->getString("password"); //
+			pending[ind].habilitar = ((res->getInt("habilitar")) != 0); //
+			pending[ind].protocolo = res->getString("protocolo"); //
+			pending[ind].registro = res->getInt("registro"); //
+			pending[ind].clsvalor = res->getInt("valor"); //
+			pending[ind].datetime = res->getString("datetime"); //
+			pending[ind].hab_ejecutar = ((res->getInt("hab_ejecutar")) != 0); //
+			pending[ind].lote = res->getString("lote"); //
 			ind++;
 
 			//cout << "\t valores: " << cadena << "\t" << intTime1 << endl; 	
@@ -836,6 +843,9 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 		delete res;
 		delete stmt;
 		delete con;
+		delete[] cmd;
+		cmd = pending.release();
+		GLOBAL_contador_cmd = ind;
 		return (ind);
 
 	}
@@ -2412,15 +2422,24 @@ int actualizar_smslist(struct stdatabase* db) {
 	}
 }
 
-	void liberarmemoria(void) {
-	
-		delete[] equipo_mbtcp;
-		delete[] equipo_mbserial;
-		delete[] equipo_rs232;
-		delete[] equipo_rs232_distintos;
-		return;
-	
-	}
+void liberarmemoria(void) {
+    // Called only after all workers have joined (also handles partial startup).
+    delete[] equipo_mbtcp; equipo_mbtcp = nullptr;
+    delete[] equipo_mbserial; equipo_mbserial = nullptr;
+    delete[] equipo_rs232; equipo_rs232 = nullptr;
+    delete[] equipo_rs232_distintos; equipo_rs232_distintos = nullptr;
+    delete[] hilosseriales; hilosseriales = nullptr;
+    delete[] defalarmas; defalarmas = nullptr;
+    delete[] defeventos; defeventos = nullptr;
+    delete[] cmd; cmd = nullptr;
+    delete[] emaillist; emaillist = nullptr;
+    delete[] smslist; smslist = nullptr;
+    GLOBAL_contador_equipos_mbtcp = GLOBAL_contador_equipos_mbserial = 0;
+    GLOBAL_contador_equipos_rs232 = GLOBAL_contador_equipos_rs232_distintos = 0;
+    GLOBAL_contador_defalarmas = GLOBAL_contador_cmd = 0;
+    GLOBAL_contador_defeventos = -1;
+    GLOBAL_contador_directorio = GLOBAL_contador_numerossms = 0;
+}
 
 
 

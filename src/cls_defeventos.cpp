@@ -84,7 +84,8 @@ int cls_defeventos::leer_valorenram() {
 	campost[6] = "bit1";	
 	campost[7] = "mensaje";			
 	
-	if (indiceenram != -1) {
+	if (indiceenram != -1 && pequipo) {
+        std::lock_guard<std::recursive_mutex> state(*pequipo->state_mutex);
 		diferencia = difftime(time(NULL), tiempoanterior);
 		tiempoactual = time(NULL);
 		if ((bit1 >= 0) && (bit1 <= 15)) {

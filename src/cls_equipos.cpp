@@ -52,7 +52,7 @@ int cls_equipos::static_clsdatosleidos_mbtcp[20] = {};
 
 /////////////////////////////////////
 Logger logger;
-bool GLOBAL_habilitar_log=true;
+std::atomic<bool> GLOBAL_habilitar_log{true};
 ////////////////////////////////////
 int actualizarValores() {
     std::string query = "UPDATE `tbinstantaneos` SET `valorstr` = ?, `valorfloat` = ? WHERE `tbinstantaneos`.tag = ?";
@@ -143,6 +143,8 @@ void cls_equipos::incrementarerrores() {
 
 // metodo leer variables modbus
 int cls_equipos::leer() {
+	std::lock_guard<std::recursive_mutex> state(*state_mutex);
+	resultado_leer = false;
 	string mensajedeerror = "";
 	
 
@@ -187,6 +189,7 @@ int cls_equipos::leer() {
 	};
 
 
+	resultado_leer = resultadoleer_rc > 0;
 	if (resultadoleer_rc > 0) {
 		ultimo_muestreo = time(NULL);
 	}
@@ -876,6 +879,7 @@ void cls_equipos::leer_mbserial(void) {
 //-------------------------------------
 
 void cls_equipos::leer_rs232(void) {
+	std::lock_guard<std::mutex> serial(*buffer_mutex);
 
 	int largoventana = tamanoventana;
 	string tmpstr = "";

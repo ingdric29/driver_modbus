@@ -115,6 +115,7 @@ struct stres cls_defalarmas::leertag (const string& dispositivo, const string& t
 	for (int i=0; i<clscantidad_equipo_mbtcp; i++) {
 	  if (&clsequipo_mbtcp[i]) {	
 		if ((clsequipo_mbtcp[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbtcp[i].tag.compare(tag) ==0)) {
+            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbtcp[i].state_mutex);
 			local.valorfloat = clsequipo_mbtcp[i].clsvalorfloat;
 			local.valorstr = clsequipo_mbtcp[i].clsvalorstr;
 			local.indice = i;
@@ -128,6 +129,7 @@ struct stres cls_defalarmas::leertag (const string& dispositivo, const string& t
 	 for (int i=0; i<clscantidad_equipo_mbserial; i++) {
 	   if (&clsequipo_mbserial[i]) {	 
 		if ((clsequipo_mbserial[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbserial[i].tag.compare(tag) ==0)) {
+            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbserial[i].state_mutex);
 			local.valorfloat = clsequipo_mbserial[i].clsvalorfloat;
 			local.valorstr = clsequipo_mbserial[i].clsvalorstr;
 			local.indice = i;
@@ -154,6 +156,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	for (int i=0; i<clscantidad_equipo_mbtcp; i++) {
 	  if (&clsequipo_mbtcp[i]) {	
 		if ((clsequipo_mbtcp[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbtcp[i].tag.compare(tag) ==0)) {
+            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbtcp[i].state_mutex);
 			local->valorfloat = clsequipo_mbtcp[i].clsvalorfloat;
 			local->valorstr = clsequipo_mbtcp[i].clsvalorstr;
 			local->unidad = clsequipo_mbtcp[i].unidad;
@@ -171,6 +174,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 	 for (int i=0; i<clscantidad_equipo_mbserial; i++) {
 	   if (&clsequipo_mbserial[i]) {	 
 		if ((clsequipo_mbserial[i].nombre.compare(dispositivo) ==0) && (clsequipo_mbserial[i].tag.compare(tag) ==0)) {
+            std::lock_guard<std::recursive_mutex> state(*clsequipo_mbserial[i].state_mutex);
 			local->valorfloat = clsequipo_mbserial[i].clsvalorfloat;
 			local->valorstr = clsequipo_mbserial[i].clsvalorstr;
 			local->indice = i;
@@ -191,6 +195,7 @@ int cls_defalarmas::leertag2 (const string& dispositivo, const string& tag, stru
 		for (int i = 0; i < clscantidad_equipo_rs232; i++) {
 			if (&clsequipo_rs232[i]) {
 				if ((clsequipo_rs232[i].nombre.compare(dispositivo) == 0) && (clsequipo_rs232[i].tag.compare(tag) == 0)) {
+            std::lock_guard<std::recursive_mutex> state(*clsequipo_rs232[i].state_mutex);
 					local->valorfloat = clsequipo_rs232[i].clsvalorfloat;
 					local->valorstr = clsequipo_rs232[i].clsvalorstr;
 					local->indice = i;
@@ -450,6 +455,7 @@ int cls_defalarmas::evaluarcompleto() {
 
 // si es 0 todo ok, sino es un error
 int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada){
+    std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 	size_t pos, pos_ant, inicio, fin;
 	std::vector<string> vector_accion;
 	int res       = 0; // si es 0 todo ok, sino es un error
@@ -495,7 +501,7 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 							
 							if (ejecutado_activar_cmd == false) {
 								//cout << "ejecutado cmd activar" << endl;
-								res_cmd = clscmd[indice].ejecutar();
+								res_cmd = cmd[indice].ejecutar();
 							}
 							
 						}
@@ -503,7 +509,7 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 
 							if (ejecutado_desactivar_cmd == false) {
 								//cout << "ejecutado cmd desactivar" << endl;
-								res_cmd = clscmd[indice].ejecutar();
+								res_cmd = cmd[indice].ejecutar();
 
 							}
 							

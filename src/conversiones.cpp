@@ -95,9 +95,10 @@ time_t cast_datetime_to_time(const string& strDateTime) {
 }
 
 string cast_time_to_datetime(time_t tiempo) {
+	struct tm local_tm;
 	struct tm* timeinfo;
 	char buffer[80];
-	timeinfo = localtime(&tiempo);
+	timeinfo = localtime_r(&tiempo, &local_tm);
 	strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", timeinfo);
 	string str(buffer);
 	return str;
@@ -496,9 +497,10 @@ string fecha_para_emails() {
   const char * myear[12] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};  
   char buffer[32];  
   time_t rawtime;
+  struct tm local_tm;
   struct tm * ptm;
   time ( &rawtime );
-  ptm = gmtime ( &rawtime );
+  ptm = gmtime_r(&rawtime, &local_tm);
   sprintf(buffer,"%s, %i %s %i %02d:%02d:%02d", wday[ptm->tm_wday],ptm->tm_mday,myear[ptm->tm_mon],ptm->tm_year+1900,
       ptm->tm_hour,ptm->tm_min,ptm->tm_sec);
 		s1 = buffer;
@@ -511,9 +513,10 @@ string fecha_para_emails_local() {
   const char * myear[12] = {"Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"};  
   char buffer[32];  
   time_t rawtime;
+  struct tm local_tm;
   struct tm * ptm;
   time ( &rawtime );
-  ptm = localtime ( &rawtime ); // gmtime ( &rawtime )
+  ptm = localtime_r(&rawtime, &local_tm); // gmtime_r(&rawtime, &local_tm)
   sprintf(buffer,"%s, %i %s %i %02d:%02d:%02d", wday[ptm->tm_wday],ptm->tm_mday,myear[ptm->tm_mon],ptm->tm_year+1900,
       ptm->tm_hour,ptm->tm_min,ptm->tm_sec);
 		s1 = buffer;
@@ -526,9 +529,10 @@ string fecha_para_emails_local_es() {
   const char * myear[12] = {"Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"};  
   char buffer[32];  
   time_t rawtime;
+  struct tm local_tm;
   struct tm * ptm;
   time ( &rawtime );
-  ptm = localtime ( &rawtime ); // gmtime ( &rawtime )
+  ptm = localtime_r(&rawtime, &local_tm); // gmtime_r(&rawtime, &local_tm)
   sprintf(buffer,"%s, %i %s %i %02d:%02d:%02d", wday[ptm->tm_wday],ptm->tm_mday,myear[ptm->tm_mon],ptm->tm_year+1900,
       ptm->tm_hour,ptm->tm_min,ptm->tm_sec);
 		s1 = buffer;
@@ -541,9 +545,10 @@ string fecha_para_emails_utc_es() {
   const char * myear[12] = {"Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"};  
   char buffer[32];  
   time_t rawtime;
+  struct tm local_tm;
   struct tm * ptm;
   time ( &rawtime );
-  ptm = gmtime ( &rawtime ); // gmtime ( &rawtime )
+  ptm = gmtime_r(&rawtime, &local_tm); // gmtime_r(&rawtime, &local_tm)
   sprintf(buffer,"%s, %i %s %i %02d:%02d:%02d", wday[ptm->tm_wday],ptm->tm_mday,myear[ptm->tm_mon],ptm->tm_year+1900,
       ptm->tm_hour,ptm->tm_min,ptm->tm_sec);
 		s1 = buffer;
