@@ -107,6 +107,7 @@ double GLOBAL_periodo_revision_alarmas;
 double GLOBAL_ultima_revision_alarmas;
 
 string GLOBAL_nombre_concentrador;
+string GLOBAL_picos_tags;
 
 double GLOBAL_periodo_minimo_escritura_tbvalores;
 double GLOBAL_periodo_minimo_escritura_tbvalores_ex;
@@ -1004,7 +1005,13 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
 				if (equipo[i].history_deadline.due(now)) { // if 3
 					imprimir_mensaje("insertar bd local tabla tbvalores: " + equipo[i].tag, negro);
 					if (habilitarescribir(equipo[i].fueescritodb, equipo[i].solocambios)) {
-						res_insertardb = insertardb(time(NULL), equipo[i].tag, equipo[i].clsvalorstr, equipo[i].clsvalorfloat, equipo[i].id, equipo[i].rastro, GLOBAL_nombre_concentrador, equipo[i].nombre, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores");
+						bool stored = true;
+                        for (const auto& sample : equipo[i].sample_window.samples(equipo[i].preservar_picos)) {
+                            res_insertardb = insertardb(sample.acquired, equipo[i].tag, sample.text, sample.value, equipo[i].id, equipo[i].rastro, GLOBAL_nombre_concentrador, equipo[i].nombre, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave, "tbvalores");
+                            if (res_insertardb <= 0) { stored = false; break; }
+                        }
+                        if (!stored) continue;
+                        equipo[i].sample_window.clear();
 						equipo[i].ultimo_insertar = time(NULL);
                         equipo[i].history_deadline.advance(std::max(GLOBAL_periodo_minimo_escritura_tbvalores, equipo[i].periodo));
 						equipo[i].fueescritodb = true;

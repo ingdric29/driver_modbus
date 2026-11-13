@@ -82,6 +82,7 @@ int loadconfigdb()
 		GLOBAL_dbext_clave = reader.Get(*sectionsIt, "dbext_clave", "master3112");
 		GLOBAL_periodoext_muestreo_tbejecutar = cast_string_to_double(reader.Get(*sectionsIt, "periodoext_muestreo_tbejecutar", "5"));
 
+		GLOBAL_picos_tags = reader.Get(*sectionsIt, "picos_tags", "");
 		GLOBAL_nombre_concentrador = reader.Get(*sectionsIt, "nombre_concentrador", "raspi");
 
 		GLOBAL_periodo_minimo_escritura_tbvalores = cast_string_to_double(reader.Get(*sectionsIt, "periodo_minimo_escritura_tbvalores", "30"));
@@ -323,7 +324,8 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbtcp[ind].usuario = res->getString("usuario"); //
 				equipo_mbtcp[ind].password = res->getString("password"); //
 				equipo_mbtcp[ind].habilitar = ((res->getInt("habilitar")) != 0); //
-				equipo_mbtcp[ind].tag = res->getString("tag"); //
+				equipo_mbtcp[ind].tag = res->getString("tag");
+                equipo_mbtcp[ind].preservar_picos = ("," + GLOBAL_picos_tags + ",").find("," + equipo_mbtcp[ind].nombre + "/" + equipo_mbtcp[ind].tag + ",") != std::string::npos; //
 				equipo_mbtcp[ind].protocolo = res->getString("protocolo"); //
 				equipo_mbtcp[ind].registro = res->getInt("registro"); //
 				equipo_mbtcp[ind].funcion = res->getString("funcion"); //
@@ -366,7 +368,8 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_mbserial[ind].usuario = res->getString("usuario"); //
 				equipo_mbserial[ind].password = res->getString("password"); //
 				equipo_mbserial[ind].habilitar = ((res->getInt("habilitar")) != 0); //
-				equipo_mbserial[ind].tag = res->getString("tag"); //
+				equipo_mbserial[ind].tag = res->getString("tag");
+                equipo_mbserial[ind].preservar_picos = ("," + GLOBAL_picos_tags + ",").find("," + equipo_mbserial[ind].nombre + "/" + equipo_mbserial[ind].tag + ",") != std::string::npos; //
 				equipo_mbserial[ind].protocolo = res->getString("protocolo"); //
 				equipo_mbserial[ind].registro = res->getInt("registro"); //
 				equipo_mbserial[ind].funcion = res->getString("funcion"); //
@@ -400,7 +403,8 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 				equipo_rs232[ind].bitsparada = res->getInt("bitsparada"); //
 				equipo_rs232[ind].equipo = res->getInt("equipo"); //
 				equipo_rs232[ind].habilitar = ((res->getInt("habilitar")) != 0); //
-				equipo_rs232[ind].tag = res->getString("tag"); //
+				equipo_rs232[ind].tag = res->getString("tag");
+                equipo_rs232[ind].preservar_picos = ("," + GLOBAL_picos_tags + ",").find("," + equipo_rs232[ind].nombre + "/" + equipo_rs232[ind].tag + ",") != std::string::npos; //
 				equipo_rs232[ind].protocolo = res->getString("protocolo"); //
 				equipo_rs232[ind].registro = res->getInt("registro"); //
 				equipo_rs232[ind].funcion = res->getString("funcion"); //
@@ -593,7 +597,7 @@ int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat
 		}
 		////////////////////////////////////////////////////////////////////////////////////////
         //cout << "la instruccion sql es: " << arrSQL << endl;
-		resultado = stmt->execute(arrSQL);
+		resultado = stmt->executeUpdate(arrSQL) > 0;
 
 		//  delete res;
 		delete stmt;

@@ -33,3 +33,7 @@ Acepta `CPPFLAGS` y `LDFLAGS` para bibliotecas instaladas fuera del sistema.
 6 a 2 s y 3 escrituras a 5 s durante diez segundos, además de saltos de
 intervalos vencidos y rechazo de periodos inválidos. Compilar como las
 pruebas de decodificación, con `-Isrc/include` y ASan/UBSan.
+
+`test_sample_window.cpp` comprueba un pico de voltaje seguido de recuperación,
+la fecha de adquisición del extremo, mínimo/último valor, modo desactivado,
+deduplicación y rechazo de NaN. Compilar con C++11 y `-Isrc/include`.

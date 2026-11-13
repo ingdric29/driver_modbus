@@ -191,7 +191,13 @@ int cls_equipos::leer() {
 
 	resultado_leer = resultadoleer_rc > 0;
 	if (resultadoleer_rc > 0) {
-		ultimo_muestreo = time(NULL);
+        ultimo_muestreo = time(NULL);
+        SampleValue sample;
+        sample.sequence = ++sample_sequence;
+        sample.acquired = ultimo_muestreo;
+        sample.value = clsvalorfloat;
+        sample.text = clsvalorstr;
+        sample_window.observe(sample);
 	}
 	else {
 		ultimo_muestreo = time(NULL) - (periodo / 2);

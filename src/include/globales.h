@@ -65,6 +65,7 @@ extern string GLOBAL_dbext_nombre;
 extern double GLOBAL_periodoext_muestreo_tbejecutar;
 
 extern string GLOBAL_nombre_concentrador;
+extern string GLOBAL_picos_tags;
 
 extern double GLOBAL_periodo_minimo_escritura_tbvalores;
 extern double GLOBAL_periodo_minimo_escritura_tbvalores_ex;

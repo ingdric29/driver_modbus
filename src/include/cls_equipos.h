@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include "periodic_deadline.h"
+#include "sample_window.h"
 #include <errno.h>
 #include <modbus.h>
 #include "mysql_connection.h"
@@ -102,6 +103,9 @@ public:
 	string  html_id;
 	string  html_final;
 
+	bool preservar_picos = false;
+	uint64_t sample_sequence = 0;
+	SampleWindow sample_window;
 	PeriodicDeadline read_deadline, instant_deadline, history_deadline, status_deadline;
 	double  periodo;
 	int 	bit1; // especifica cual bit dentro del word se va usar si es -1 entonces se leen todos
