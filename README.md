@@ -6,6 +6,26 @@ Driver C++ para adquisición de variables industriales, evaluación de alarmas y
 registro de datos. Soporta Modbus TCP, Modbus RTU y lectura serie RS232; utiliza
 MySQL/MariaDB para configuración y persistencia, y libcurl para correo SMTP.
 
+## Cierre de jornada — 16 de noviembre de 2026
+
+Trabajo realizado en `automonitor-modbus-driver-V1.2.0-pruebas`:
+limpieza, corrección de warnings, consola de arranque, nuevo instalador con
+barra de progreso, ejecutables en `bin/`, distribución sin fuentes y las tres
+etapas de modularización. El código propio incluye encabezados y contratos
+comentados. Orquesta y los scripts antiguos de autoinicio fueron retirados.
+
+La versión sigue siendo **1.2.0**. La rama estable y `main` no incorporan todavía
+estos cambios. Las comprobaciones cloud pasaron en Linux con recursos simulados;
+la validación de operación en la Raspberry corresponde a la instalación local.
+
+- [Registro completo y commits de hoy](docs/registro_2026-11-16.md).
+- [Historial de cambios](CHANGELOG.md).
+- [Mapa de arquitectura](docs/arquitectura.md) y [etapas completadas](docs/propuesta_modularizacion.md).
+- [Instalación, validación local y pendientes](docs/operacion.md).
+
+Siguen pendientes el límite de seis decimales y `configdb.example.cfg`.
+No ejecutar pruebas SQL de integración sobre producción.
+
 ## Ramas y alcance
 
 | Rama | Uso y diferencias |

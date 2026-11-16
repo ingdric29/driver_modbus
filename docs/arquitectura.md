@@ -65,3 +65,12 @@ Se mantienen los nombres del esquema existente, incluidos `html_id` y
 No se modifican automáticamente los periodos ni se habilitan picos en tags
 existentes. La adquisición sigue teniendo un trabajador por protocolo: una
 operación lenta todavía puede retrasar otros destinos de ese protocolo.
+
+## Estado al 16 de noviembre de 2026
+
+Las tres etapas de separación descritas están implementadas. Los ejecutables
+continúan en bin y la distribución de ejecución no necesita los fuentes.
+Orquesta fue retirado; el ciclo de vida de trabajadores sigue en el coordinador,
+sin incorporar un supervisor de procesos nuevo. El
+[registro de jornada](registro_2026-11-16.md) contiene los commits, las pruebas
+y las limitaciones de este cierre.

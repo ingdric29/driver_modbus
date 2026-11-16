@@ -4,60 +4,57 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
-## Sin publicar — rama de pruebas
+## En desarrollo — 2026-11-16 — rama de pruebas
 
-- Barra de progreso por ocho etapas en `install.sh`; avanza solo tras éxito,
-  conserva la salida de los comandos y el código de error original.
-- Encabezados descriptivos en código propio, herramientas, instalador y pruebas;
-  contratos de parámetros, retornos y efectos en funciones de implementación.
-- Retirados nombres personales de los encabezados propios. Licencias de terceros
-  y fixtures históricos conservados. Sin cambios en instrucciones ejecutables.
+Cambios publicados en Git en `automonitor-modbus-driver-V1.2.0-pruebas`,
+posteriores a la etiqueta existente `v1.2.0`. La versión del producto permanece
+1.2.0; no se creó una nueva entrega etiquetada ni se integraron estos cambios
+en la rama estable o en `main`.
 
-- Tercera etapa de modularización: lectores TCP/RTU/RS232 separados del estado
-  de equipos; conversiones agrupadas por categoría; acciones e histórico de
-  alarmas separados de su evaluación. Se conservan los cuerpos, literales y
-  contratos públicos, el logger y la inicialización estática existentes.
-- Runners de estado y conversiones actualizados para los módulos nuevos.
+### Limpieza y organización
 
-- Segunda etapa de modularización: funciones de `main.cpp` separadas en
-  coordinador, comandos, mantenimiento, serie, eventos, alarmas, búsquedas y
-  soporte. Se conservan los cuerpos y contratos de las funciones, los períodos
-  y bloqueos, y el orden de las definiciones globales en `main.cpp`.
-- Makefile y runner enlazado de estado actualizados para los módulos nuevos.
+- Retirados objetos y logs versionados, `main_old.cpp`, logo antiguo sin uso,
+  binarios históricos, scripts de autoinicio y supervisor Orquesta.
+- Corregidos warnings de variables sin uso, tipos, sangría y comprobaciones de
+  direcciones. Se mantienen llamadas con efectos, bloqueos y alternativas Windows;
+  el pragma de Microsoft se limita a `_MSC_VER`.
+- Rechazo de ventanas RS232 negativas y tratamiento explícito del fallo de
+  consulta SQL de órdenes; pruebas de búsquedas y tamaños extremos.
+- Tres etapas de modularización completadas: repositorios/catálogos;
+  coordinador/trabajadores; equipos/conversiones/alarmas. Se conservaron contratos,
+  cuerpos de funciones y orden de inicialización de globales/estáticos durante
+  sus movimientos. Makefile y runners enlazan los módulos separados.
+- Formato propio unificado, encabezados de propósito/requisitos/retornos y
+  contratos de funciones. Nombres personales retirados de encabezados propios;
+  licencias de terceros y fixtures históricos conservados.
 
-- Primera etapa de modularización: `loadconfig.cpp` sustituido por módulos de
-  CFG, catálogos, comandos, helpers SQL, replicación, retención y ciclo de vida.
-  Se conservan contratos públicos, consultas y lógica de las funciones.
-- Makefile y runner de estado actualizados para enlazar los módulos separados.
+### Instalación y operación
 
-- Retirado Orquesta y su objetivo de compilación; arranque directo del driver.
-- Documentación de rama/rutas actualizada, trazas comentadas y operaciones sin
-  efecto retiradas, formato del código propio y mensajes operativos uniformados.
-- Propuesta documental para las siguientes etapas, pendientes de aprobación.
-- Ejecutables y herramientas generados en `bin/`, con objetos en `.build`;
-  retirados los binarios históricos versionados.
-- `make dist` crea una distribución sin fuentes ni configuración privada.
-  El instalador la genera después de las pruebas y limpia objetos intermedios.
+- Nuevo `install.sh`: índices/dependencias APT, compilación como usuario normal,
+  pruebas, verificación de versión, distribución y limpieza de objetos. Conserva
+  el CFG; no inicia servicios ni crea el esquema SQL.
+- Barra de ocho etapas completadas, con salidas visibles y error original
+  conservado. El porcentaje no estima duración.
+- Ejecutables generados en `bin/`, objetos en `.build/` y `make dist` para crear
+  carpetas de ejecución sin fuentes ni configuración privada en `dist/`.
+- Consola de arranque por bloques y métricas acumuladas legibles cada minuto/al
+  cerrar. Los contadores técnicos completos permanecen en el log y el monitor.
 
-- Instalador Linux reproducible: dependencias APT, compilación y pruebas como
-  usuario normal, sin modificar configuración ni arrancar el driver.
-- Retirados los tres scripts históricos de autoinicio; revisar referencias
-  externas antes de actualizar instalaciones que dependan de ellos.
+### Verificación y pendientes
 
-- Arranque de consola organizado en configuracion, intervalos y adquisicion;
-  base externa deshabilitada resumida en una linea y estados explicitos.
-- Metricas acumuladas legibles en consola cada minuto y al cerrar, conservando
-  los contadores completos en el log y el monitor. Sin secuencias de terminal.
-- Limpieza de variables y asignaciones sin uso, conservando las llamadas con
-  efectos y el resultado de evaluación de alarmas.
-- Pragma de Microsoft limitado a `_MSC_VER`; se conserva para Windows.
-- Índices de cadenas/vectores y tamaños de archivo con tipos compatibles;
-  rechazo de ventanas RS232 negativas antes de convertir su tamaño.
-- Comprobaciones redundantes de direcciones de elementos retiradas; se
-  conservan los controles de puntero base y límites del recorrido.
-- Llaves explícitas en la comprobación de interfaces RTU/RS232 y retorno
-  inmediato si falla la consulta SQL de órdenes.
-- Pruebas de directorios nulos/vacíos, búsquedas y ventanas RS232 extremas.
+- Compilación Linux sin warnings de GCC y suite ordinaria aprobadas. Las tres
+  etapas pasaron integración SQL local, recarga, cierre y correo simulado;
+  distribución sin fuentes comprobada. Los cambios de comentarios se auditaron
+  contra instrucciones/AST/comandos originales; la barra se verificó con
+  comandos simulados, incluyendo fallos en todas las etapas.
+- Windows, hardware industrial y despliegue final en Raspberry no se validaron
+  en cloud. La instalación real de paquetes del nuevo script se verificará allí.
+- Pendientes: seis decimales en persistencia/visualización, `configdb.example.cfg`
+  y mejoras funcionales de retención, órdenes, TLS SMTP y aislamiento Modbus.
+
+El [registro de jornada](docs/registro_2026-11-16.md) contiene los commits y
+las comprobaciones de continuidad. El incidente de `tbejecutar` fue resuelto
+por el usuario ajustando el concentrador del CFG a la base; no es un fallo activo.
 
 ## 1.2.0 — 2026-11-13
 

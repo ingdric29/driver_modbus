@@ -75,3 +75,17 @@ Mantener comentarios concisos que expliquen el propósito, sin repetir cada
 instrucción. Los encabezados propios no incluyen nombres personales. Los avisos
 de licencia/atribución de INIReader, ini y RS232 y los fixtures históricos se
 conservan sin modificaciones.
+
+## Verificación al cierre — 2026-11-16
+
+Las tres etapas se validaron en Linux con make test y el perfil reservado de
+make test-sql. Se comprobaron también versiones y distribución sin fuentes.
+Los cambios de comentarios conservaron los tokens ejecutables; la barra del
+instalador se ensayó con comandos simulados, incluyendo errores por etapa.
+No confundir esas comprobaciones con instalación real de paquetes o validación
+de Windows/hardware industrial. Evidencia y commits en el
+[registro de jornada](registro_2026-11-16.md).
+
+Las tres etapas de separación no implementan automáticamente los cambios
+funcionales pendientes. No mezclar futuras modificaciones de precisión,
+retención o comandos con una nueva reorganización sin pruebas específicas.

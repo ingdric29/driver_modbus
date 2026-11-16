@@ -60,3 +60,36 @@ adquisición. Tras instalar esta versión, el driver debe reiniciarse una vez
 para habilitar el socket local; abrir/cerrar visores posteriores no requiere reinicio.
 
 Para problemas de envío de alarmas, ver [diagnóstico y configuración SMTP](correo.md).
+
+## Cierre y validación local — 2026-11-16
+
+Las tres etapas de organización están terminadas en la rama de pruebas. El
+[registro de jornada](registro_2026-11-16.md) distingue lo validado en cloud de
+lo pendiente en Raspberry. El nuevo instalador incluye progreso por etapas.
+
+Antes de actualizar una instalación existente:
+
+1. Respaldar configdb.cfg fuera del checkout y comprobar git status.
+2. Detener la instancia por su mecanismo habitual y evitar su reinicio automático.
+3. Revisar servicios/cron que todavía referencien Orquesta, scripts retirados o
+   ejecutables en .build; el ejecutable y directorio de trabajo actuales son bin.
+4. Actualizar sin descartar cambios locales y ejecutar bash install.sh como
+   usuario normal. No anteponer sudo a todo el instalador.
+5. Comprobar la versión compilada, arrancar una sola instancia desde bin y abrir
+   automonitorctl desde otra terminal.
+
+Validar concentrador y perfil SQL, cantidad de tags, calidad/antigüedad, avance
+de instantáneos e histórico según sus reglas, alarmas/correo controlados,
+recarga inocua y cierre con Ctrl+C seguido de un nuevo arranque. Observar entre
+15 y 30 minutos si aumentan errores o lotes pendientes. La prueba de escrituras
+requiere un equipo de ensayo seguro; no forzar comandos ni borrados sobre el
+proceso industrial para validar la organización del código.
+
+make test no requiere producción. make test-sql requiere la instancia dedicada
+local en puerto 33077 y sus bases reservadas: no dirigirlo al esquema del usuario.
+El aviso SMS deshabilitado y el fallo esperado de base ausente en las pruebas de
+arranque no indican por sí solos un defecto nuevo.
+
+Retención segura, precisión de seis decimales y configuración de ejemplo siguen
+pendientes. Conservar el SMTP funcional y el concentrador que ya coincide con
+la base. La actualización no instala ni habilita un servicio de arranque.
