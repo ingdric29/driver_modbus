@@ -6,6 +6,12 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Segunda etapa de modularización: funciones de `main.cpp` separadas en
+  coordinador, comandos, mantenimiento, serie, eventos, alarmas, búsquedas y
+  soporte. Se conservan los cuerpos y contratos de las funciones, los períodos
+  y bloqueos, y el orden de las definiciones globales en `main.cpp`.
+- Makefile y runner enlazado de estado actualizados para los módulos nuevos.
+
 - Primera etapa de modularización: `loadconfig.cpp` sustituido por módulos de
   CFG, catálogos, comandos, helpers SQL, replicación, retención y ciclo de vida.
   Se conservan contratos públicos, consultas y lógica de las funciones.

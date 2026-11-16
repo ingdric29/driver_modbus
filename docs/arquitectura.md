@@ -2,7 +2,13 @@
 
 | Componente | Responsabilidad |
 | --- | --- |
-| `main.cpp` | Configuración inicial, coordinador, comandos y señales |
+| `main.cpp` | Argumentos, versión, arranque, código de salida y definiciones globales heredadas |
+| `driver_runtime.cpp` | Coordinador, carga del catálogo y ciclo de vida de trabajadores |
+| `command_worker.cpp` | Sondeo y ejecución de órdenes locales/externas |
+| `maintenance_worker.cpp` | Detección de recarga, programación de retención y sincronización |
+| `serial_worker.cpp` | Lectura física y recuperación de puertos RS232 |
+| `event_worker.cpp` / `alarm_worker.cpp` | Referencias/valores de eventos y revisión de alarmas |
+| `catalog_lookup.cpp` / `runtime_support.cpp` | Búsquedas por ID, mensajes, esperas y conversiones heredadas |
 | `acquisition.cpp` | Vencimientos individuales y agrupación de tags ya vencidos |
 | `persistence.cpp` | Snapshots, ventanas pendientes, reintento y confirmación SQL |
 | `cls_equipos.cpp` | Lectura y publicación de valores TCP/RTU/RS232 |
@@ -33,6 +39,13 @@ compartidos internos. Los helpers de actualización y búsqueda de campos siguen
 privados de `sql_repository.cpp`. Se mantiene un solo logger de repositorios y
 la gestión de conexiones/transacciones sigue perteneciendo a `sql_session.h`.
 La ubicación de archivo/línea en los diagnósticos corresponde al nuevo módulo.
+
+La segunda etapa trasladó las funciones de `main.cpp` sin cambiar sus firmas ni
+sus cuerpos. Las definiciones globales se mantienen en el punto de entrada y
+en su orden original, incluido el logger; no se introduce un contexto de estado
+nuevo. La carga y unión de trabajadores sigue siendo responsabilidad exclusiva
+del coordinador. El mantenimiento conserva su detección de cambios y los mismos
+tiempos: separar archivos no crea trabajadores adicionales.
 
 Se mantienen los nombres del esquema existente, incluidos `html_id` y
 `html_final` como delimitadores RS232. HTML/S9 ya no forma parte del driver.

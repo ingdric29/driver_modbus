@@ -9,6 +9,9 @@ read -r -a extra_flags <<< "${TEST_CXXFLAGS:-}"
 includes=(-Isrc/include -I/usr/include/modbus "${extra_cpp[@]}")
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" -Dmain=driver_entry -c src/main.cpp -o "$test_dir/main.o"
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" tests/test_driver_state.cpp "$test_dir/main.o" \
+  src/driver_runtime.cpp src/command_worker.cpp src/maintenance_worker.cpp \
+  src/serial_worker.cpp src/event_worker.cpp src/alarm_worker.cpp \
+  src/catalog_lookup.cpp src/runtime_support.cpp \
   src/acquisition.cpp src/persistence.cpp src/config_file.cpp src/device_catalog.cpp src/action_catalog.cpp \
   src/command_repository.cpp src/sql_repository.cpp src/replication.cpp \
   src/retention.cpp src/catalog_lifecycle.cpp src/repository_support.cpp \

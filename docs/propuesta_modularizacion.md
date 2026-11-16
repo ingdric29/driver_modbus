@@ -1,7 +1,7 @@
 # Propuesta de separación de responsabilidades
 
-Estado: primera etapa implementada. Las etapas segunda y tercera permanecen
-pendientes de selección y aprobación. No se cambia el esquema SQL, los
+Estado: primera y segunda etapas implementadas. La tercera etapa permanece
+pendiente de selección y aprobación. No se cambia el esquema SQL, los
 protocolos, las reglas de alarmas ni las opciones de configuración.
 
 ## Primera etapa: separación de loadconfig.cpp — implementada
@@ -26,21 +26,27 @@ Las conexiones y transacciones siguen gestionadas por `sql_session.h`.
 El makefile y el runner de estado enlazan los módulos nuevos. Las referencias
 de archivo/línea de los diagnósticos reflejan ahora su ubicación real.
 
-## Segunda etapa: adelgazar main.cpp
+## Segunda etapa: adelgazar main.cpp — implementada
 
 | Archivo propuesto | Responsabilidad |
 | --- | --- |
-| `main.cpp` | Argumentos, versión, arranque y código de salida |
+| `main.cpp` | Argumentos, versión, arranque, código de salida y definiciones globales heredadas |
 | `driver_runtime.cpp` | Coordinador, carga/recarga y unión de trabajadores |
 | `command_worker.cpp` | Sondeo y ejecución local/externa de órdenes |
 | `maintenance_worker.cpp` | Programación de sincronización y retención |
 | `serial_worker.cpp` | Lectura física RS232 y recuperación del puerto |
 | `event_worker.cpp` | Actualización de referencias y valores de eventos |
 
-Los globales no se convertirían automáticamente en una gran clase. Primero se
-documentarían propietarios, lectores, escritores y bloqueos. Separar estado e
-introducir un contexto explícito sería otro cambio posterior, porque puede
-afectar inicialización, concurrencia y cierre.
+Se añadieron también `alarm_worker.cpp` para la revisión de alarmas,
+`catalog_lookup.cpp` para las búsquedas por ID y `runtime_support.cpp` para
+mensajes, esperas y conversiones heredadas. No se introducen hilos nuevos ni
+se alteran los períodos, mutexes, consultas SQL o reglas de alarma.
+
+Los globales permanecen en `main.cpp` en el orden original de inicialización.
+`driver_services.h` declara los servicios compartidos que necesitan los módulos;
+las firmas de funciones de `globales.h` no cambian. La separación de estado o
+introducción de un contexto requiere una propuesta posterior: puede afectar
+inicialización, concurrencia y cierre.
 
 ## Tercera etapa: equipos, conversiones y alarmas
 
@@ -57,7 +63,8 @@ afectar inicialización, concurrencia y cierre.
 ## Comprobaciones para cada movimiento
 
 1. Actualizar el makefile y los runners que enumeran fuentes explícitamente;
-   el runner de estado hoy enlaza `main.cpp` renombrando su punto de entrada.
+   el runner de estado enlaza `main.cpp` renombrando su punto de entrada,
+   junto con los módulos de ejecución separados.
 2. Compilar y ejecutar `make test`; cuando se mueva código SQL o el coordinador,
    ejecutar también `make test-sql` con el perfil local reservado.
 3. Verificar arranque, recarga, cierre y construcción de la distribución.

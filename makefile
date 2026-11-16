@@ -17,7 +17,10 @@ $(BUILD_DIR)/src/main.o $(BUILD_DIR)/src/monitor_server.o: FORCE
 CXXFLAGS ?= -g -O2 -Wall -Wextra -Wformat=2
 CXXFLAGS += -std=c++11 -pthread
 LDLIBS += -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -pthread
-SRCS = src/main.cpp src/acquisition.cpp src/persistence.cpp \
+SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenance_worker.cpp \
+       src/serial_worker.cpp src/event_worker.cpp src/alarm_worker.cpp \
+       src/catalog_lookup.cpp src/runtime_support.cpp \
+       src/acquisition.cpp src/persistence.cpp \
        src/config_file.cpp src/device_catalog.cpp src/action_catalog.cpp \
        src/command_repository.cpp src/sql_repository.cpp src/replication.cpp \
        src/retention.cpp src/catalog_lifecycle.cpp src/repository_support.cpp \

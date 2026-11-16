@@ -8,4 +8,13 @@
 extern stdatabase stdblocal;
 extern stdatabase stdbexterna;
 extern Logger logger_main;
+class cls_defalarmas;
+class cls_defeventos;
+extern cls_defalarmas *defalarmas;
+extern cls_defeventos *defeventos;
+// Output state remains defined in main.cpp; access is serialized by the
+// message helpers in runtime_support.cpp.
+extern std::string GLOBAL_ultimomensajemostrado;
+extern std::recursive_mutex GLOBAL_output_mutex;
+extern int GLOBAL_habilitar_imprimir;
 #endif

@@ -7,8 +7,10 @@ Los mensajes operativos de consola usan español y las etiquetas `[ OK ]`,
 `[ ESTADO ]`, `[ AVISO ]` y `[ ERROR ]`. Los identificadores técnicos, campos de
 métricas y diagnósticos de las bibliotecas conservan sus nombres originales.
 
-La primera etapa de [modularización](propuesta_modularizacion.md), separación
-de `loadconfig.cpp`, está implementada. Las etapas restantes requieren aprobación.
+Las dos primeras etapas de [modularización](propuesta_modularizacion.md),
+separación de `loadconfig.cpp` y reducción de `main.cpp`, están implementadas.
+La tercera etapa requiere aprobación. Las definiciones globales conservan
+su ubicación y orden de inicialización; el runner enlaza todos los módulos.
 
 Dependencias Debian: `build-essential`, `libmodbus-dev`, `libmysqlcppconn-dev`,
 `libcurl4-openssl-dev`, `libboost-filesystem-dev`, `libboost-system-dev`.
