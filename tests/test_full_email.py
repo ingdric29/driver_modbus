@@ -126,7 +126,7 @@ smtp_servidor=smtps://127.0.0.1:{}
         assert logs.count('aceptado por el servidor') == 6, logs
         assert 'smtp=535' not in logs and 'FOREIGN KEY' not in logs, logs
         assert password not in logs and username not in logs
-        assert 'numero tags mbtcp:159' in logs
+        assert any(line.split() == ["Tags", "Modbus", "TCP", "159"] for line in logs.splitlines())
         print('PASS full email: real config, SQL/directory, 3 alarms/2 recipients, verified SASL values, 6 accepted messages, no duplicates; loopback only')
     finally:
         if process is not None and process.poll() is None:

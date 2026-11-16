@@ -76,13 +76,13 @@ int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
 //Fecha de Correccion: 30/10/24
 int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
 	bool iniciado = false;
-	if (arge_cantidad) {cout << " iniciado hilo con protocolo: " << equipo[0].protocolo << endl;};
+
 	try
 	{
 		while (driver_running()) {
 			if (arge_cantidad == 0)
 			{
-				cout << "no hay equipos" << endl;
+
 				break;
 			};
 			ordenlecturaequipos(equipo, arge_cantidad);

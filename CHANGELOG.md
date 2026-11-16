@@ -6,6 +6,10 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Arranque de consola organizado en configuracion, intervalos y adquisicion;
+  base externa deshabilitada resumida en una linea y estados explicitos.
+- Metricas acumuladas legibles en consola cada minuto y al cerrar, conservando
+  los contadores completos en el log y el monitor. Sin secuencias de terminal.
 - Limpieza de variables y asignaciones sin uso, conservando las llamadas con
   efectos y el resultado de evaluación de alarmas.
 - Pragma de Microsoft limitado a `_MSC_VER`; se conserva para Windows.

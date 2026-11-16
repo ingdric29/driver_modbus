@@ -22,7 +22,7 @@ db_direccion=127.0.0.1
 db_puerto={port}
 db_nombre=startup_test
 db_usuario=startup_test
-db_clave=
+db_clave=fixture-private-password
 habilitar_acceso_externo=0
 """
     for label, legacy_keys in (
@@ -37,8 +37,13 @@ habilitar_acceso_externo=0
         )
         output = completed.stdout
         assert completed.returncode == 1, (label, completed.returncode, output)
-        assert "INFO: Start Devlog." in output, (label, output)
+        assert "[ INICIO ] Cargando catalogo" in output, (label, output)
         assert "SQLException" in output, (label, output)
+        for section in ("MODBUS DRIVER", "CONFIGURACION", "INTERVALOS", "[ OK ] Configuracion cargada."):
+            assert section in output, (label, output)
+        assert "Deshabilitada" in output and "fixture-private-password" not in output
+        assert "[ OK ] Trabajadores iniciados." not in output  # Database startup failed.
+
         for rejected in ("Ambas claves invalidas", "Invalid license key format", "License not activated"):
             assert rejected not in output, (label, output)
         print(f"PASS startup without license: {label} (expected database unavailable)")

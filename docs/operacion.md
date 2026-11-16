@@ -1,5 +1,18 @@
 # Operación y diagnóstico
 
+La consola de arranque muestra configuración, intervalos y catálogo de tags
+antes de anunciar los trabajadores iniciados. Ese anuncio no confirma todavía
+comunicación con todos los dispositivos; consultar calidad y antigüedad en el
+monitor. Una base externa deshabilitada aparece resumida en una línea.
+
+Las métricas de consola se muestran cada minuto y al finalizar, como totales
+desde el inicio: llamadas de lectura, llamadas sin muestra, máximo tiempo de
+lectura en ms, históricos SQL, fallos SQL y lotes pendientes. Las llamadas sin
+muestra incluyen fallos y omisiones por suspensión; no son una tasa de tags
+válidos. Los contadores completos `METRICS` permanecen en el log y el monitor.
+La salida usa texto sin colores ni controles de cursor para SSH, redirecciones
+y compatibilidad de presentación con terminales Windows.
+
 SIGINT y SIGTERM solicitan parada. Las esperas del driver se interrumpen en
 intervalos de hasta 20 ms; las operaciones de red en curso terminan o alcanzan
 su timeout antes de unir trabajadores. No hay garantía de apagado en 20 ms.

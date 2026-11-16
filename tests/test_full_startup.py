@@ -151,7 +151,11 @@ smtp_pass=
             assert process.wait(timeout=10) == 0, output_path.read_text()
             assert not monitor_path.exists(), 'socket must be removed on shutdown'
         text = output_path.read_text()
-        assert "numero tags mbtcp:159" in text
+        assert any(line.split() == ["Tags", "Modbus", "TCP", "159"] for line in text.splitlines())
+        assert "[ OK ] Trabajadores iniciados." in text
+        assert "[ METRICAS ] Totales desde el inicio" in text
+        assert "METRICS reads=" not in text
+        assert "METRICS reads=" in (base / "log" / "devlog.log").read_text()
         assert "FOREIGN KEY" not in text, text
         assert "AddressSanitizer" not in text and "runtime error:" not in text, text
         print("PASS full startup: 159 TCP tags, live monitor/CLI, concurrent viewers, catalog reload, EMAIL[7] and controlled shutdown; no SMTP delivery")

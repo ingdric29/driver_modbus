@@ -8,6 +8,15 @@ struct DriverMetrics {
     std::atomic<uint64_t> reads{0}, read_failures{0}, maximum_read_us{0};
     std::atomic<uint64_t> connections{0}, reused_connections{0}, stored_samples{0}, sql_failures{0}, replicated_samples{0}, pending_windows{0};
     static DriverMetrics& instance() { static DriverMetrics metrics; return metrics; }
+    std::string console_summary() const {
+        std::ostringstream out;
+        out << "[ METRICAS ] Totales desde el inicio\n"
+            << "  Llamadas: " << reads.load() << " | Sin lectura: " << read_failures.load()
+            << " | Max. lectura: " << maximum_read_us.load() / 1000.0 << " ms\n"
+            << "  Historicos SQL: " << stored_samples.load() << " | Fallos SQL: " << sql_failures.load()
+            << " | Lotes pendientes: " << pending_windows.load();
+        return out.str();
+    }
     std::string summary() const {
         std::ostringstream out;
         out << "METRICS reads=" << reads.load() << " read_failures=" << read_failures.load()

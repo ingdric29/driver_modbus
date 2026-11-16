@@ -44,6 +44,7 @@ Hecha por: Javier Flores
 #include "include/rs232.h"
 
 #include "include/cls_logger.h"
+#include "include/startup_console.h"
 Logger logger_main;
 
 using namespace std;
@@ -190,19 +191,20 @@ int main(int argc, char* argv[]) {
         return EXIT_SUCCESS;
     }
 	if (argc > 1) GLOBAL_habilitar_imprimir = atoi(argv[1]);
-	cout << separadorigual << endl;
-	cout << "Automonitor Driver " << AUTOMONITOR_VERSION << endl;
-	cout << "AUTOMATRONI C.A. visitanos: www.automatroni.com" << endl;
-	cout << "Commit " << AUTOMONITOR_COMMIT << " | Build " << AUTOMONITOR_BUILD_DATE << endl;
-	cout << separadorigual << endl;
+    cout << "\n  AUTOMONITOR  /  MODBUS DRIVER\n"
+         << "  Version " << AUTOMONITOR_VERSION << "  |  AUTOMATRONI C.A.\n"
+         << "  www.automatroni.com\n"
+         << "  ------------------------------------------------------------\n";
+    startup_row("Commit", AUTOMONITOR_COMMIT);
+    startup_row("Compilacion (UTC)", AUTOMONITOR_BUILD_DATE);
+    cout << endl;
 
 	if (loadconfigdb() == 1) {
-		cout << separadorguion << endl;
-		cout << "archivo de configuracion de base de datos cargado!" << endl;
-		logger_main.registrarError("INFO: Devlog initialized. Configuration file loaded.");
+		cout << "\n[ OK ] Configuracion cargada.\n" << endl;
+		logger_main.registrarError("INFO: Devlog initialized. Configuration file loaded.", false);
 	}
 	else {
-		cout << "falla en el archivo de configuracion configdb.cfg!" << endl;
+		cout << "[ ERROR ] No se pudo cargar configdb.cfg." << endl;
 		logger_main.registrarError("ERROR: Configuration file configdb.cfg failed to load!");
         return EXIT_FAILURE;
 	};
@@ -227,7 +229,7 @@ int main(int argc, char* argv[]) {
 	GLOBAL_ultimo_reseteo_mysqlexterno = 0;
 	GLOBAL_contador_defeventos = -1;
 
-	logger_main.registrarError("INFO: Start Devlog.");
+	logger_main.registrarError("INFO: Start Devlog.", false);
 	try {
         monitor::State::instance().configure(GLOBAL_nombre_concentrador,
             "tcp://" + stdblocal.direccion + ":" + std::to_string(stdblocal.puerto), stdblocal.nombre);
@@ -276,11 +278,17 @@ MUESTREO
 
 int muestrear(void) {
 	GLOBAL_estado_primera_ejecucion_programa = 1;
-	cout << "empezar a ejecutar hilos" << endl;
+	cout << "[ INICIO ] Cargando catalogo de dispositivos..." << endl;
 	while (!GLOBAL_stop_requested) {
         monitor::State::instance().phase("CARGANDO");
 		if (ordenlecturaconfiguracion() < 0) { liberarmemoria(); return -1; }
 		if (GLOBAL_stop_requested) { liberarmemoria(); break; }
+        cout << "\n  ADQUISICION\n";
+        startup_row("Tags Modbus TCP", std::to_string(GLOBAL_contador_equipos_mbtcp));
+        startup_row("Tags Modbus RTU", std::to_string(GLOBAL_contador_equipos_mbserial));
+        startup_row("Tags RS232", std::to_string(GLOBAL_contador_equipos_rs232));
+        startup_row("Puertos RS232", std::to_string(GLOBAL_contador_equipos_rs232_distintos));
+        cout << endl;
         GLOBAL_EJECUTARHILOS = true;
 		actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "estado", "0", "`id`>'0'");
         monitor::State::instance().phase("EJECUTANDO");
@@ -296,17 +304,20 @@ int muestrear(void) {
         GLOBAL_estado_primera_ejecucion_programa = 2;
         for (int serial = 0; serial < GLOBAL_contador_equipos_rs232_distintos; ++serial)
             workers.start(lectura_puerto_serial, &equipo_rs232_distintos[serial]);
+        cout << "[ OK ] Trabajadores iniciados.\n"
+             << "       Monitor: automonitorctl  |  Detener: Ctrl+C\n" << endl;
         workers.join();
         monitor::State::instance().phase(GLOBAL_stop_requested ? "DETENIENDO" : "RECARGANDO");
         ModbusLease::clear();
 
-		cout << separadorigual << endl;
+		cout << "\n[ ESTADO ] Trabajadores detenidos." << endl;
 		
 		esperar(5);
 		liberarmemoria();
 
 	}
-    logger_main.registrarError(DriverMetrics::instance().summary());
+    logger_main.registrarError(DriverMetrics::instance().summary(), false);
+    cout << DriverMetrics::instance().console_summary() << endl;
     return 0;
 }
 
@@ -386,9 +397,11 @@ int ordenejecucionciclico() {
     double diferencia1 = 0.0;
     double diferencia2 = 0.0;
     PeriodicDeadline metrics_deadline;
+    metrics_deadline.defer(60);
 	while (driver_running()) {
         if (metrics_deadline.due()) {
-            logger_main.registrarError(DriverMetrics::instance().summary());
+            logger_main.registrarError(DriverMetrics::instance().summary(), false);
+            cout << DriverMetrics::instance().console_summary() << endl;
             metrics_deadline.advance(60);
         }
 		diferencia1 = difftime(time(NULL), GLOBAL_ultimo_tiempo_tbejecutar_dblocal);

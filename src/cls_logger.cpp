@@ -38,7 +38,7 @@ Logger::Logger(size_t limiteBytes) : limiteBytes(limiteBytes), nombreArchivo("de
     crearDirectorioLog();
 }
 
-void Logger::registrarError(const std::string& mensajeError) {
+void Logger::registrarError(const std::string& mensajeError, bool mostrarConsola) {
     monitor::State::instance().event(mensajeError);
     std::lock_guard<std::mutex> lock(log_mutex());
     verificarTamañoArchivo();
@@ -48,7 +48,7 @@ void Logger::registrarError(const std::string& mensajeError) {
         archivoLog << "[" << obtenerFechaHoraActual() << "] " << mensajeError << std::endl;
         archivoLog.close();
 
-        std::cerr << "[" << obtenerFechaHoraActual() << "] " << mensajeError << std::endl;
+        if (mostrarConsola) std::cerr << "[" << obtenerFechaHoraActual() << "] " << mensajeError << std::endl;
     } else {
         std::cerr << "No se pudo abrir el archivo de log: " << directorioLog + "/" + nombreArchivo << std::endl;
     }

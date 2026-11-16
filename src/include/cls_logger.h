@@ -10,7 +10,7 @@ class Logger {
 public:
     // Constructor con límite de tamaño predeterminado (1 MB)
     Logger(size_t limiteBytes = 1024 * 1024); 
-    void registrarError(const std::string& mensajeError);
+    void registrarError(const std::string& mensajeError, bool mostrarConsola = true);
 
 private:
     size_t limiteBytes;         // Límite de tamaño del archivo de log

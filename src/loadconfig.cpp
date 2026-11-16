@@ -3,6 +3,7 @@ programa dedarrollado por ing. Alejandro diomede - Automatroni - email: diomede3
 cargar en memoria el archivo de configuracion
 */
 #include "include/globales.h"
+#include "include/startup_console.h"
 #include <iostream>
 #include "include/INIReader.h"
 #include "include/cls_equipos.h"
@@ -115,10 +116,10 @@ int loadconfigdb()
 	INIReader reader(obtenerDirectorio("configdb.cfg"));
 
 	if (reader.ParseError() != 0) {
-		std::cout << "No se pudo cargar 'configdb.ini'\n";
+		std::cout << "[ ERROR ] No se pudo leer configdb.cfg (archivo ausente o formato invalido).\n";
 		return -1;
 	}
-	std::cout << "leyendo archivo 'configdb.cfg'" << "\n";
+
 	std::set<std::string> sections = reader.GetSections();
 	for (std::set<std::string>::iterator sectionsIt = sections.begin();
 		sectionsIt != sections.end();
@@ -197,27 +198,7 @@ int loadconfigdb()
 				//std::cout << *fieldsIt << "=" << reader.Get(*sectionsIt, *fieldsIt, "xxx");
 				contador_campos++;
 		}
-		std::cout << std::endl;
-		std::cout << "nombre del concentrador      : " << GLOBAL_nombre_concentrador << endl;
-		std::cout << "Direccion base de datos local: " << GLOBAL_db_direccion << endl;
-		std::cout << "Nombre base de datos         : " << GLOBAL_db_nombre << endl;
-		std::cout << "Puerto base de datos         : " << GLOBAL_db_puerto << endl;
-		std::cout << "Usuario base de datos        : " << GLOBAL_db_usuario << endl;
-		
-		std::cout << separadorguion << endl;
-		std::cout << "Direccion base de datos externo: " << GLOBAL_dbext_direccion << endl;
-		std::cout << "Nombre base de datos           : " << GLOBAL_dbext_nombre << endl;
-		std::cout << "Puerto base de datos           : " << GLOBAL_dbext_puerto << endl;
-		std::cout << "Usuario base de datos          : " << GLOBAL_dbext_usuario << endl;
-		std::cout << "Habilitar acceso externo       : " << GLOBAL_habilitar_acceso_externo << endl;
-		
-		std::cout << "Periodo sincronizacion local>>externo   : " << GLOBAL_sicronizacion_periodo << endl;
-		std::cout << "Cantidad de registros a subir >> externo: " << GLOBAL_cantidadregistrossubir << endl;
 
-		std::cout << "Periodo muestreo tbejecutar local       :   " << GLOBAL_periodo_muestreo_tbejecutar << endl;
-		std::cout << "Periodo muestreo tbejecutar externo     : " << GLOBAL_periodoext_muestreo_tbejecutar << endl;
-		std::cout << "Periodo muestreo tbcambios              : " << GLOBAL_periodo_muestreo_tbcambios << endl;
-		std::cout << "Periodo minimo escritura tbvalores      : " << GLOBAL_periodo_minimo_escritura_tbvalores << endl;
 	}
 
     try {
@@ -227,6 +208,24 @@ int loadconfigdb()
             PeriodicDeadline::interval(period);
         if (!std::isfinite(GLOBAL_periodo_minimo_escritura_tbvalores) || GLOBAL_periodo_minimo_escritura_tbvalores < 0) return -1;
     } catch (const std::invalid_argument& error) { logger_loadconfig.registrarError(error.what()); return -1; }
+    cout << "  CONFIGURACION\n";
+    startup_row("Archivo", obtenerDirectorio("configdb.cfg"));
+    startup_row("Concentrador", GLOBAL_nombre_concentrador);
+    startup_row("Base local", GLOBAL_db_direccion + ":" + GLOBAL_db_puerto + " / " + GLOBAL_db_nombre);
+    startup_row("Usuario local", GLOBAL_db_usuario);
+    startup_row("Base externa", GLOBAL_habilitar_acceso_externo
+        ? GLOBAL_dbext_direccion + ":" + GLOBAL_dbext_puerto + " / " + GLOBAL_dbext_nombre : "Deshabilitada");
+    if (GLOBAL_habilitar_acceso_externo) {
+        startup_row("Usuario externo", GLOBAL_dbext_usuario);
+        startup_row("Sincronizacion", startup_seconds(GLOBAL_sicronizacion_periodo));
+        startup_row("Lote de replicacion", std::to_string(GLOBAL_cantidadregistrossubir) + " registros");
+    }
+    cout << "\n  INTERVALOS\n";
+    startup_row("Ordenes locales", startup_seconds(GLOBAL_periodo_muestreo_tbejecutar));
+    if (GLOBAL_habilitar_acceso_externo)
+        startup_row("Ordenes externas", startup_seconds(GLOBAL_periodoext_muestreo_tbejecutar));
+    startup_row("Revisar configuracion", startup_seconds(GLOBAL_periodo_muestreo_tbcambios));
+    startup_row("Historico (minimo)", startup_seconds(GLOBAL_periodo_minimo_escritura_tbvalores));
 	return 1;
 }
 
@@ -343,11 +342,11 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 
 
 		switch (protocoloenum) {
-		case MBTCP: 	GLOBAL_contador_equipos_mbtcp = cuenta; cout << "numero tags mbtcp:" << cuenta << endl; break;
-		case MBSERIAL: 	GLOBAL_contador_equipos_mbserial = cuenta; cout << "numero tags mbserial:" << cuenta << endl; break;
+		case MBTCP: 	GLOBAL_contador_equipos_mbtcp = cuenta;  break;
+		case MBSERIAL: 	GLOBAL_contador_equipos_mbserial = cuenta;  break;
 		case RS232:		GLOBAL_contador_equipos_rs232 = cuenta;
 						GLOBAL_contador_equipos_rs232_distintos = 0; //mas adelante se completa
-						cout << "numero tags rs232:" << cuenta << endl; break;
+						 break;
 		}
 
 		/* asignacion de memoria RAM*/
@@ -558,7 +557,7 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 					i2++;
 				}
 			}
-			cout << "numero dispositivos rs232:" << GLOBAL_contador_equipos_rs232_distintos << endl;
+
 
 			break;
 		}
@@ -967,8 +966,7 @@ int actualizar_defalarmas(struct stdatabase* db) {
 
 	direccionpuerto = "tcp://" + (db->direccion) + ":" + cast_int_to_string(db->puerto);
 
-	cout << "direccion:" << direccionpuerto << endl;
-	cout << "base de datos:" << (db->nombre) << endl;
+
 
 	try {
 		std::shared_ptr<sql::Connection> con;
