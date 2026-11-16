@@ -1,80 +1,65 @@
-#!/bin/bash
-FECHA=`date +%Y-%m-%d`
-HORA=`date +%H-%M-%S`
-echo "$FECHA $HORA" | tee -a install_log.txt
-echo "INICIO DE LA INSTALACION"  | tee -a install_log.txt
-if [ $(whoami) = "root" ]
-then
-    echo "instalacion ejecutada como usuario root." | tee -a install_log.txt
-else
-    echo "instalacion ejecutada como usuario nomal puede que tenga ciertas restricciones." | tee -a install_log.txt
-fi
-echo "------------------------------------------------"  | tee -a install_log.txt
-echo "*-instalacion de la herramientas de programacion"  | tee -a install_log.txt
-echo "------------------------------------------------"  | tee -a install_log.txt
-apt install build-essential
-if [[ $? -eq 0 ]]
-then
-    echo "instalacion correcta de install build-essential resultado = $?"  | tee -a install_log.txt
-else
-    echo "falla en la instalacion de install build-essential - resultado =$?"  | tee -a install_log.txt
-fi
-echo "verificando version del grupo de aplicaciones build-essential:"  | tee -a install_log.txt
-apt show build-essential | grep Version | tee -a install_log.txt
-echo "*-Instalacion del servidor web"  | tee -a install_log.txt
-echo "-----------------------------"  | tee -a install_log.txt
-apt install apache2
-if [[ $? -eq 0 ]]
-then
-    echo "instalacion correcta de apache2 - resultado = $?"  | tee -a install_log.txt
-else
-    echo "falla en la instalacion de apache2 - resultado =$?"  | tee -a install_log.txt
-fi
-echo "verificando version del servidor web:"  | tee -a install_log.txt
-apt show apache2 | grep Version | tee -a install_log.txt
-systemctl start apache2
-echo "*-instalacion del motor de bases de datos"  | tee -a install_log.txt
-echo "----------------------------------------"  | tee -a install_log.txt
-apt install mariadb-server
-if [[ $? -eq 0 ]]
-then
-    echo "instalacion correcta de mariadb-server - resultado = $?"  | tee -a install_log.txt
-else
-    echo "falla en la instalacion de mariadb-server - resultado =$?"  | tee -a install_log.txt
-fi
-apt install mariadb-client
-if [[ $? -eq 0 ]]
-then
-    echo "instalacion correcta de mariadb-client - resultado = $?"  | tee -a install_log.txt
-else
-    echo "falla en la instalacion de mariadb-client - resultado =$?"  | tee -a install_log.txt
-fi
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "*-instalacion de la libreria de modbus  "  | tee -a install_log.txt
-echo "----------------------------------------"  | tee -a install_log.txt
-apt install libmodbus
-if [[ $? -eq 0 ]]
-then
-    echo "instalacion correcta de libmodbus - resultado = $?"  | tee -a install_log.txt
-else
-    echo "falla en la instalacion de libmodbus - resultado =$?"  | tee -a install_log.txt
+# Debian / Raspberry Pi OS. Ejecutar como usuario normal: bash install.sh
+REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PASO="Inicio"
+fallo() {
+    local codigo=$?
+    printf '\n[ ERROR ] Falló el paso: %s (código %s).\n' "$PASO" "$codigo" >&2
+    exit "$codigo"
+}
+trap fallo ERR
+paso() {
+    PASO="$1"
+    printf '\n[ PASO ] %s\n' "$PASO"
+}
+if (( EUID == 0 )); then
+    printf '[ ERROR ] Ejecuta como usuario normal: bash install.sh\n' >&2
+    printf '          Se solicitará sudo para instalar paquetes.\n' >&2
+    exit 1
 fi
-echo "verificando version de la libmodbus:"  | tee -a install_log.txt
-apt show libmodbus | grep Version | tee -a install_log.txt
-
-nombrehub=""
-until [[ $nombrehub != "" ]]
-do
-	read -p 'indique el nombre del hub: ' nombrehub
-	if [[ $nombrehub != "" ]]; then
-		sed "s/remnombrehub/$nombrehub/" mkconfigdb.cfg > configdb.cfg
-	else
-	echo "nombre vacio"
-	fi
+for herramienta in apt-get sudo; do
+    if ! command -v "$herramienta" >/dev/null 2>&1; then
+        printf '[ ERROR ] Falta la herramienta: %s\n' "$herramienta" >&2
+        exit 1
+    fi
 done
-mariadb -h localhost <<EOF
-source mk_devlog_8_10_2023.sql
-CREATE USER IF NOT EXISTS 'automatroni'@'%' IDENTIFIED BY 'automa2424';
-GRANT ALL PRIVILEGES ON *.* TO 'automatroni'@'%' WITH GRANT OPTION;
-FLUSH PRIVILEGES;
-EOF
+cd "$REPO_DIR"
+if [[ ! -f makefile || ! -f src/main.cpp ]]; then
+    printf '[ ERROR ] No se encontró el proyecto junto al instalador.\n' >&2
+    exit 1
+fi
+printf '\n  AUTOMONITOR / INSTALACION LINUX\n'
+printf '  Directorio: %s\n' "$REPO_DIR"
+paso "Comprobar permisos para instalar paquetes"
+sudo -v
+paso "Actualizar el índice de paquetes"
+sudo apt-get update
+paso "Instalar o actualizar dependencias"
+sudo apt-get install -y \
+    build-essential git pkg-config \
+    libmodbus-dev libmysqlcppconn-dev libcurl4-openssl-dev \
+    libboost-filesystem-dev libboost-system-dev \
+    python3 openssl ca-certificates
+paso "Compilar el driver y sus herramientas"
+make -j2
+paso "Ejecutar pruebas locales"
+make test
+paso "Verificar versiones"
+./.build/automonitorv1 --version
+./.build/automonitorctl --version
+printf '\n[ OK ] Instalación y pruebas completadas.\n'
+if [[ -f configdb.cfg ]]; then
+    printf '\n  Se conservó configdb.cfg sin modificaciones.\n'
+    printf '  Comprueba que corresponde a esta instalación.\n'
+else
+    printf '\n[ PENDIENTE ] Preparar configdb.cfg antes de arrancar.\n'
+fi
+printf '\n  Para iniciar desde este repositorio:\n'
+printf '    cd "%s/.build"\n' "$REPO_DIR"
+printf '    ./automonitorv1\n'
+printf '\n  Para consultar el monitor desde otra terminal:\n'
+printf '    "%s/.build/automonitorctl"\n' "$REPO_DIR"
+printf '\n  Antes de arrancar, evita otra instancia sobre los mismos\n'
+printf '  equipos y base de datos.\n'

@@ -16,9 +16,11 @@ el supervisor opcional en `.build/orquesta`; las pruebas no lo ejecutan.
 
 Para ejecutar con una configuración autorizada, usar `.build` como directorio
 de trabajo: el programa busca configuración, plantillas y logs en su padre.
-Los scripts de autoinicio históricos apuntan a `bin`; su despliegue debe
-ajustarse al binario nuevo antes de utilizarlos. No se han ejecutado ni se han
-reiniciado servicios del usuario durante estas modificaciones.
+El instalador Linux se ejecuta con `bash install.sh` como usuario normal:
+actualiza el índice APT, instala dependencias, compila y ejecuta las pruebas.
+No inicia servicios ni modifica configuración. Los scripts históricos de
+autoinicio se retiraron; migrar cualquier referencia externa antes de actualizar
+una instalación que los utilice.
 
 En el entorno cloud se usó `/workspace/driver-env/build.sh`, con bibliotecas
 Debian verificadas extraídas localmente. El makefile admite `INCLUDES`, `LIBS`,

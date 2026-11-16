@@ -244,14 +244,31 @@ no deben asumirse válidos para otra instalación.
 
 La configuración SMTP se carga al iniciar: editarla exige reiniciar de forma
 controlada la instancia correspondiente. Evitar procesos duplicados; no arrancar
-otro driver para consultar su estado. Los scripts históricos de autoinicio
-apuntan a `bin` y deben revisarse antes de desplegar `.build`. `autoiniciar.sh`
-contiene paradas globales de procesos y un volcado de variables de entorno;
-no ejecutarlo sin adaptar ese comportamiento al despliegue.
+otro driver para consultar su estado.
 
-El `install.sh` histórico es interactivo, modifica configuración y referencia
-archivos ausentes. Se recomienda la instalación explícita de dependencias de
-este README en lugar de ejecutarlo directamente.
+Para instalar o actualizar las dependencias, compilar y ejecutar las pruebas:
+
+```bash
+bash install.sh
+```
+
+Ejecutar como usuario normal desde una instalación Debian/Raspberry Pi OS.
+El instalador solicita `sudo` para `apt-get update` y la instalación de paquetes;
+compila con dos trabajos y ejecuta `make test` como el usuario actual. No hace
+una actualización general del sistema, no descarga cambios Git y no inicia
+el driver. Conserva `configdb.cfg` y no modifica bases de datos ni servicios.
+Las pruebas de correo y Modbus utilizan servidores locales simulados.
+
+Si esta máquina alojará la base de datos, instalar por separado:
+
+```bash
+sudo apt-get install -y mariadb-server mariadb-client
+```
+
+Los scripts `autoiniciar.sh`, `mkautoiniciar.sh` y `mkautoiniciar.bash` se
+retiraron de la rama de pruebas. Si un servicio, cron o arranque de escritorio
+los referencia, revisar y migrar esa configuración antes de actualizar la
+instalación activa. El nuevo instalador no configura arranque automático.
 
 En la rama mejorada, SIGINT/SIGTERM solicitan parada ordenada. Las operaciones
 de red en curso pueden retrasarla, especialmente SMTP, que conserva los tiempos

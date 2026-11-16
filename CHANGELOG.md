@@ -6,6 +6,11 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Instalador Linux reproducible: dependencias APT, compilación y pruebas como
+  usuario normal, sin modificar configuración ni arrancar el driver.
+- Retirados los tres scripts históricos de autoinicio; revisar referencias
+  externas antes de actualizar instalaciones que dependan de ellos.
+
 - Arranque de consola organizado en configuracion, intervalos y adquisicion;
   base externa deshabilitada resumida en una linea y estados explicitos.
 - Metricas acumuladas legibles en consola cada minuto y al cerrar, conservando
