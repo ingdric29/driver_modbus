@@ -47,8 +47,12 @@ make -j2
 paso "Ejecutar pruebas locales"
 make test
 paso "Verificar versiones"
-./.build/automonitorv1 --version
-./.build/automonitorctl --version
+./bin/automonitorv1 --version
+./bin/automonitorctl --version
+paso "Preparar distribucion sin fuentes ni configuracion privada"
+make dist
+paso "Limpiar objetos intermedios"
+make clean-objects
 printf '\n[ OK ] Instalación y pruebas completadas.\n'
 if [[ -f configdb.cfg ]]; then
     printf '\n  Se conservó configdb.cfg sin modificaciones.\n'
@@ -57,9 +61,9 @@ else
     printf '\n[ PENDIENTE ] Preparar configdb.cfg antes de arrancar.\n'
 fi
 printf '\n  Para iniciar desde este repositorio:\n'
-printf '    cd "%s/.build"\n' "$REPO_DIR"
+printf '    cd "%s/bin"\n' "$REPO_DIR"
 printf '    ./automonitorv1\n'
 printf '\n  Para consultar el monitor desde otra terminal:\n'
-printf '    "%s/.build/automonitorctl"\n' "$REPO_DIR"
+printf '    "%s/bin/automonitorctl"\n' "$REPO_DIR"
 printf '\n  Antes de arrancar, evita otra instancia sobre los mismos\n'
 printf '  equipos y base de datos.\n'

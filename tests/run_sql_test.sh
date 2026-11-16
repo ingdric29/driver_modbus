@@ -10,6 +10,6 @@ read -r -a extra_ld <<< "${LDFLAGS:-}"
   tests/test_sql_session.cpp "${extra_ld[@]}" -lmysqlcppconn -o "$test_dir/test"
 timeout 20 "$test_dir/test"
 DRIVER_SQL_TEST=1 bash tests/run_state_test.sh
-python3 tests/test_full_startup.py "${DRIVER_BINARY:-$PWD/.build/automonitorv1}"
-python3 tests/test_full_email.py "${DRIVER_BINARY:-$PWD/.build/automonitorv1}"
+python3 tests/test_full_startup.py "${DRIVER_BINARY:-$PWD/bin/automonitorv1}"
+python3 tests/test_full_email.py "${DRIVER_BINARY:-$PWD/bin/automonitorv1}"
 echo 'PASS SQL integration, replication and full SMTP pipeline'

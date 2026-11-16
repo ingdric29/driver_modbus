@@ -9,3 +9,7 @@ __pycache__/
 # Runtime logs are local to each installation.
 /log/
 /autostart/nohup.out
+
+# Executables and runtime distributions generated locally.
+/bin/
+/dist/

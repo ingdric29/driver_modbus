@@ -11,22 +11,22 @@ MySQL/MariaDB para configuración y persistencia, y libcurl para correo SMTP.
 | Rama | Uso y diferencias |
 |---|---|
 | `main` | Versión histórica. Compila hacia `bin/automonitorv1`; incluye binarios y objetos ARM64 versionados. No incluye `automonitorctl` ni la suite de pruebas de la rama mejorada. |
-| `mejoras-driver-pasos-1-2` | Desarrollo mejorado: compilación en `.build`, monitor SSH, reutilización de conexiones Modbus, agrupación de registros compatibles, métricas, pruebas y correcciones del emisor de correo. |
+| `automonitor-modbus-driver-V1.2.0-pruebas` | Desarrollo mejorado: ejecutables en `bin` y objetos en `.build`, monitor SSH, reutilización de conexiones Modbus, agrupación de registros compatibles, métricas, pruebas y correcciones del emisor de correo. |
 
-Los comandos de `.build`, monitor y pruebas de este documento corresponden a
-`mejoras-driver-pasos-1-2`. No están disponibles en `main` sin incorporar esos
+Los comandos de `bin`, monitor y pruebas de este documento corresponden a
+`automonitor-modbus-driver-V1.2.0-pruebas`. No están disponibles en `main` sin incorporar esos
 cambios. Antes de cambiar de rama, conserva cualquier modificación local:
 
 ```bash
 git status --short
 git branch --show-current
 # Solo con el trabajo local guardado:
-git switch mejoras-driver-pasos-1-2
+git switch automonitor-modbus-driver-V1.2.0-pruebas
 ```
 
 ## Guía paso a paso en Raspberry: instalación, pruebas y arranque
 
-Esta guía corresponde a `mejoras-driver-pasos-1-2`. Ejecutar cada paso en orden;
+Esta guía corresponde a `automonitor-modbus-driver-V1.2.0-pruebas`. Ejecutar cada paso en orden;
 si un comando falla, detenerse y revisar su salida antes de continuar.
 
 ### 1. Preparar la instalación o actualizar una existente
@@ -43,8 +43,8 @@ cd ~/driver_modbus
 cp -p configdb.cfg "$HOME/configdb.cfg.backup-$(date +%Y%m%d-%H%M%S)"
 git status --short
 git fetch origin --tags
-git switch mejoras-driver-pasos-1-2
-git pull --ff-only origin mejoras-driver-pasos-1-2
+git switch automonitor-modbus-driver-V1.2.0-pruebas
+git pull --ff-only origin automonitor-modbus-driver-V1.2.0-pruebas
 ```
 
 Si Git informa cambios incompatibles o conflictos, detenerse y conservarlos.
@@ -57,7 +57,7 @@ Para una instalación nueva, instalar Git si hace falta y clonar la rama:
 ```bash
 sudo apt-get update
 sudo apt-get install -y git
-git clone --branch mejoras-driver-pasos-1-2 \
+git clone --branch automonitor-modbus-driver-V1.2.0-pruebas \
   https://github.com/ingdric29/driver_modbus.git ~/driver_modbus
 cd ~/driver_modbus
 ```
@@ -103,8 +103,8 @@ make clean && make -j2
 Solo si termina correctamente, comprobar la identificación y ejecutar la suite:
 
 ```bash
-./.build/automonitorv1 --version
-./.build/automonitorctl --version
+./bin/automonitorv1 --version
+./bin/automonitorctl --version
 make test
 ```
 
@@ -120,22 +120,22 @@ software, pero no sustituye las pruebas con equipos físicos.
 Después de resolver cualquier fallo de las pruebas, arrancar en primer plano:
 
 ```bash
-cd ~/driver_modbus/.build
+cd ~/driver_modbus/bin
 ./automonitorv1
 ```
 
-Mantener esa terminal abierta. El directorio de trabajo debe ser `.build`, porque
+Mantener esa terminal abierta. El directorio de trabajo debe ser `bin`, porque
 el driver busca configuración, plantilla y logs en su padre. En otra sesión SSH:
 
 ```bash
 cd ~/driver_modbus
-./.build/automonitorctl
+./bin/automonitorctl
 ```
 
 Para una consulta puntual sin interfaz interactiva:
 
 ```bash
-./.build/automonitorctl --once
+./bin/automonitorctl --once
 ```
 
 Verificar comunicación, actualización y antigüedad de tags, errores y alarmas.
@@ -147,8 +147,8 @@ No provocar cambios peligrosos en el proceso industrial para probar alarmas.
 ### 5. Volver a operación supervisada
 
 Detener la instancia de prueba con Ctrl+C antes de reactivar el servicio habitual.
-Configurar su ejecutable como `~/driver_modbus/.build/automonitorv1` y su directorio
-de trabajo como `~/driver_modbus/.build` (usar rutas absolutas expandidas en la
+Configurar su ejecutable como `~/driver_modbus/bin/automonitorv1` y su directorio
+de trabajo como `~/driver_modbus/bin` (usar rutas absolutas expandidas en la
 configuración del servicio). Los scripts históricos que apuntan a `bin` ejecutan
 el binario antiguo. No se instala ni habilita automáticamente un servicio con
 estos comandos; adaptar el supervisor existente y comprobar que solo haya una
@@ -199,9 +199,9 @@ make -j2
 make orquesta
 ```
 
-Se generan `.build/automonitorv1`, `.build/automonitorctl` y
-`.build/automonitor-mailcheck`; el supervisor se genera en `.build/orquesta`.
-La compilación mejorada conserva los binarios históricos y detecta cambios de
+Se generan `bin/automonitorv1`, `bin/automonitorctl` y
+`bin/automonitor-mailcheck`; el supervisor se genera en `bin/orquesta`.
+Los binarios generados no se versionan. La compilación detecta cambios de
 cabeceras. Para reconstruir desde las fuentes:
 
 ```bash
@@ -233,7 +233,7 @@ Actualmente el driver busca en el padre del directorio de trabajo:
 En la rama mejorada, iniciar así desde la raíz del proyecto:
 
 ```bash
-cd .build
+cd bin
 ./automonitorv1
 ```
 
@@ -280,10 +280,10 @@ persistencia de muestras que todavía estén pendientes en memoria.
 Con el driver mejorado ya iniciado, abrir otra terminal en la raíz del proyecto:
 
 ```bash
-./.build/automonitorctl
-./.build/automonitorctl --once
-./.build/automonitorctl --json
-./.build/automonitorctl --device NOMBRE_DEL_EQUIPO
+./bin/automonitorctl
+./bin/automonitorctl --once
+./bin/automonitorctl --json
+./bin/automonitorctl --device NOMBRE_DEL_EQUIPO
 ```
 
 El visor consulta un socket local: no inicia adquisición ni hace consultas
@@ -347,8 +347,8 @@ y restaurar esa verificación es una mejora pendiente, no una solución al error
 Diagnóstico sin autenticar ni enviar mensajes, en la rama mejorada:
 
 ```bash
-./.build/automonitor-mailcheck --config /ruta/configdb.cfg
-./.build/automonitor-mailcheck --config /ruta/configdb.cfg --ports 465,587
+./bin/automonitor-mailcheck --config /ruta/configdb.cfg
+./bin/automonitor-mailcheck --config /ruta/configdb.cfg --ports 465,587
 ```
 
 La herramienta valida conectividad/TLS, no credenciales ni entrega. No cambia
@@ -451,13 +451,34 @@ La fuente única de versión de producto es `src/include/version.h`.
 compilación directa sin esas definiciones muestra `unknown` para esos metadatos.
 
 ```bash
-./.build/automonitorv1 --version
-./.build/automonitorctl --version
+./bin/automonitorv1 --version
+./bin/automonitorctl --version
 ```
 
 El visor muestra la versión del driver conectado; `--version` identifica al
 visor instalado. El JSON conserva `version: 1` como versión del protocolo y
 expone por separado `driver_version`, `driver_commit` y `build_date`.
-Para distribuir el visor fuera de `.build`, copiar también su `version.h` vecino.
+Para distribuir el visor fuera de `bin`, copiar también su `version.h` vecino.
 La etiqueta `v1.2.0` identifica la entrega en la rama mejorada; no implica integrar
 la rama en `main`. Consultar el historial para funciones y limitaciones.
+
+## Distribución sin fuentes
+
+Después de `make test`, ejecutar `make dist`. Se crea una carpeta nueva bajo
+`dist/` con `bin/` (driver, visor, diagnóstico y metadatos de versión), `html/`
+y `LEEME.txt`. No contiene fuentes C++, tests, objetos, Git ni configuración
+privada. Las herramientas Python y `version.h` son dependencias de ejecución.
+El supervisor opcional no se incluye ni se arranca automáticamente.
+
+Copiar el `configdb.cfg` autorizado a la raíz de esa distribución y protegerlo
+con `chmod 600`. Ejecutar el driver desde su `bin/`. Usar la distribución en
+una máquina con arquitectura y bibliotecas compatibles: no incluye las
+bibliotecas compartidas. No publicar esa carpeta después de añadir credenciales.
+
+`bash install.sh` realiza compilación, pruebas, distribución y limpieza de
+objetos. `make clean-objects` elimina solo objetos/dependencias intermedios y
+conserva `bin/`; `make clean` elimina además los ejecutables ordinarios. Los
+fuentes y pruebas se conservan en el checkout para mantenimiento y actualización.
+La actualización de esta rama retira los binarios históricos versionados de
+`bin/`; compilar antes de volver a arrancar y adaptar los servicios que usen
+la ruta anterior `.build`.

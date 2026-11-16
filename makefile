@@ -2,7 +2,8 @@
 # C++11 driver. Generated objects/dependencies never overwrite tracked artifacts.
 CXX ?= g++
 BUILD_DIR ?= .build
-TARGET ?= $(BUILD_DIR)/automonitorv1
+BIN_DIR ?= bin
+TARGET ?= $(BIN_DIR)/automonitorv1
 INCLUDES ?= -Isrc/include -I/usr/include/modbus
 LIBS ?=
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -21,13 +22,15 @@ SRCS = src/main.cpp src/acquisition.cpp src/persistence.cpp src/loadconfig.cpp \
        src/cls_cmd.cpp src/cls_defalarmas.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
-.PHONY: all test test-sql orquesta clean
-all: $(TARGET) $(BUILD_DIR)/automonitorctl $(BUILD_DIR)/automonitor-mailcheck
-$(BUILD_DIR)/automonitorctl: tools/automonitorctl.py src/include/version.h
+.PHONY: all test test-sql orquesta clean clean-objects dist
+all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
+$(BIN_DIR)/automonitorctl: tools/automonitorctl.py src/include/version.h
 	@mkdir -p $(@D)
 	install -m 755 $< $@
-	install -m 644 src/include/version.h $(BUILD_DIR)/version.h
-$(BUILD_DIR)/automonitor-mailcheck: tools/automonitor-mailcheck.py
+$(BIN_DIR)/version.h: src/include/version.h
+	@mkdir -p $(@D)
+	install -m 644 $< $@
+$(BIN_DIR)/automonitor-mailcheck: tools/automonitor-mailcheck.py
 	@mkdir -p $(@D)
 	install -m 755 $< $@
 $(TARGET): $(OBJECTS)
@@ -39,8 +42,8 @@ $(BUILD_DIR)/%.o: %.cpp
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
-orquesta: $(BUILD_DIR)/orquesta
-$(BUILD_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
+orquesta: $(BIN_DIR)/orquesta
+$(BIN_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) -lboost_filesystem -lboost_system -o $@
 test: all
@@ -52,6 +55,10 @@ test: all
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
-clean:
-	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET) $(BUILD_DIR)/automonitorctl $(BUILD_DIR)/automonitor-mailcheck $(BUILD_DIR)/version.h
+clean-objects:
+	rm -f $(OBJECTS) $(OBJECTS:.o=.d)
+clean: clean-objects
+	rm -f $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
+dist: all
+	bash tools/package-runtime.sh "$(BIN_DIR)" "$(DIST_DIR)"
 -include $(OBJECTS:.o=.d)

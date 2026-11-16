@@ -6,6 +6,11 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Ejecutables y herramientas generados en `bin/`, con objetos en `.build`;
+  retirados los binarios históricos versionados.
+- `make dist` crea una distribución sin fuentes ni configuración privada.
+  El instalador la genera después de las pruebas y limpia objetos intermedios.
+
 - Instalador Linux reproducible: dependencias APT, compilación y pruebas como
   usuario normal, sin modificar configuración ni arrancar el driver.
 - Retirados los tres scripts históricos de autoinicio; revisar referencias

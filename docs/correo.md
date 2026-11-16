@@ -7,12 +7,12 @@ en spam. Comprobar primero la conexión y el modo TLS desde la Raspberry.
 
 ## Diagnóstico sin enviar mensajes
 
-`make` instala `.build/automonitor-mailcheck`. Usa Python 3 y su biblioteca
+`make` instala `bin/automonitor-mailcheck`. Usa Python 3 y su biblioteca
 estándar. Puede ejecutarse con el driver trabajando, sin otra adquisición:
 
 ```bash
 cd ~/driver_modbus
-./.build/automonitor-mailcheck --ports 465,587
+./bin/automonitor-mailcheck --ports 465,587
 ```
 
 Lee solamente la URL `smtp_servidor` de `configdb.cfg`; no lee ni utiliza
@@ -25,9 +25,9 @@ configurada, con su protocolo y puerto exactos.
 También se puede indicar una ruta o un servidor confirmado por el proveedor:
 
 ```bash
-./.build/automonitor-mailcheck --config /ruta/configdb.cfg
-./.build/automonitor-mailcheck --server smtps://smtp.example.invalid:465
-./.build/automonitor-mailcheck --server smtp://smtp.example.invalid:587
+./bin/automonitor-mailcheck --config /ruta/configdb.cfg
+./bin/automonitor-mailcheck --server smtps://smtp.example.invalid:465
+./bin/automonitor-mailcheck --server smtp://smtp.example.invalid:587
 ```
 
 Usar el servidor real, no `example.invalid`. No incluir usuario o contraseña

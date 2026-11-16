@@ -8,17 +8,18 @@ make -j2
 make test
 ```
 
-Los ejecutables nuevos son `.build/automonitorv1` y `.build/automonitorctl`
+Los ejecutables nuevos son `bin/automonitorv1` y `bin/automonitorctl`
 ([monitor SSH](monitor.md), Python 3/curses). Objetos y dependencias quedan en
-`.build`, sin sobrescribir los ejecutables/objetos históricos versionados.
+`.build`; los ejecutables generados de `bin/` no se versionan.
 Los cambios de headers se detectan automáticamente. `make orquesta` construye
-el supervisor opcional en `.build/orquesta`; las pruebas no lo ejecutan.
+el supervisor opcional en `bin/orquesta`; las pruebas no lo ejecutan.
 
-Para ejecutar con una configuración autorizada, usar `.build` como directorio
+Para ejecutar con una configuración autorizada, usar `bin` como directorio
 de trabajo: el programa busca configuración, plantillas y logs en su padre.
 El instalador Linux se ejecuta con `bash install.sh` como usuario normal:
 actualiza el índice APT, instala dependencias, compila y ejecuta las pruebas.
-No inicia servicios ni modifica configuración. Los scripts históricos de
+También crea `dist/` sin fuentes ni configuración privada y limpia los objetos
+intermedios. No inicia servicios ni modifica configuración. Los scripts históricos de
 autoinicio se retiraron; migrar cualquier referencia externa antes de actualizar
 una instalación que los utilice.
 

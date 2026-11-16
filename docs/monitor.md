@@ -14,7 +14,7 @@ git pull origin mejoras-driver-pasos-1-2
 make -j2
 ```
 
-Se generan `.build/automonitorv1` y `.build/automonitorctl`. El visor requiere
+Se generan `bin/automonitorv1` y `bin/automonitorctl`. El visor requiere
 Python 3 con el módulo estándar `curses` (normalmente incluido en Raspberry Pi OS).
 No requiere instalar ncurses para C++, un servidor web ni cambiar el esquema SQL.
 
@@ -32,12 +32,12 @@ En otra sesión SSH, con el mismo usuario que ejecuta el driver:
 
 ```bash
 cd ~/driver_modbus
-./.build/automonitorctl
+./bin/automonitorctl
 ```
 
 El driver puede seguir ejecutándose con el servicio/supervisor que ya utilices.
 Ese servicio debe apuntar al binario actualizado y conservar el directorio de
-trabajo habitual (`.build` o `bin`, cuyo padre contiene `configdb.cfg`). Los
+trabajo habitual (`bin`, cuyo padre contiene `configdb.cfg`). Los
 scripts históricos del repositorio no se modifican ni se ejecutan automáticamente.
 
 El visor ocupa su propia terminal; la consola del proceso principal sigue
@@ -68,15 +68,15 @@ Ampliar la terminal permite ver más columnas y más dispositivos. El mínimo es
 Para consultar un dispositivo directamente:
 
 ```bash
-./.build/automonitorctl --device 'NombreDelDispositivo'
+./bin/automonitorctl --device 'NombreDelDispositivo'
 ```
 
 Para un script, una terminal sin TUI o una captura puntual:
 
 ```bash
-./.build/automonitorctl --once
-./.build/automonitorctl --once --device 'NombreDelDispositivo'
-./.build/automonitorctl --json
+./bin/automonitorctl --once
+./bin/automonitorctl --once --device 'NombreDelDispositivo'
+./bin/automonitorctl --json
 ```
 
 `--device` admite un nombre exacto o un fragmento único. Si dos equipos tienen
@@ -144,7 +144,7 @@ Si instalaste el ejecutable en otra ubicación o usas un directorio de trabajo
 distinto, especifica la ruta del socket:
 
 ```bash
-./.build/automonitorctl --socket /ruta/al/proyecto/.runtime/automonitor.sock
+./bin/automonitorctl --socket /ruta/al/proyecto/.runtime/automonitor.sock
 ```
 
 El endpoint envía una instantánea JSON versión 1 y cierra; no acepta comandos.
