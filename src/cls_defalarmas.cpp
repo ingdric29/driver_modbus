@@ -164,7 +164,6 @@ int cls_defalarmas::evaluarcompleto() {
 	stringstream ss2;
 	int resultadoactivar, resultadodesactivar;
 	int resultado = 0;
-	int res_ejecutar = 0;
 	stres valortag1;
 	int res_leertag2 = -1;
 	try{
@@ -219,7 +218,7 @@ int cls_defalarmas::evaluarcompleto() {
 		activa = false;
 		contador_de_acciones_activar = 0;
 		insertar_tbhistoalarmas();
-		res_ejecutar = ejecutar_accion(acciondesactivar, activa);
+		ejecutar_accion(acciondesactivar, activa);
 
 	}
 	else if ((resultadoactivar == 1) && (resultadodesactivar == 0)) {
@@ -227,7 +226,7 @@ int cls_defalarmas::evaluarcompleto() {
 		activa = true;
 		contador_de_acciones_desactivar = 0;
 		insertar_tbhistoalarmas();
-		res_ejecutar = ejecutar_accion(accionactivar, activa);
+		ejecutar_accion(accionactivar, activa);
 
 	}
 	else if ((resultadoactivar == 1) && (resultadodesactivar == 1)) {
@@ -235,7 +234,7 @@ int cls_defalarmas::evaluarcompleto() {
 		activa = false;
 		contador_de_acciones_activar = 0;
 		insertar_tbhistoalarmas();
-		res_ejecutar = ejecutar_accion(acciondesactivar, activa);
+		ejecutar_accion(acciondesactivar, activa);
 
 	}
 		
@@ -280,7 +279,7 @@ int cls_defalarmas::ejecutar_accion(const string& accionstr, bool alarmaactivada
 	stres valorAlarma;
 	int res_leertag2;
 	try {
-	for (int i=0; i<vector_accion.size(); i++) {
+	for (std::vector<std::string>::size_type i=0; i<vector_accion.size(); i++) {
 		ordenencontrada = false;
 		accion1 = vector_accion[i];
 		pos = accion1.find("CMD[",pos_ant);
@@ -523,7 +522,6 @@ int cls_defalarmas::insertar_tbhistoalarmas() {
 	string arr_campos1[13];
 	string arr_valores1[13];
 	int res_insertardblocal = 0;
-	int res_insertardbexterna = 0;
 	int res_leertag2;
 	stres valortag;
 	arr_campos1[0] = "id";

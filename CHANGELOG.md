@@ -4,6 +4,19 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Sin publicar — rama de pruebas
+
+- Limpieza de variables y asignaciones sin uso, conservando las llamadas con
+  efectos y el resultado de evaluación de alarmas.
+- Pragma de Microsoft limitado a `_MSC_VER`; se conserva para Windows.
+- Índices de cadenas/vectores y tamaños de archivo con tipos compatibles;
+  rechazo de ventanas RS232 negativas antes de convertir su tamaño.
+- Comprobaciones redundantes de direcciones de elementos retiradas; se
+  conservan los controles de puntero base y límites del recorrido.
+- Llaves explícitas en la comprobación de interfaces RTU/RS232 y retorno
+  inmediato si falla la consulta SQL de órdenes.
+- Pruebas de directorios nulos/vacíos, búsquedas y ventanas RS232 extremas.
+
 ## 1.2.0 — 2026-11-13
 
 Primera versión unificada de la rama `mejoras-driver-pasos-1-2`, posterior a la

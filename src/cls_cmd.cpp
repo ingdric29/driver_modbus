@@ -28,12 +28,10 @@ int cls_cmd::cmdescribir_serial(void) {
 	int rc = -1;
 	int intentosmax = 3;
 	int intento = 0;
-	int resultado_escribir = false;
 	auto lease = ModbusLease::rtu(interface1, velocidad, paridad.empty() ? 'N' : paridad[0], 8, bitsparada);
 	ctx_tcp = lease.get();
 	if (ctx_tcp == NULL) { // if 1
 		fprintf(stderr, "=cmdescribir:falla en iniciar libmodbus\n");
-		resultado_escribir = false;
 		return -1;
 	} // fin if 1
 	if (direccion_esclavo == 0) direccion_esclavo = 1;
@@ -41,7 +39,6 @@ int cls_cmd::cmdescribir_serial(void) {
 	if (lease.connect(G_modbus_timeout) == -1) { // if 3
 		fprintf(stderr, "cmdescribir:conexion ha fallado: %s\n", modbus_strerror(errno));
 		lease.invalidate();
-		resultado_escribir = false;
 		return -1;
 	} // fin del if 3
 
@@ -64,12 +61,10 @@ int cls_cmd::cmdescribir_tcp(void) {
 	int rc = -1;
 	int intentosmax = 3;
 	int intento = 0;
-	int resultado_escribir = false;
 	auto lease = ModbusLease::tcp(direccion_ip, puerto);
 	ctx_tcp = lease.get();
 	if (ctx_tcp == NULL) { // if 1
 		fprintf(stderr, "=cmdescribir_tcp:falla en iniciar libmodbus\n");
-		resultado_escribir = false;
 		return -1;
 	} // fin if 1
 	if (direccion_esclavo == 0) direccion_esclavo = 1;
@@ -77,7 +72,6 @@ int cls_cmd::cmdescribir_tcp(void) {
 	if (lease.connect(G_modbus_timeout) == -1) { // if 3
 		fprintf(stderr, "cmdescribir_tcp:conexion ha fallado: %s\n", modbus_strerror(errno));
 		lease.invalidate();
-		resultado_escribir = false;
 		return -1;
 	} // fin del if 3
 

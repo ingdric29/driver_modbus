@@ -16,6 +16,7 @@ Permite hacer un registro de los eventos que sucedan en la ejecucion del program
 #include <sys/stat.h> // Para stat y mkdir
 #include <cstdio>     // Para rename y remove
 #include <cstring>    // Para manejar cadenas en C
+#include <cstdint>
 #include <vector>
 #include <mutex>
 namespace { std::mutex& log_mutex() { static std::mutex m; return m; } }     // Para manejar la lista de archivos de log
@@ -69,7 +70,7 @@ void Logger::verificarTamañoArchivo() {
     std::string rutaArchivo = directorioLog + "/" + nombreArchivo;
 
     struct stat archivoInfo;
-    if (stat(rutaArchivo.c_str(), &archivoInfo) == 0 && archivoInfo.st_size > limiteBytes) {
+    if (stat(rutaArchivo.c_str(), &archivoInfo) == 0 && archivoInfo.st_size >= 0 && static_cast<std::uintmax_t>(archivoInfo.st_size) > limiteBytes) {
         rotarArchivos();
     }
 }

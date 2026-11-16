@@ -874,13 +874,14 @@ void cls_equipos::leer_mbserial(void) {
 void cls_equipos::leer_rs232(void) {
 	std::lock_guard<std::mutex> serial(*buffer_mutex);
 
-	int largoventana = tamanoventana;
+	resultadoleer_rc = -1;
+    if (tamanoventana < 0) return;
+    const size_t largoventana = static_cast<size_t>(tamanoventana);
 	string tmpstr = "";
 	string token = "";
 	size_t pos1, pos2;
 	vector<stdelim> vector_stdelim;
 	int longitudtoken = 0;
-	resultadoleer_rc = -1;
 	stdelim estructura1;
 	estructura1.tag = tag;
 	estructura1.delim1 = html_id;

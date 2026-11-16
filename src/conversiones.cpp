@@ -172,7 +172,7 @@ float cast_string_to_float(string cadena1) { // convierte un valor cadena string
 	}
 
 	string cadena2 = "";
-	for (int i = 0; i < cadena1.length(); i++) {
+	for (std::string::size_type i = 0; i < cadena1.length(); i++) {
 		if (cadena1[i] != ',') {
 			cadena2 = cadena2 + cadena1[i];
 		}
@@ -384,7 +384,7 @@ bool chequear_internet(string ipaddress1) {
 string cast_minus_mayus(string str) {
 	string mayus;
 	char C;
-	for (int i = 0; i < str.length(); i++) {
+	for (std::string::size_type i = 0; i < str.length(); i++) {
 		C = toupper(str[i]);
 		mayus.append(1, C);
 	}
@@ -395,7 +395,7 @@ string cast_minus_mayus(string str) {
 string cast_mayus_minus(string str) {
 	string minus;
 	char C;
-	for (int i = 0; i < str.length(); i++) {
+	for (std::string::size_type i = 0; i < str.length(); i++) {
 		C = tolower(str[i]);
 		minus.append(1, C);
 	}
@@ -473,7 +473,7 @@ string limpiarcadena(const string& cadenaoriginal) {
 	string cadenanueva;
 	int caracter;
 	cadenanueva.empty();
-	for (int i = 0; i < cadenaoriginal.length(); i++) {
+	for (std::string::size_type i = 0; i < cadenaoriginal.length(); i++) {
 		caracter = (int)cadenaoriginal[i];
 		if (caracter > 32) {
 			cadenanueva.append(1, cadenaoriginal[i]);
@@ -610,13 +610,12 @@ unsigned long long valormac_from_ifrname(char* if_name){
 
 int listainterfaces() {
 	struct ifconf st_ifconf;
-	struct ifreq *arrst_ifreq, st_ifreq;
+	struct ifreq *arrst_ifreq;
 	int s1;
 
-	unsigned i;
+	size_t i;
 	size_t len;
 	int longitud = 0;
-	unsigned char hwaddr[6];
 	unsigned long long valormac;
 	char buf[16384];
 	
@@ -643,7 +642,7 @@ int listainterfaces() {
 	
 	printf("longitud = %i \n",longitud );
 	
-	for(i=0;i<longitud;) {
+	for(i=0; longitud >= 0 && i + sizeof(*arrst_ifreq) <= static_cast<size_t>(longitud);) {
 
 		len=sizeof(*arrst_ifreq);
 		

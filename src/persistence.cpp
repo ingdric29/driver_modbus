@@ -118,9 +118,7 @@ int ordenescrituraequipos(cls_equipos* equipo, int arge_cantidad) {
 // Correccion: Habilitacion y deshabilitacion de la escritura en la base de datos cuando se pierde la comunicacion
 // Fecha de correccion: 30/10/24
 int ordenescrituraequiposciclico() {
-	int res_ordenlecturaequipos;
 	bool iniciado = false;
-	double menor;
 	//cout << "GLOBAL_EJECUTARHILOS: " << GLOBAL_EJECUTARHILOS << endl;
 	while (driver_running()) {
 		//cout << "escrituras de tags " << endl;
@@ -140,8 +138,6 @@ int ordenescrituraequiposciclico() {
 		}
 
 		flush_historical();
-		menor = funmenor(GLOBAL_periodo_minimo_escritura_tbvalores, GLOBAL_periodo_minimo_escritura_tbdispositivos_sta);
-//		cout << "esperar: " << menor << endl;
 		auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);
         auto inspect = [&](cls_equipos* tags, int count) {
             for (int i = 0; i < count; ++i) {

@@ -1,5 +1,6 @@
 #include "globales.h"
 #include <cassert>
+#include <limits>
 #include <cstring>
 #include "modbus_transport.h"
 #include <sys/socket.h>
@@ -47,6 +48,36 @@ void serial_test() {
     tag.n_buf = 0;
     assert(tag.leer() == -1);
     assert(!tag.resultado_leer);
+}
+
+void serial_window_test() {
+    cls_equipos tag;
+    tag.protocolo = "RS232";
+    tag.html_id = "<v>"; tag.html_final = "</v>";
+    const char* frame = "<v>12.5</v>";
+    std::memcpy(tag.buf, frame, std::strlen(frame));
+    tag.n_buf = std::strlen(frame);
+    tag.tamanoventana = -1;
+    assert(tag.leer() == -1 && !tag.resultado_leer);
+    tag.tamanoventana = std::numeric_limits<int>::max();
+    assert(tag.leer() == 1 && tag.clsvalorfloat == 12.5f);
+}
+
+void directory_lookup_test() {
+    // A positive stale count must never dereference a null directory.
+    cmd = nullptr; emaillist = nullptr; smslist = nullptr;
+    GLOBAL_contador_cmd = GLOBAL_contador_directorio = GLOBAL_contador_numerossms = 2;
+    assert(cmd_buscarid(7) == -1 && email_buscarid(7) == -1 && sms_buscarid(7) == -1);
+    cls_cmd commands[2]; cls_email emails[2]; cls_sms numbers[2];
+    commands[0].id = emails[0].id = numbers[0].clsid = 7;
+    commands[1].id = emails[1].id = numbers[1].clsid = 9;
+    cmd = commands; emaillist = emails; smslist = numbers;
+    assert(cmd_buscarid(7) == 0 && cmd_buscarid(9) == 1 && cmd_buscarid(10) == -1);
+    assert(email_buscarid(7) == 0 && email_buscarid(9) == 1 && email_buscarid(10) == -1);
+    assert(sms_buscarid(7) == 0 && sms_buscarid(9) == 1 && sms_buscarid(10) == -1);
+    GLOBAL_contador_cmd = GLOBAL_contador_directorio = GLOBAL_contador_numerossms = 0;
+    assert(cmd_buscarid(7) == -1 && email_buscarid(7) == -1 && sms_buscarid(7) == -1);
+    cmd = nullptr; emaillist = nullptr; smslist = nullptr;
 }
 
 void batch_period_test() {
@@ -256,7 +287,7 @@ void shutdown_test() {
     GLOBAL_stop_requested = false; GLOBAL_EJECUTARHILOS = true;
 }
 int main() { shutdown_test();
-    serial_test(); batch_period_test(); event_lookup_test(); alarm_directory_test();
+    serial_test(); serial_window_test(); directory_lookup_test(); batch_period_test(); event_lookup_test(); alarm_directory_test();
     cls_sms disabled_sms; assert(disabled_sms.enviar() == CURLE_FAILED_INIT);
     if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); command_sql_test(); }
 }

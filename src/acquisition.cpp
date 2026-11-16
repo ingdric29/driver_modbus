@@ -42,7 +42,6 @@ int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
     RegisterCycle cycle;
     prefetch_due_tags(equipo, arge_cantidad);
 	/* ORDENES DE LECTURAS DE LOS DISPOSITIVOS SEGUN TABLECOM*/
-	double diferencia = 0.0;
 	int resultado=-1;
 	try {
 		for (int i = 0; i < arge_cantidad; i++) {
@@ -76,21 +75,17 @@ int ordenlecturaequipos(cls_equipos* equipo, int arge_cantidad) {
 //Correccion: Se habilita y deshabilita la escritura en la base de datos en base a un error de comunicacion.
 //Fecha de Correccion: 30/10/24
 int ordenlecturaequiposciclico(cls_equipos* equipo, int arge_cantidad) {
-	int res_ordenlecturaequipos;
 	bool iniciado = false;
 	if (arge_cantidad) {cout << " iniciado hilo con protocolo: " << equipo[0].protocolo << endl;};
-	long contador = 0;
 	try
 	{
 		while (driver_running()) {
-			//contador++; //Que hace esta variable??¿?¿?¿?¿
 			if (arge_cantidad == 0)
 			{
 				cout << "no hay equipos" << endl;
 				break;
 			};
-			res_ordenlecturaequipos = ordenlecturaequipos(equipo, arge_cantidad);
-			//printf("EJECUTAR_HILOS = %d CONTADOR = %d \n",GLOBAL_EJECUTARHILOS,contador);
+			ordenlecturaequipos(equipo, arge_cantidad);
 			iniciado = true;
 
 			auto wake = PeriodicDeadline::Clock::now() + std::chrono::milliseconds(200);

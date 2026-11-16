@@ -275,15 +275,6 @@ MUESTREO
 */
 
 int muestrear(void) {
-	int i = 0;
-	int resultado = -1;
-	string comando;
-	int res_ejecutar_externa = -1;
-
-	double tbcambio_diferencia_tiempo = 0;
-	time_t tbcambio_tiempo_ultimochequeo = 0;
-	bool hilosenejecucion = false;
-
 	GLOBAL_estado_primera_ejecucion_programa = 1;
 	cout << "empezar a ejecutar hilos" << endl;
 	while (!GLOBAL_stop_requested) {
@@ -323,12 +314,11 @@ int muestrear(void) {
 int ordenejecucuionlocal() {
 	std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
 	int res_cmd_local = 0;
-	int res_leer_tbejecutar_local = -1;
 	time_t res_segundos;
 	int res_ejecutar = -1;
 	string res_lote = "";
 	//orden de ejecucion local
-	res_leer_tbejecutar_local = leer_tbejecutar(res_cmd_local, res_segundos, res_lote, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave);
+	if (leer_tbejecutar(res_cmd_local, res_segundos, res_lote, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave) < 0) return -1;
 	//cout << "valor de res_lote local:" << res_lote << endl;
 	//cout << "orden local de ejecucion: " << res_cmd_local << " : " << cast_time_to_datetime (time(NULL)) << endl;
 	imprimir_mensaje("cmd local result = " + cast_int_to_string(res_cmd_local), amarillo);
@@ -360,13 +350,12 @@ int ordenejecucuionlocal() {
 
 int ordenejecucuionexterna() {
 	std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
-	int res_leer_tbejecutar_externa = -1;
 	int res_cmd_externa = 0;
 	time_t res_segundos;
 	int res_ejecutar_externa = -1;
 	string res_lote = "";
 	// orden de jecucion externa desde una base de datos en la nube	  
-	res_leer_tbejecutar_externa = leer_tbejecutar(res_cmd_externa, res_segundos, res_lote, GLOBAL_dbext_direccion, getVal(GLOBAL_dbext_puerto), GLOBAL_dbext_nombre, GLOBAL_dbext_usuario, GLOBAL_dbext_clave);
+	if (leer_tbejecutar(res_cmd_externa, res_segundos, res_lote, GLOBAL_dbext_direccion, getVal(GLOBAL_dbext_puerto), GLOBAL_dbext_nombre, GLOBAL_dbext_usuario, GLOBAL_dbext_clave) < 0) return -1;
 	//cout << "valor de res_lote externo:" << res_lote << endl;
 	//cout << "orden externa de ejecucion: " << res_cmd_externa << " : " << cast_time_to_datetime (time(NULL)) << endl;
 	imprimir_mensaje("cmd externo result = " + cast_int_to_string(res_cmd_externa), amarillo);
@@ -394,9 +383,9 @@ int ordenejecucuionexterna() {
 
 
 int ordenejecucionciclico() {
+    double diferencia1 = 0.0;
+    double diferencia2 = 0.0;
     PeriodicDeadline metrics_deadline;
-	double diferencia1 = 0.0;
-	double diferencia2 = 0.0;
 	while (driver_running()) {
         if (metrics_deadline.due()) {
             logger_main.registrarError(DriverMetrics::instance().summary());
@@ -414,13 +403,6 @@ int ordenejecucionciclico() {
 			//cout << "periodoext: " << GLOBAL_periodoext_muestreo_tbejecutar << endl;
 			//cout << "diferencia2: " << diferencia2 << endl;
 		}
-		int tiempominimo = 0;
-		if (GLOBAL_periodo_muestreo_tbejecutar <= GLOBAL_periodoext_muestreo_tbejecutar) {
-			tiempominimo = GLOBAL_periodo_muestreo_tbejecutar;
-		}
-		else {
-			tiempominimo = GLOBAL_periodoext_muestreo_tbejecutar;
-		}
 		esperar(std::min(GLOBAL_periodo_muestreo_tbejecutar, GLOBAL_periodoext_muestreo_tbejecutar));
 	}
 	cout << " fin hilo lectura ordenes de ejecucion " << endl;
@@ -431,14 +413,12 @@ int ordenejecucionciclico() {
 // lee valores de los equipos indicados y los inserta en las bases de datos locales y externa
 //ordenrevisarposiblesalarmasciclico
 int ordenrevisarposiblesalarmasciclico() {
-	int res_ordenrevisarposiblesalarmasciclico;
 	while (driver_running()) {
 		double diferencia_tiempoalarmas = 0.0;
 		diferencia_tiempoalarmas = difftime(time(NULL), GLOBAL_ultima_revision_alarmas);
 		if (diferencia_tiempoalarmas >= GLOBAL_periodo_revision_alarmas) {
-			res_ordenrevisarposiblesalarmasciclico = ordenrevisarposiblesalarmas();
+			ordenrevisarposiblesalarmas();
 		}
-		int tiempoentero = (int)(GLOBAL_periodo_revision_alarmas);
 		esperar(GLOBAL_periodo_revision_alarmas);
 	}
 	cout << " fin hilo ordenrevisarposiblesalarmasciclico " << endl;
@@ -472,13 +452,15 @@ int ordenlecturaconfiguracion() {
 		if (actualizar_smslist(&stdblocal) < 0) return -1;
 		if (actualizar_defalarmas(&stdblocal) < 0) return -1;
 		if (actualizar_defeventos(&stdblocal) < 0) return -1;
-        for (int rtu = 0; rtu < GLOBAL_contador_equipos_mbserial; ++rtu)
-            for (int serial = 0; serial < GLOBAL_contador_equipos_rs232; ++serial)
+        for (int rtu = 0; rtu < GLOBAL_contador_equipos_mbserial; ++rtu) {
+            for (int serial = 0; serial < GLOBAL_contador_equipos_rs232; ++serial) {
                 if (equipo_mbserial[rtu].interface1 == equipo_rs232[serial].interface1) {
                     logger_main.registrarError("RTU and direct RS232 cannot share the same serial interface");
                     return -1;
                 }
-		actualizar_posiciones_clsdefeventos();
+            }
+        }
+        actualizar_posiciones_clsdefeventos();
 
 		//campo2[0] = "id";
 		//campo2[1] = "activar";
@@ -528,8 +510,6 @@ int ordenlecturaconfiguracionciclico() {
 	double diferencia_tiempo4 = 0.0;
 	double diferencia_tiempo5 = 0.0;
 	double diferencia_tiempo6 = 0.0;
-	double diferencia1 = 0.0;
-	double diferencia2 = 0.0;
 
 	while (driver_running()) {
 		// orden de lectura de configuracion
@@ -707,11 +687,9 @@ int cmd_buscarid(int id) {
 		ss1.str("");
 		ss1 << "valor id buscado=" << id << " | leido id=" << cmd[j].id << " | " << cmd[j].nombre << "indice ram=" << j;
 		imprimir_mensaje(ss1.str());
-		if (&cmd[j]) {
-			if (id == cmd[j].id) {
-				indice = j;
-				break;
-			}
+		if (id == cmd[j].id) {
+			indice = j;
+			break;
 		}
 	}
 	return indice;
@@ -724,11 +702,9 @@ int email_buscarid(int id) {
     if (!emaillist) return -1;
 	int indice = -1;
 	for (int j = 0; j < GLOBAL_contador_directorio; j++) {
-		if (&emaillist[j]) {
-			if (id == emaillist[j].id) {
-				indice = j;
-				break;
-			}
+		if (id == emaillist[j].id) {
+			indice = j;
+			break;
 		}
 	} //for
 	return indice;
@@ -741,11 +717,9 @@ int sms_buscarid(int id) {
     if (!smslist) return -1;
 	int indice = -1;
 	for (int j = 0; j < GLOBAL_contador_numerossms; j++) {
-		if (&smslist[j]) {
-			if (id == smslist[j].clsid) {
-				indice = j;
-				break;
-			}
+		if (id == smslist[j].clsid) {
+			indice = j;
+			break;
 		}
 	} //for
 	return indice;

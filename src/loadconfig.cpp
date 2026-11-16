@@ -235,7 +235,6 @@ int loadconfigdb()
 // lee la tabla tbcambios
 int lee_tbcambios(void) {
 
-	int id = 0;
 	int cont_tbregistros;
 	int cont_tbdispositivos;
 	int cont_tbdefequipos;
@@ -247,13 +246,11 @@ int lee_tbcambios(void) {
 	GLOBAL_contador_equipos = 0;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
-		driver = get_driver_instance();
 		con = sql_connection(direccionpuerto, GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(GLOBAL_db_nombre.c_str());
@@ -262,7 +259,6 @@ int lee_tbcambios(void) {
 		res.reset(stmt->executeQuery("SELECT * FROM `tbcambios` WHERE `id`=1"));
 
 		while (res->next()) {
-			id = res->getInt("id"); //
 			cont_tbregistros = res->getInt("cont_tbregistros");
 			cont_tbdispositivos = res->getInt("cont_tbdispositivos");
 			cont_tbdefequipos = res->getInt("cont_tbdefequipos");
@@ -329,13 +325,11 @@ int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum)
 	//cout << query << endl;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
-		driver = get_driver_instance();
 		con = sql_connection(direccionpuerto, GLOBAL_db_usuario, GLOBAL_db_clave, GLOBAL_db_nombre); //GLOBAL_usuario_db.c_str(), GLOBAL_clave_db.c_str());
 		/* Conecta con la base de datos */
 		con->setSchema(GLOBAL_db_nombre.c_str());
@@ -660,7 +654,6 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 	}
 
 	int pending_count = 0;
-	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string cadena;
 	string direccionpuerto;
@@ -692,13 +685,11 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
 
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::PreparedStatement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion */
-		driver = get_driver_instance();
 		con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db);
 		/* Conecta con la base de datos */
 		con->setSchema(nombre_db.c_str());
@@ -820,7 +811,6 @@ int borrar_registros(double dias, string direccion_db, int puerto_db, string nom
     imprimir_mensaje("borrar registros: conservando datos desde: " + fechacorte_str, amarillo);
 
     try {
-        sql::Driver* driver = get_driver_instance();
         
         // Uso de smart pointers para garantizar liberacion automatica de memoria (RIIA)
         auto con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db);
@@ -936,14 +926,12 @@ int actualizar_defalarmas(struct stdatabase* db) {
 
 	}
 
-	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string activar = "";
 	string desactivar = "";
 	string direccionpuerto;
 	string SQL_STR = "";
 	string descripcion = "";
-	int habilitar = 0;
 	string query1 = "";
 	string query2 = "";
 	//string query1 = "SELECT COUNT(`id`) as contador FROM `tbdefalarmas` WHERE habilitar = 1";
@@ -983,13 +971,11 @@ int actualizar_defalarmas(struct stdatabase* db) {
 	cout << "base de datos:" << (db->nombre) << endl;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
 		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
@@ -1076,12 +1062,10 @@ int actualizar_directorio(struct stdatabase* db) {
 	}
 
 
-	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string direccionpuerto;
 	string SQL_STR = "";
 	string descripcion = "";
-	int habilitar = 0;
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbdirectorio`";
 	string query2 = "SELECT * FROM `tbdirectorio`";
@@ -1091,13 +1075,11 @@ int actualizar_directorio(struct stdatabase* db) {
 	//cout << "base de datos:" << (db -> nombre) << endl;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
 		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
@@ -1116,15 +1098,13 @@ int actualizar_directorio(struct stdatabase* db) {
 
 		while (res->next() && (ind < GLOBAL_contador_directorio)) {
 
-			if (&emaillist[ind]) {
-				emaillist[ind].id = res->getInt("id"); //
-				emaillist[ind].from = res->getString("emailfrom");
-				emaillist[ind].to = res->getString("emailto");
-				emaillist[ind].cc = res->getString("emailcc");
-				emaillist[ind].asunto = res->getString("asunto"); //
-				emaillist[ind].mensaje = res->getString("mensaje"); //
+			emaillist[ind].id = res->getInt("id"); //
+			emaillist[ind].from = res->getString("emailfrom");
+			emaillist[ind].to = res->getString("emailto");
+			emaillist[ind].cc = res->getString("emailcc");
+			emaillist[ind].asunto = res->getString("asunto"); //
+			emaillist[ind].mensaje = res->getString("mensaje"); //
 
-			}
 
 			ind++;
 		}
@@ -1293,7 +1273,6 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 	direccionpuerto_origen = "tcp://" + dborigen->direccion + ":" + cast_int_to_string(dborigen->puerto);
 	string cadenasql_origen = "SELECT ";
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
@@ -1314,7 +1293,6 @@ int replicaciontablaselectiva(struct stdatabase* dborigen, string tablaorigen, s
 		//cout << cadenasql_origen << endl;
 
 		/* Crea una conexion */
-		driver = get_driver_instance();
 		con = database_session(dborigen);
 		int timeout1 = 3;
 		con->setClientOption("MYSQL_OPT_READ_TIMEOUT", &timeout1);
@@ -1378,14 +1356,12 @@ int actualizar_defeventos(struct stdatabase* db) {
 
 	}
 
-	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string activar = "";
 	string desactivar = "";
 	string direccionpuerto;
 	string SQL_STR = "";
 	string descripcion = "";
-	int habilitar = 0;
 	int LOCAL_contador_defeventos = 0;
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbdefeventos` WHERE habilitar = 1";
@@ -1396,13 +1372,11 @@ int actualizar_defeventos(struct stdatabase* db) {
 	//cout << "base de datos:" << (db->nombre) << endl;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
 		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
@@ -1477,12 +1451,10 @@ int actualizar_smslist(struct stdatabase* db) {
 	}
 
 
-	int id = 0;
 	int ind = 0;  // contador de comandos a ejecutar
 	string direccionpuerto;
 	string SQL_STR = "";
 	string descripcion = "";
-	int habilitar = 0;
 
 	string query1 = "SELECT COUNT(`id`) as contador FROM `tbsms`";
 	string query2 = "SELECT * FROM `tbsms`";
@@ -1492,13 +1464,11 @@ int actualizar_smslist(struct stdatabase* db) {
 	//cout << "base de datos:" << (db -> nombre) << endl;
 
 	try {
-		sql::Driver* driver;
 		std::shared_ptr<sql::Connection> con;
 		std::unique_ptr<sql::Statement> stmt;
 		std::unique_ptr<sql::ResultSet> res;
 
 		/* Crea una conexion con la base de datos externa */
-		driver = get_driver_instance();
 		con = database_session(db);
 		/* Conecta con la base de datos */
 		con->setSchema((db->nombre).c_str());
@@ -1517,14 +1487,12 @@ int actualizar_smslist(struct stdatabase* db) {
 
 		while (res->next() && (ind < GLOBAL_contador_numerossms)) {
 
-			if (&smslist[ind]) {
-				smslist[ind].clsid = res->getInt("id"); //
-				smslist[ind].clsnumero = res->getString("numero");
-				smslist[ind].clsasunto = res->getString("asunto");
-				smslist[ind].clsurl_modem = res->getString("url_modem");
-				smslist[ind].clsparametros_rest_api = res->getString("parametros_rest_api");
-				smslist[ind].clsmetodohtml = res->getString("metodohtml"); //
-			}
+			smslist[ind].clsid = res->getInt("id"); //
+			smslist[ind].clsnumero = res->getString("numero");
+			smslist[ind].clsasunto = res->getString("asunto");
+			smslist[ind].clsurl_modem = res->getString("url_modem");
+			smslist[ind].clsparametros_rest_api = res->getString("parametros_rest_api");
+			smslist[ind].clsmetodohtml = res->getString("metodohtml"); //
 
 			ind++;
 		}

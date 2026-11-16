@@ -50,7 +50,6 @@ int cls_defeventos::cargar_posicion() {
 
 int cls_defeventos::leer_valorenram() {
 	double diferencia = 0.0;
-	int word;
 	uint16_t x1, x2, x3;
 	string campost[8];
 	string valorst[8];
