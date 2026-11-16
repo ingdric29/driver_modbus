@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: catalog_lookup.cpp
+ * Descripción: Busca comandos y destinatarios por identificador.
+ * Necesita: Arreglos globales y contadores correspondientes a la generación vigente.
+ * Retornos: Índice encontrado o -1 si no existe, incluido un catálogo nulo.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -11,6 +16,11 @@
 
 using namespace std;
 
+/**
+ * Busca el identificador en el catálogo global correspondiente.
+ * Parámetros: int id
+ * Retorno: Índice del elemento o -1 si no existe o el catálogo es nulo.
+ */
 int cmd_buscarid(int id) {
     if (!cmd)
         return -1;
@@ -31,6 +41,11 @@ int cmd_buscarid(int id) {
     return indice;
 }
 
+/**
+ * Busca el identificador en el catálogo global correspondiente.
+ * Parámetros: int id
+ * Retorno: Índice del elemento o -1 si no existe o el catálogo es nulo.
+ */
 int email_buscarid(int id) {
     if (!emaillist)
         return -1;
@@ -44,6 +59,11 @@ int email_buscarid(int id) {
     return indice;
 }
 
+/**
+ * Busca el identificador en el catálogo global correspondiente.
+ * Parámetros: int id
+ * Retorno: Índice del elemento o -1 si no existe o el catálogo es nulo.
+ */
 int sms_buscarid(int id) {
     if (!smslist)
         return -1;

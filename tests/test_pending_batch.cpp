@@ -1,3 +1,8 @@
+// Archivo: test_pending_batch.cpp
+// Descripción: Comprueba confirmación parcial y reintento de muestras pendientes.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "pending_batch.h"
 #include <cassert>
 int main() {

@@ -1,4 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; modularized without logic changes.
+/*
+ * Archivo: equipment_rtu.cpp
+ * Descripción: Implementa la lectura específica del protocolo del equipo.
+ * Necesita: Campos del equipo y contexto de transporte o buffer serie, según protocolo.
+ * Retornos: void; actualiza resultadoleer_rc, valor y estado del equipo.
+ */
+
 #include "include/globales.h"
 #include "include/conversiones.h"
 #include "include/equipment_internal.h"
@@ -13,6 +19,12 @@
 
 using namespace std;
 
+/**
+ * Lee el equipo mediante el enlace Modbus compartido y su caché.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void); el estado se comunica en resultadoleer_rc y los campos del equipo.
+ * Efectos: Respeta el bloqueo del enlace y mantiene los reintentos/decodificadores existentes.
+ */
 void cls_equipos::leer_mbserial(void) {
     modbus_t *ctx_mbserial = NULL;
     bool conectadocondispositivo = true;

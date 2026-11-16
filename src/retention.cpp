@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: retention.cpp
+ * Descripción: Borra históricos anteriores a la fecha de corte mediante lotes.
+ * Necesita: Días de retención, reloj del host, perfil SQL y nombre de tabla autorizado.
+ * Retornos: Filas eliminadas, 0 si se omite el destino externo o -1 ante error.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -13,6 +18,14 @@ using namespace std;
 
 using repository_detail::is_external_target;
 
+/**
+ * Elimina registros anteriores al corte en lotes de 10000.
+ * Parámetros: double dias, string direccion_db, int puerto_db, string nombre_db, string
+ * usuario_db, string clave_db, string dbtabla
+ * Retorno: Filas eliminadas, 0 si omite el destino o -1 ante fallo SQL.
+ * Efectos: Es una operación destructiva; conserva la política existente sin filtro de
+ * concentrador.
+ */
 int borrar_registros(double dias, string direccion_db, int puerto_db, string nombre_db,
                      string usuario_db, string clave_db, string dbtabla) {
     // Validaciones de red e interfaz

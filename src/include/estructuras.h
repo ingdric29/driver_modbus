@@ -1,3 +1,10 @@
+/*
+ * Archivo: estructuras.h
+ * Descripción: Define estructuras para muestras, perfiles SQL y notificaciones.
+ * Necesita: Valores de sus campos suministrados por la aplicación.
+ * Retornos: Estructuras de datos; sin operaciones de entrada/salida por sí mismas.
+ */
+
 #ifndef ESTRUCTURAS
 
 #define ESTRUCTURAS

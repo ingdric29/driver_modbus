@@ -1,11 +1,9 @@
 /*
-programa dedarrollado por ing. Alejandro diomede - Automatroni - email: diomede3009@gmail.com
-Define la estructura de datos llamada Equipos - tcp y serial
-Modificación hecha por: Ing. Javier Flores 12/11/24
- + Ubicacion de los archivos cabecera cambiada.
- + Añadida la funcion Log que permite hacer un registro de los eventos importantes
-
-*/
+ * Archivo: cls_equipos.cpp
+ * Descripción: Gestiona estado de equipos, errores y publicación de muestras.
+ * Necesita: Campos de protocolo y tag, bloqueos compartidos y lectores específicos.
+ * Retornos: leer: código del lector o -2 por suspensión; setters y esperas: void.
+ */
 
 #include "include/globales.h"
 #include "include/cls_equipos.h"
@@ -33,6 +31,11 @@ Modificación hecha por: Ing. Javier Flores 12/11/24
 #include "include/driver_metrics.h"
 #include "include/monitor_state.h"
 namespace {
+/*
+ * Guard de una lectura: necesita el equipo y su reloj de adquisición.
+ * Constructor/destructor no retornan valores. Al salir del alcance publica
+ * resultado, antigüedad y latencia en el monitor, incluso si la lectura falla.
+ */
 struct MonitorRead {
     cls_equipos &tag;
     monitor::Clock::time_point start = monitor::Clock::now();
@@ -76,6 +79,12 @@ Logger logger;
 
 ////////////////////////////////////
 
+/**
+ * Inicializa el equipo, sus valores, buffers y plazos predeterminados.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Sin valor de retorno (constructor).
+ * Efectos: Toma los límites globales de errores; crea el buffer serie y sus referencias.
+ */
 cls_equipos::cls_equipos() {
 
     id = 0;
@@ -129,6 +138,11 @@ cls_equipos::cls_equipos() {
     resultadoleer_rc = -1;
 };
 
+/**
+ * Incrementa los contadores compartidos con saturación en 32000.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ */
 void cls_equipos::incrementarerrores() {
     if (*pcontador_errores < 32000) {
         *pcontador_errores = *pcontador_errores + 1;
@@ -139,6 +153,12 @@ void cls_equipos::incrementarerrores() {
 }
 
 // metodo leer variables modbus
+/**
+ * Lee por protocolo y publica estado, muestra y métricas.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Código del lector (>0 válido); -2 por suspensión; negativo ante fallo.
+ * Efectos: Protege el estado del tag y conserva la ventana de muestras válidas.
+ */
 int cls_equipos::leer() {
     std::lock_guard<std::recursive_mutex> state(*state_mutex);
     resultado_leer = false;
@@ -235,6 +255,11 @@ int cls_equipos::leer() {
 ;
 
 /* Get a float from 4 bytes (Modbus) in inversed format (DCBA) */
+/**
+ * Aplica la transformación heredada del factor de potencia.
+ * Parámetros: float regVal
+ * Retorno: Valor float transformado según el rango de entrada.
+ */
 float cls_equipos::convert_float_fp(float regVal) {
     float PF_Val;
 
@@ -254,8 +279,21 @@ float cls_equipos::convert_float_fp(float regVal) {
     return PF_Val;
 }
 
+/**
+ * Espera el tiempo solicitado, interrumpible por parada.
+ * Parámetros: double segundos
+ * Retorno: Ninguno (void).
+ * Efectos: Consulta las banderas de ejecución; una duración no positiva se normaliza en el
+ * helper.
+ */
 void cls_equipos::esperar(double segundos) { wait_driver_seconds(segundos); }
 
+/**
+ * Actualiza las representaciones del valor y su revisión de cambio.
+ * Parámetros: float nuevovalor
+ * Retorno: Ninguno (void).
+ * Efectos: Mantiene las representaciones textual, flotante y entera del equipo.
+ */
 void cls_equipos::setvalorfloat(float nuevovalor) {
 
     oldclsvalorfloat = clsvalorfloat;
@@ -274,6 +312,12 @@ void cls_equipos::setvalorfloat(float nuevovalor) {
     }
 }
 
+/**
+ * Actualiza las representaciones del valor y su revisión de cambio.
+ * Parámetros: string nuevovalorstr
+ * Retorno: Ninguno (void).
+ * Efectos: Mantiene las representaciones textual, flotante y entera del equipo.
+ */
 void cls_equipos::setvalorstring(string nuevovalorstr) {
 
     if (nuevovalorstr.length() == 0) {

@@ -1,3 +1,11 @@
+/*
+ * Archivo: alarm_expression.h
+ * Descripción: Analiza y evalúa expresiones de alarma.
+ * Necesita: Expresión infija o postfix con operandos y operadores válidos.
+ * Retornos: Expresión transformada o resultado lógico; rechaza sintaxis inválida mediante
+ * excepción.
+ */
+
 #ifndef DRIVER_ALARM_EXPRESSION_H
 #define DRIVER_ALARM_EXPRESSION_H
 #include <string>

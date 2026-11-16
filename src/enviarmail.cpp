@@ -1,3 +1,11 @@
+/*
+ * Archivo: enviarmail.cpp
+ * Descripción: Prepara y envía notificaciones por SMTP mediante libcurl.
+ * Necesita: Origen y destino, configuración SMTP autorizada y plantilla HTML.
+ * Retornos: Código CURL convertido a int en el envío: 0 para aceptación del transporte, distinto
+ * de 0 ante fallo.
+ */
+
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
@@ -28,6 +36,11 @@ Logger email_log;
 std::string dir_plantilla_html = obtenerDirectorio("html") + "/" + "plantilla_emails.html";
 std::string dir_imagen = obtenerDirectorio("html") + "/" + "logo_automonitor.png";
 
+/**
+ * Genera un identificador de mensaje para la cabecera de correo.
+ * Parámetros: const std::string &from_email
+ * Retorno: Texto del identificador SMTP.
+ */
 std::string generar_message_id(const std::string &from_email) {
     // Obtener marca de tiempo en nanosegundos para asegurar unicidad temporal
     auto ahora = std::chrono::high_resolution_clock::now();
@@ -55,6 +68,11 @@ std::string generar_message_id(const std::string &from_email) {
     return "<" + std::to_string(nanos) + "." + std::to_string(rand_num) + "@" + dominio + ">";
 }
 
+/**
+ * Lee el contenido de la plantilla desde disco.
+ * Parámetros: const string &ruta
+ * Retorno: HTML como texto; cadena vacía si no se puede abrir.
+ */
 string cargarPlantillaHTML(const string &ruta) {
     ifstream archivo(ruta);
     if (!archivo) {
@@ -66,6 +84,12 @@ string cargarPlantillaHTML(const string &ruta) {
     return buffer.str();
 }
 
+/**
+ * Sustituye todas las apariciones de un patrón en la cadena.
+ * Parámetros: std::string &str, const std::string &from, const std::string &to
+ * Retorno: Ninguno (void).
+ * Efectos: Modifica str; el patrón from debe ser no vacío.
+ */
 void replaceAll(std::string &str, const std::string &from, const std::string &to) {
     // 1. Evitar bucle infinito si 'from' está vacío
     if (from.empty()) {
@@ -79,6 +103,12 @@ void replaceAll(std::string &str, const std::string &from, const std::string &to
     }
 }
 
+/**
+ * Copia el siguiente fragmento del mensaje al buffer de libcurl.
+ * Parámetros: void *ptr, size_t size, size_t nmemb, void *userp
+ * Retorno: Bytes copiados, como máximo size * nmemb; 0 al finalizar.
+ * Efectos: Actualiza posición y desplazamiento del contexto de subida.
+ */
 static size_t payload_source(void *ptr, size_t size, size_t nmemb, void *userp) {
     auto *upload = static_cast<upload_status *>(userp);
     if (!upload || !upload->payload)
@@ -102,6 +132,11 @@ static size_t payload_source(void *ptr, size_t size, size_t nmemb, void *userp) 
 }
 
 namespace {
+/**
+ * Oculta credenciales del origen en los detalles de diagnóstico.
+ * Parámetros: std::string detail, const storigen &origin
+ * Retorno: Texto saneado para el registro de correo.
+ */
 std::string safe_detail(std::string detail, const storigen &origin) {
     replaceAll(detail, origin.password, "[oculto]");
     replaceAll(detail, origin.username, "[oculto]");
@@ -110,6 +145,11 @@ std::string safe_detail(std::string detail, const storigen &origin) {
             c = ' ';
     return detail.substr(0, 512);
 }
+/**
+ * Forma etiquetas de contexto de la notificación.
+ * Parámetros: const stdestino &destination
+ * Retorno: Texto con alarma/dispositivo/directorio cuando se suministran.
+ */
 std::string smtp_context(const stdestino &destination) {
     std::string context = destination.context;
     for (char &c : context)
@@ -117,6 +157,12 @@ std::string smtp_context(const stdestino &destination) {
             c = ' ';
     return context.substr(0, 256);
 }
+/**
+ * Registra código CURL, respuesta SMTP y tiempos del envío.
+ * Parámetros: CURL *curl, CURLcode result, const storigen &origen, const stdestino &destino
+ * Retorno: Ninguno (void).
+ * Efectos: No utiliza traza verbosa de autenticación.
+ */
 void log_email_result(CURL *curl, CURLcode result, const storigen &origen,
                       const stdestino &destino) {
     const std::string context = smtp_context(destino);
@@ -148,6 +194,12 @@ void log_email_result(CURL *curl, CURLcode result, const storigen &origen,
 }
 } // namespace
 
+/**
+ * Prepara MIME/HTML y entrega el mensaje mediante libcurl.
+ * Parámetros: storigen origen, stdestino destino
+ * Retorno: Código CURL entero; CURLE_FAILED_INIT si no se inicializa el transporte.
+ * Efectos: Usa plantilla y configuración SMTP; la operación puede bloquear durante I/O.
+ */
 int enviar_email(storigen origen, stdestino destino) {
     string html_template = cargarPlantillaHTML(dir_plantilla_html);
 

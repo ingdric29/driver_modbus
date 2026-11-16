@@ -1,3 +1,12 @@
+/*
+ * Archivo: persistence.cpp
+ * Descripción: Guarda instantáneos, estados y ventanas históricas pendientes.
+ * Necesita: Muestras de equipos, plazos y perfil SQL local; usa copias fuera del bloqueo del
+ * tag.
+ * Retornos: Estado de escritura o 1 al terminar el trabajador; confirma lotes solo tras
+ * persistencia.
+ */
+
 #include "include/driver_services.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
@@ -7,6 +16,10 @@
 #include "include/pending_batch.h"
 #include "include/sql_session.h"
 namespace {
+/*
+ * Ventana histórica pendiente: conserva muestras, identidad y generación de origen.
+ * Es estado interno del trabajador de persistencia; no retorna valores por sí mismo.
+ */
 struct HistoricalWrite {
     PendingBatch pending;
     std::string tag, name, trace;
@@ -18,9 +31,20 @@ struct HistoricalWrite {
 // Only the writer thread touches this map. It outlives configuration workers
 // so an acknowledged prefix or pending suffix survives a reload.
 std::map<std::string, HistoricalWrite> historical_pending;
+/**
+ * Construye la identidad interna de una muestra pendiente.
+ * Parámetros: const cls_equipos &tag
+ * Retorno: Clave de texto basada en protocolo, nombre, tag e ID.
+ */
 std::string sample_key(const cls_equipos &tag) {
     return tag.protocolo + "\x1f" + tag.nombre + "\x1f" + tag.tag + "\x1f" + std::to_string(tag.id);
 }
+/**
+ * Reintenta lotes históricos pendientes y confirma los almacenados.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ * Efectos: Realiza SQL y conserva los lotes no confirmados para reintento.
+ */
 void flush_historical() {
     for (auto it = historical_pending.begin();
          it != historical_pending.end() && !GLOBAL_stop_requested;) {
@@ -71,6 +95,11 @@ void flush_historical() {
 }
 } // namespace
 
+/**
+ * Persiste estados e instantáneos y prepara ventanas históricas.
+ * Parámetros: cls_equipos *equipo, int arge_cantidad
+ * Retorno: 0 si no detecta fallos de escritura; -1 si alguna escritura falla.
+ */
 int ordenescrituraequipos(cls_equipos *equipo, int arge_cantidad) {
     int result = 0;
     for (int i = 0; i < arge_cantidad; ++i) {
@@ -160,6 +189,11 @@ int ordenescrituraequipos(cls_equipos *equipo, int arge_cantidad) {
 
 // Correccion: Habilitacion y deshabilitacion de la escritura en la base de datos cuando se pierde la comunicacion
 // Fecha de correccion: 30/10/24
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenescrituraequiposciclico() {
     bool iniciado = false;
     while (driver_running()) {

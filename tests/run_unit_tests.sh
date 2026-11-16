@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Archivo: run_unit_tests.sh
+# Descripción: Comprueba ejecución de pruebas unitarias con sanitizadores y recursos locales.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test_dir=$(mktemp -d /tmp/driver-unit.XXXXXX)

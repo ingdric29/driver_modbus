@@ -1,3 +1,8 @@
+// Archivo: test_modbus_decode.cpp
+// Descripción: Comprueba decodificación de palabras y conversión entera segura.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "modbus_decode.h"
 #include <cassert>
 #include <limits>

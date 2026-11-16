@@ -1,3 +1,10 @@
+/*
+ * Archivo: retry_backoff.h
+ * Descripción: Calcula espera progresiva de reconexión.
+ * Necesita: Resultado de los intentos y reloj monotónico.
+ * Retornos: ready devuelve bool; failed/succeeded actualizan el plazo sin retornar valor.
+ */
+
 #ifndef DRIVER_RETRY_BACKOFF_H
 #define DRIVER_RETRY_BACKOFF_H
 #include <chrono>

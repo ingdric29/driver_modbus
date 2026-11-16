@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: replication.cpp
+ * Descripción: Sincroniza históricos y replica registros entre bases.
+ * Necesita: Perfiles SQL, tablas compatibles, límites de lote y checkpoint cuando corresponda.
+ * Retornos: Cantidad copiada/cargada, 0 si no se copia o -1 ante error.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -15,6 +20,11 @@ using namespace std;
 using repository_detail::database_failure;
 using repository_detail::database_session;
 
+/**
+ * Copia un lote histórico conservando el avance de replicación.
+ * Parámetros: stdatabase *local, stdatabase *remote, string table, int limit
+ * Retorno: Cantidad copiada, 0 si no hay copia o -1 ante error.
+ */
 int sincronizar_tablas(stdatabase *local, stdatabase *remote, string table, int limit) {
     if (!GLOBAL_habilitar_acceso_externo || !GLOBAL_ACCESO_EXTERNO)
         return 0;
@@ -91,6 +101,12 @@ int sincronizar_tablas(stdatabase *local, stdatabase *remote, string table, int 
     }
 }
 
+/**
+ * Copia los campos seleccionados entre tablas.
+ * Parámetros: struct stdatabase *dborigen, string tablaorigen, struct stdatabase *dbdestino,
+ * string tabladestino, string *campos, int cantidadcampos, int limitefilastablaorigen
+ * Retorno: Cantidad procesada o -1 ante error SQL.
+ */
 int replicaciontablaselectiva(struct stdatabase *dborigen, string tablaorigen,
                               struct stdatabase *dbdestino, string tabladestino, string *campos,
                               int cantidadcampos, int limitefilastablaorigen)

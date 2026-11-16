@@ -1,3 +1,10 @@
+/*
+ * Archivo: monitor_server.cpp
+ * Descripción: Sirve snapshots en el socket local y libera recursos al cerrar.
+ * Necesita: Estado de monitor y directorio/socket autorizado.
+ * Retornos: Servicio y limpieza void; el constructor informa fallos mediante excepción.
+ */
+
 #include "include/monitor_server.h"
 #include "include/monitor_state.h"
 #include <cerrno>
@@ -12,10 +19,20 @@
 #include <unistd.h>
 namespace monitor {
 namespace {
+/**
+ * Lanza un error de sistema con contexto de la operación del socket.
+ * Parámetros: const char *operation
+ * Retorno: No retorna normalmente; lanza excepción.
+ */
 void fail(const char *operation) {
     throw std::runtime_error(std::string("Monitor: ") + operation + ": " + std::strerror(errno));
 }
 } // namespace
+/**
+ * Crea el socket local del monitor e inicia su trabajador.
+ * Parámetros: const std::string &directory
+ * Retorno: Sin valor de retorno (constructor); puede lanzar excepción.
+ */
 Server::Server(const std::string &directory) : path_(directory + "/automonitor.sock") {
     try {
         if (mkdir(directory.c_str(), 0700) < 0 && errno != EEXIST)
@@ -62,6 +79,11 @@ Server::Server(const std::string &directory) : path_(directory + "/automonitor.s
         throw;
     }
 }
+/**
+ * Cierra el socket y elimina su ruta si esta instancia lo posee.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void); limpieza noexcept.
+ */
 void Server::cleanup() noexcept {
     if (socket_ >= 0) {
         close(socket_);
@@ -76,12 +98,22 @@ void Server::cleanup() noexcept {
         lock_ = -1;
     }
 }
+/**
+ * Detiene y une el trabajador del monitor y libera su socket.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Sin valor de retorno (destructor).
+ */
 Server::~Server() {
     stop_ = true;
     if (thread_.joinable())
         thread_.join();
     cleanup();
 }
+/**
+ * Atiende consultas de snapshots hasta la parada del servidor.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ */
 void Server::serve() {
     // Socket I/O and JSON formatting happen in this thread, outside state locks.
     std::string cached;

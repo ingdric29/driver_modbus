@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_full_startup.py
+# Descripción: Comprueba arranque, monitor, recarga y cierre con SQL y tags simulados.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 """Optional local SQL fixture: 159 TCP tags and the formerly crashing EMAIL[7].
 
 The HTML template is intentionally empty: the real email sender must return

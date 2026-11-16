@@ -1,3 +1,10 @@
+/*
+ * Archivo: periodic_deadline.h
+ * Descripción: Programa vencimientos con reloj monotónico.
+ * Necesita: Períodos finitos mayores que cero y de hasta un año.
+ * Retornos: Duración, instante o bool; interval puede lanzar invalid_argument.
+ */
+
 #ifndef DRIVER_PERIODIC_DEADLINE_H
 #define DRIVER_PERIODIC_DEADLINE_H
 #include <chrono>

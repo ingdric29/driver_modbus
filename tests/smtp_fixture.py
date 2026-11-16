@@ -1,3 +1,8 @@
+# Archivo: smtp_fixture.py
+# Descripción: Servidor SMTP simulado con credenciales ficticias para pruebas locales.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: Las aserciones o errores hacen fallar la prueba; las bibliotecas de fixtures aportan datos simulados.
+
 """Loopback-only SMTP fixture. All recipients in tests use example.invalid."""
 import socket
 import base64

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Archivo: run_sql_test.sh
+# Descripción: Comprueba integración SQL, replicación y arranque/correo con perfiles reservados.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 # Opt-in: requires the dedicated local MariaDB fixture described in README.
 set -euo pipefail
 cd "$(dirname "$0")/.."

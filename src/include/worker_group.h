@@ -1,3 +1,10 @@
+/*
+ * Archivo: worker_group.h
+ * Descripción: Posee trabajadores y asegura su parada y unión.
+ * Necesita: Bandera de ejecución y funciones/argumentos de cada trabajador.
+ * Retornos: start/join son void; propaga errores después de unir los hilos.
+ */
+
 #ifndef DRIVER_WORKER_GROUP_H
 #define DRIVER_WORKER_GROUP_H
 #include <atomic>

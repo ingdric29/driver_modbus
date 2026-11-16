@@ -1,3 +1,10 @@
+/*
+ * Archivo: cls_sms.h
+ * Descripción: Conserva el emisor SMS heredado deshabilitado.
+ * Necesita: Campos del módem y libcurl para preparar la petición, sin ejecutarla.
+ * Retornos: CURLE_FAILED_INIT; no confirma ningún envío SMS.
+ */
+
 #ifndef CLS_SMS
 
 #define CLS_SMS

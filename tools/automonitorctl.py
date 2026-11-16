@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: automonitorctl.py
+# Descripción: Consulta el monitor local mediante socket y presenta snapshots de solo lectura.
+# Necesita: Python 3, socket de un driver activo y version.h para identificación.
+# Retornos: Código de proceso y salida interactiva/JSON; no inicia otro driver ni escribe a equipos.
+
 """Read-only SSH viewer for a running Automonitor driver (Python standard library)."""
 import argparse
 import datetime

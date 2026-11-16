@@ -1,3 +1,8 @@
+// Archivo: test_email_transport.cpp
+// Descripción: Comprueba transporte SMTP real contra servidores de prueba locales.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "estructuras.h"
 #include "globales.h"
 #include <curl/curl.h>

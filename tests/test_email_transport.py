@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_email_transport.py
+# Descripción: Comprueba transporte SMTP real contra servidores de prueba locales.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 """Compare the real original/current senders over loopback SMTP; no external mail."""
 from pathlib import Path
 import re

@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: command_repository.cpp
+ * Descripción: Consulta solicitudes, carga comandos y confirma su fecha en SQL.
+ * Necesita: Perfil SQL, concentrador configurado, tbejecutar y tbcmd.
+ * Retornos: Estado de consulta, cantidad cargada o resultado de actualización; ver cada función.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -14,6 +19,14 @@ using namespace std;
 using repository_detail::database_failure;
 using repository_detail::is_external_target;
 
+/**
+ * Consulta la última solicitud del concentrador y consume su indicador.
+ * Parámetros: int &ejecutar, time_t &segundos, string &lote, string host, int port, string
+ * schema, string user, string password
+ * Retorno: 0 si completa u omite la consulta; -1 ante error SQL.
+ * Efectos: Escribe ejecutar, segundos y lote; consumir la solicitud no confirma la escritura
+ * Modbus.
+ */
 int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, int port,
                     string schema, string user, string password) {
     ejecutar = 0;
@@ -50,6 +63,13 @@ int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, 
     }
 }
 
+/**
+ * Carga el catálogo correspondiente desde SQL.
+ * Parámetros: string direccion_db, int puerto_db, string nombre_db, string usuario_db, string
+ * clave_db
+ * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
+ * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
+ */
 int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usuario_db,
                string clave_db) {
     std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
@@ -172,6 +192,12 @@ int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usua
     }
 }
 
+/**
+ * Actualiza la fecha SQL del comando aceptado.
+ * Parámetros: int id, string direccion_db, int puerto_db, string nombre_db, string usuario_db,
+ * string clave_db
+ * Retorno: 0 al completar u omitir la operación; -1 ante fallo.
+ */
 int escribir_tbcmd_fechahora(int id, string direccion_db, int puerto_db, string nombre_db,
                              string usuario_db, string clave_db) {
     if (is_external_target(direccion_db, puerto_db, nombre_db) &&

@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: serial_worker.cpp
+ * Descripción: Recibe tramas RS232 y recupera la apertura del puerto.
+ * Necesita: Equipo configurado, biblioteca RS232 y buffer compartido protegido por mutex.
+ * Retornos: void; actualiza buffer y longitud recibida, y registra los errores.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -12,6 +17,12 @@
 
 using namespace std;
 
+/**
+ * Abre, sondea y recupera el puerto serie del equipo.
+ * Parámetros: cls_equipos *equipo_serial
+ * Retorno: Ninguno (void).
+ * Efectos: Actualiza el buffer bajo mutex y registra errores; termina con la parada.
+ */
 void lectura_puerto_serial(cls_equipos *equipo_serial) {
     char modo[4];
     int numpuertoserial = -1;

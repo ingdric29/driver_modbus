@@ -1,4 +1,9 @@
-//Modificación hecha por: Ing. Javier Flores 12/11/24
+/*
+ * Archivo: cls_defeventos.cpp
+ * Descripción: Resuelve tags de eventos y registra cambios de valor.
+ * Necesita: Dispositivo, tag, bit opcional, catálogos y perfil SQL local.
+ * Retornos: Índice, cantidad cargada o estado de lectura; ver cada método.
+ */
 
 #include "include/cls_defeventos.h"
 #include "include/globales.h"
@@ -10,6 +15,11 @@ extern stdatabase stdblocal;
 extern stdatabase stdbexterna;
 
 // metodo constructor
+/**
+ * Inicializa valores, tiempos y referencia del evento.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Sin valor de retorno (constructor).
+ */
 cls_defeventos::cls_defeventos() {
     valoractual = 0;
     valoranterior = 0;
@@ -19,6 +29,11 @@ cls_defeventos::cls_defeventos() {
     pequipo = nullptr;
 }
 
+/**
+ * Solicita la carga del catálogo de eventos de la base local.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Resultado de actualizar_defeventos: cantidad, 0 o -1 según la operación.
+ */
 int cls_defeventos::cargar_en_memoriaram() {
     int res;
     res = actualizar_defeventos(&stdblocal);
@@ -27,6 +42,12 @@ int cls_defeventos::cargar_en_memoriaram() {
 
 // ubica el registro en la tabla de cls_equipos
 // de manera de ubicarlo mas rapido
+/**
+ * Resuelve la referencia del evento contra tags TCP/RTU/RS232.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Índice encontrado o -1.
+ * Efectos: Actualiza el puntero y el valor de referencia del evento.
+ */
 int cls_defeventos::cargar_posicion() {
     indiceenram = -1;
     pequipo = nullptr;
@@ -52,6 +73,13 @@ int cls_defeventos::cargar_posicion() {
 
 // lee el valor del tag en ram
 
+/**
+ * Detecta y registra cambios del tag o bit asociado.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 tras procesar; 0 sin referencia o durante inicialización; -1 si la lectura es
+ * inválida.
+ * Efectos: El retorno no confirma por sí solo una inserción SQL.
+ */
 int cls_defeventos::leer_valorenram() {
     double diferencia = 0.0;
     uint16_t x1, x2, x3;

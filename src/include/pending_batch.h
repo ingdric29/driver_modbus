@@ -1,3 +1,10 @@
+/*
+ * Archivo: pending_batch.h
+ * Descripción: Conserva y reintenta las muestras pendientes de persistencia.
+ * Necesita: Lote de muestras y callback de almacenamiento.
+ * Retornos: persist devuelve bool e impide reenviar la parte confirmada.
+ */
+
 #ifndef DRIVER_PENDING_BATCH_H
 #define DRIVER_PENDING_BATCH_H
 #include "sample_window.h"

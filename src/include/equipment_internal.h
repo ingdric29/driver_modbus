@@ -1,3 +1,11 @@
+/*
+ * Archivo: equipment_internal.h
+ * Descripción: Declara contratos y servicios compartidos entre módulos.
+ * Necesita: Definiciones únicas del estado y las implementaciones correspondientes.
+ * Retornos: La cabecera no retorna valores por sí sola; los métodos conservan sus contratos
+ * documentados en implementación.
+ */
+
 #ifndef AUTOMONITOR_EQUIPMENT_INTERNAL_H
 #define AUTOMONITOR_EQUIPMENT_INTERNAL_H
 #include "cls_equipos.h"

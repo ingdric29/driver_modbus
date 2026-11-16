@@ -1,8 +1,9 @@
 /*
-programa dedarrollado por ing. Alejandro diomede - Automatroni - email: diomede3009@gmail.com
-Define la estructura de datos llamada Equipos - tcp y serial
-Modificación hecha por: Ing. Javier Flores 12/11/24
-*/
+ * Archivo: cls_defalarmas.cpp
+ * Descripción: Mantiene el estado y evalúa expresiones de alarmas.
+ * Necesita: Definición de alarma, catálogo de equipos y muestras disponibles.
+ * Retornos: Estados de evaluación y datos de expresiones; ver contratos de los métodos.
+ */
 
 #include "include/conversiones.h"
 #include <errno.h>
@@ -21,6 +22,11 @@ extern stdatabase stdblocal;
 extern stdatabase stdbexterna;
 
 // metodo constructor
+/**
+ * Inicializa estado y marcas de acciones de la alarma.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Sin valor de retorno (constructor).
+ */
 cls_defalarmas::cls_defalarmas() {
     id = 0;
     activa = false;
@@ -43,6 +49,11 @@ cls_defalarmas::cls_defalarmas() {
 }
 
 // reemplaza los simbolos por valores
+/**
+ * Sustituye referencias $(dispositivo.tag) por valores disponibles.
+ * Parámetros: const string &expression
+ * Retorno: Expresión transformada; lanza invalid_argument ante referencias inválidas.
+ */
 string cls_defalarmas::reemplazar_simbolos(const string &expression) {
     std::string output;
     size_t begin = 0;
@@ -72,6 +83,12 @@ string cls_defalarmas::reemplazar_simbolos(const string &expression) {
 // dado el dispositivo y el tag obtiene el valor
 
 // dado el dispositivo y el tag obtiene el valor.  retorna 0, si todo ok, -1 si hay error
+/**
+ * Busca un tag válido y copia su estado de valor.
+ * Parámetros: const string &dispositivo, const string &tag, struct stres *local
+ * Retorno: 0 si encuentra la muestra; -1 si no está disponible.
+ * Efectos: Escribe la estructura local bajo el bloqueo del equipo.
+ */
 int cls_defalarmas::leertag2(const string &dispositivo, const string &tag, struct stres *local) {
 
     bool encontrado = false;
@@ -146,10 +163,25 @@ int cls_defalarmas::leertag2(const string &dispositivo, const string &tag, struc
     }
 }
 
+/**
+ * Transforma la expresión infija al formato postfix.
+ * Parámetros: string in
+ * Retorno: Expresión postfix; propaga errores de sintaxis.
+ */
 string cls_defalarmas::reordenar_antes_evaluar(string in) { return alarm_postfix(in); }
 
+/**
+ * Evalúa la expresión postfix de la alarma.
+ * Parámetros: string p
+ * Retorno: Resultado lógico entero; propaga errores de expresión.
+ */
 int cls_defalarmas::evaluar1(string p) { return alarm_evaluate_postfix(p); }
 
+/**
+ * Elimina espacios de la expresión para su procesamiento.
+ * Parámetros: string p
+ * Retorno: Cadena sin los espacios filtrados.
+ */
 string cls_defalarmas::eliminar_espacios(string p) {
     string pout = "";
     for (size_t i = 0; i < p.size(); i++)
@@ -158,6 +190,12 @@ string cls_defalarmas::eliminar_espacios(string p) {
     return pout;
 }
 
+/**
+ * Evalúa activación/desactivación y ejecuta las acciones asociadas.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 sin condición; 1 activada; 2 desactivada; -1 sin muestra válida o ante fallo.
+ * Efectos: Actualiza el estado y puede escribir histórico o enviar notificaciones.
+ */
 int cls_defalarmas::evaluarcompleto() {
     string expresion_sinespacios1, expresion_sinespacios2;
     string expresion_numerica1, expresion_numerica2;

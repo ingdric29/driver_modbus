@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: driver_runtime.cpp
+ * Descripción: Coordina carga, recarga y ciclo de vida de los trabajadores.
+ * Necesita: Configuración global válida, catálogos SQL y servicios de adquisición/monitor.
+ * Retornos: muestrear: 0 al terminar o -1 ante fallo; carga de catálogo: 1 o -1.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -16,6 +21,12 @@
 
 using namespace std;
 
+/**
+ * Coordina generaciones de catálogo y el arranque/unión de trabajadores.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 al terminar; -1 si falla la carga del catálogo.
+ * Efectos: Los recursos se reemplazan solo tras unir los hilos; otras excepciones se propagan.
+ */
 int muestrear(void) {
     GLOBAL_estado_primera_ejecucion_programa = 1;
     cout << "[ INICIO ] Cargando catalogo de dispositivos..." << endl;
@@ -68,6 +79,11 @@ int muestrear(void) {
     return 0;
 }
 
+/**
+ * Carga los catálogos y registra tags/alarmas en el monitor.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 si termina la carga; -1 ante fallo o conflicto de puerto.
+ */
 int ordenlecturaconfiguracion() {
     // Coordinator only: no workers exist while definitions are replaced.
     string campo2[5];

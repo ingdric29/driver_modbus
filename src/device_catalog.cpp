@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: device_catalog.cpp
+ * Descripción: Carga equipos y asocia su estado compartido por dispositivo.
+ * Necesita: Perfil SQL configurado, qrytablacom y catálogos globales sin trabajadores activos.
+ * Retornos: 1 si termina la carga; -1 ante error. Actualiza arreglos y contadores globales.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -11,6 +16,12 @@
 
 using namespace std;
 
+/**
+ * Carga los equipos del protocolo y asocia estado compartido.
+ * Parámetros: GLOBAL_enum_protocolo protocoloenum
+ * Retorno: 1 si finaliza; -1 ante fallo.
+ * Efectos: Reemplaza el catálogo con los trabajadores detenidos.
+ */
 int actualizar_leer_equipo(GLOBAL_enum_protocolo protocoloenum) {
 
     int id = 0;

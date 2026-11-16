@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_full_email.py
+# Descripción: Comprueba recorrido completo de alarmas y correo con SQL y SMTP locales.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 """Real process: config -> SQL alarms/directory -> libcurl TLS/AUTH/DATA; loopback only."""
 import base64
 from contextlib import ExitStack

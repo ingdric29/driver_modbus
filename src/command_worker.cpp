@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: command_worker.cpp
+ * Descripción: Sondea y ejecuta órdenes locales y externas.
+ * Necesita: Configuración SQL, períodos, lote y catálogo de comandos; mutex de comandos.
+ * Retornos: Resultado de ejecución de la orden o 1 al terminar el ciclo; ver cada función.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -11,6 +16,12 @@
 
 using namespace std;
 
+/**
+ * Consume una solicitud y ejecuta los comandos habilitados del lote.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Último resultado de ejecución; -1 si no se ejecuta o falla la consulta.
+ * Efectos: Usa el mutex de comandos y confirma en SQL las escrituras aceptadas.
+ */
 int ordenejecucuionlocal() {
     std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
     int res_cmd_local = 0;
@@ -47,6 +58,12 @@ int ordenejecucuionlocal() {
     return res_ejecutar;
 }
 
+/**
+ * Consume una solicitud y ejecuta los comandos habilitados del lote.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Último resultado de ejecución; -1 si no se ejecuta o falla la consulta.
+ * Efectos: Usa el mutex de comandos y confirma en SQL las escrituras aceptadas.
+ */
 int ordenejecucuionexterna() {
     std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
     int res_cmd_externa = 0;
@@ -82,6 +99,11 @@ int ordenejecucuionexterna() {
     return res_ejecutar_externa;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenejecucionciclico() {
     double diferencia1 = 0.0;
     double diferencia2 = 0.0;

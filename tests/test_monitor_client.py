@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_monitor_client.py
+# Descripción: Comprueba visor, navegación y restauración del terminal con un monitor simulado.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 """Pure rendering and real PTY/socket tests; never starts an acquisition process."""
 import copy
 import fcntl

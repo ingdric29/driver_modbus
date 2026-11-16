@@ -1,5 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; maintenance: Javier Flores.
-// Function bodies and platform alternatives preserved during modularization.
+/*
+ * Archivo: modbus_conversions.cpp
+ * Descripción: Convierte palabras Modbus según el orden de bytes heredado.
+ * Necesita: Puntero a al menos dos palabras uint16_t.
+ * Retornos: Valor float; conserva exactamente las conversiones existentes.
+ */
+
 #include "include/conversiones.h"
 #include <cstring>
 #include <stdexcept>
@@ -8,6 +13,11 @@
 
 using namespace std;
 
+/**
+ * Interpreta dos palabras mediante el orden de bytes de la variante.
+ * Parámetros: const uint16_t *src
+ * Retorno: Float resultante; requiere al menos dos palabras válidas.
+ */
 float cast_get_float_abcd(const uint16_t *src) {
     float f;
     uint32_t i;
@@ -18,6 +28,11 @@ float cast_get_float_abcd(const uint16_t *src) {
     return f;
 }
 
+/**
+ * Interpreta dos palabras mediante el orden de bytes de la variante.
+ * Parámetros: const uint16_t *src
+ * Retorno: Float resultante; requiere al menos dos palabras válidas.
+ */
 float cast_get_float_dcba(const uint16_t *src) {
     float f;
     uint32_t i;
@@ -34,6 +49,11 @@ float cast_get_float_dcba(const uint16_t *src) {
     return f;
 }
 
+/**
+ * Interpreta dos palabras mediante el orden de bytes de la variante.
+ * Parámetros: const uint16_t *src
+ * Retorno: Float resultante; requiere al menos dos palabras válidas.
+ */
 float cast_get_float_badc(const uint16_t *src) {
     float f;
     uint32_t i;
@@ -51,6 +71,11 @@ float cast_get_float_badc(const uint16_t *src) {
     return f;
 }
 
+/**
+ * Interpreta dos palabras mediante el orden de bytes de la variante.
+ * Parámetros: const uint16_t *src
+ * Retorno: Float resultante; requiere al menos dos palabras válidas.
+ */
 float cast_get_float_cdab(const uint16_t *src) {
     float f;
     uint32_t i;

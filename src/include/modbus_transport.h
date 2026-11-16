@@ -1,3 +1,10 @@
+/*
+ * Archivo: modbus_transport.h
+ * Descripción: Comparte conexiones y serializa operaciones por enlace.
+ * Necesita: IP/puerto TCP o parámetros RTU, timeout y uso exclusivo mediante lease.
+ * Retornos: Lease, contexto, sesión o estado 0/-1 de conexión; clear/invalidate son void.
+ */
+
 #ifndef DRIVER_MODBUS_TRANSPORT_H
 #define DRIVER_MODBUS_TRANSPORT_H
 #include <modbus.h>

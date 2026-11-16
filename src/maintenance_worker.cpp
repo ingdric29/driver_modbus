@@ -1,5 +1,11 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: maintenance_worker.cpp
+ * Descripción: Programa recarga, retención y sincronización existentes.
+ * Necesita: Estado global de ejecución, reloj, períodos y perfiles SQL.
+ * Retornos: Los trabajadores y wrappers devuelven 1 al terminar; no certifican éxito de cada
+ * operación SQL.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -10,6 +16,11 @@
 
 using namespace std;
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenlecturaconfiguracionciclico() {
 
     double tbcambio_diferencia_tiempo = 0.0;
@@ -72,6 +83,11 @@ int ordenlecturaconfiguracionciclico() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenborrarregistroslocalesciclico() {
 
     double diferencia_tiempo = 0.0;
@@ -89,6 +105,11 @@ int ordenborrarregistroslocalesciclico() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenborrarregistrosexternosciclico() {
 
     double diferencia_tiempo = 0.0;
@@ -106,6 +127,11 @@ int ordenborrarregistrosexternosciclico() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenborrarregistroslocales() {
 
     //borrar_registros(GLOBAL_maximo_dias_antiguedad_tbinstantaneos, GLOBAL_db_direccion, getVal(GLOBAL_db_puerto), GLOBAL_db_nombre, GLOBAL_db_usuario, GLOBAL_db_clave, "tbinstantaneos");
@@ -115,6 +141,11 @@ int ordenborrarregistroslocales() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenborrarregistrosexternos() {
 
     //borrar_registros(GLOBAL_maximo_dias_antiguedad_tbinstantaneos_ext, GLOBAL_dbext_direccion, getVal(GLOBAL_dbext_puerto), GLOBAL_dbext_nombre, GLOBAL_dbext_usuario, GLOBAL_dbext_clave, "tbinstantaneos");
@@ -125,6 +156,11 @@ int ordenborrarregistrosexternos() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int orden_sincronizar_tablas_ciclico() {
 
     double diferencia_tiempo = 0.0;

@@ -1,3 +1,10 @@
+/*
+ * Archivo: runtime_control.h
+ * Descripción: Coordina parada y esperas interrumpibles.
+ * Necesita: Banderas atómicas de ejecución, señales y reloj monotónico.
+ * Retornos: driver_running devuelve bool; señalización y esperas son void.
+ */
+
 #ifndef DRIVER_RUNTIME_CONTROL_H
 #define DRIVER_RUNTIME_CONTROL_H
 #include <atomic>

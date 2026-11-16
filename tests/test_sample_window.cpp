@@ -1,3 +1,8 @@
+// Archivo: test_sample_window.cpp
+// Descripción: Comprueba última muestra, extremos y deduplicación de ventanas.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "sample_window.h"
 #include <cassert>
 #include <limits>

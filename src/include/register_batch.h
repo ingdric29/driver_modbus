@@ -1,3 +1,10 @@
+/*
+ * Archivo: register_batch.h
+ * Descripción: Agrupa rangos compatibles y almacena bloques por ciclo y sesión.
+ * Necesita: Rangos, enlace exclusivo, esclavo y función Modbus.
+ * Retornos: Rangos, datos de caché o resultado libmodbus; el ciclo descarta bloques al terminar.
+ */
+
 #ifndef DRIVER_REGISTER_BATCH_H
 #define DRIVER_REGISTER_BATCH_H
 #include "modbus_transport.h"

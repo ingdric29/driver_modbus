@@ -1,3 +1,10 @@
+/*
+ * Archivo: monitor_state.h
+ * Descripción: Mantiene snapshots de tags, SQL, alarmas y eventos.
+ * Necesita: Publicaciones sincronizadas y reloj monotónico para antigüedad.
+ * Retornos: Copias del estado, claves y JSON; actualizaciones protegidas por mutex.
+ */
+
 #ifndef AUTOMONITOR_MONITOR_STATE_H
 #define AUTOMONITOR_MONITOR_STATE_H
 #include "version.h"

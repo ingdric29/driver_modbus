@@ -1,5 +1,11 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: config_file.cpp
+ * Descripción: Carga, valida y resume la configuración inicial.
+ * Necesita: configdb.cfg en el padre del directorio de trabajo; variables globales de
+ * configuración.
+ * Retornos: loadconfigdb: 1 si la configuración es válida; -1 si no puede cargarse o validarse.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -10,6 +16,12 @@ using namespace std;
 
 extern storigen GLOBAL_email_origen;
 
+/**
+ * Lee y valida configdb.cfg desde el padre del directorio de trabajo.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 si termina correctamente; -1 si no puede cargarse o validarse.
+ * Efectos: Actualiza parámetros globales y muestra un resumen sin contraseñas.
+ */
 int loadconfigdb() {
     INIReader reader(obtenerDirectorio("configdb.cfg"));
 

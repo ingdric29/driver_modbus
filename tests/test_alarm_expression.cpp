@@ -1,3 +1,8 @@
+// Archivo: test_alarm_expression.cpp
+// Descripción: Comprueba precedencia, operadores y rechazo de expresiones de alarma inválidas.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "alarm_expression.h"
 #include <cassert>
 int main() {

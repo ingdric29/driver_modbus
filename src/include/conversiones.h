@@ -1,3 +1,11 @@
+/*
+ * Archivo: conversiones.h
+ * Descripción: Convierte números y mantiene helpers de valores heredados.
+ * Necesita: Valores y cadenas de entrada; precisión cuando corresponda.
+ * Retornos: Número, cadena, bit o predicado según función; el formato decimal puede rechazar
+ * precisión inválida.
+ */
+
 #ifndef conversiones
 #define conversiones
 #ifdef _WIN32

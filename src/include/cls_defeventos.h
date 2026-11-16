@@ -1,3 +1,10 @@
+/*
+ * Archivo: cls_defeventos.h
+ * Descripción: Resuelve tags de eventos y registra cambios de valor.
+ * Necesita: Dispositivo, tag, bit opcional, catálogos y perfil SQL local.
+ * Retornos: Índice, cantidad cargada o estado de lectura; ver cada método.
+ */
+
 #ifndef CLS_DEFEVENTOS
 #define CLS_DEFEVENTOS
 

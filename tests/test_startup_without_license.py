@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_startup_without_license.py
+# Descripción: Comprueba arranque con claves antiguas ausentes, cero o inválidas.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 """Exercise real startup with legacy license fields absent, zero or malformed.
 
 Use only an isolated config and a closed loopback port. Reaching acquisition

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Archivo: install.sh
+# Descripción: Instala dependencias, compila, prueba y prepara la distribución Linux.
+# Necesita: Usuario normal, sudo, APT, red y checkout del proyecto.
+# Retornos: 0 al completar; conserva el código del paso fallido. No inicia servicios ni modifica el CFG.
+
 set -Eeuo pipefail
 
 # Debian / Raspberry Pi OS. Ejecutar como usuario normal: bash install.sh

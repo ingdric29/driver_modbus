@@ -1,5 +1,11 @@
-// Automonitor entry point and legacy global definitions.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: main.cpp
+ * Descripción: Punto de entrada y definiciones globales heredadas.
+ * Necesita: Argumentos CLI y configdb.cfg; servicios SQL y bibliotecas del driver.
+ * Retornos: EXIT_SUCCESS al finalizar normalmente; EXIT_FAILURE ante fallo de arranque o
+ * ejecución.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/version.h"
@@ -142,6 +148,12 @@ double GLOBAL_tiempo_restablecimiento_comunicacion = 60;
 string GLOBAL_ultimomensajemostrado = "";
 std::recursive_mutex GLOBAL_output_mutex;
 
+/**
+ * Procesa argumentos, carga configuración e inicia el coordinador.
+ * Parámetros: int argc, char *argv[]
+ * Retorno: EXIT_SUCCESS o EXIT_FAILURE.
+ * Efectos: Instala señales, configura el monitor y libera recursos ante fallo.
+ */
 int main(int argc, char *argv[]) {
     install_driver_signals();
 

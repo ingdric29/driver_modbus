@@ -1,3 +1,8 @@
+// Archivo: test_monitor.cpp
+// Descripción: Comprueba snapshots, antigüedad, recuperación y aislamiento del socket del monitor.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "monitor_state.h"
 #include "monitor_server.h"
 #include <cassert>

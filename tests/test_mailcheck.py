@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: test_mailcheck.py
+# Descripción: Comprueba diagnóstico SMTP/TLS sin autenticación ni envío real.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 import importlib.util
 import os
 from pathlib import Path

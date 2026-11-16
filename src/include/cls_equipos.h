@@ -1,3 +1,10 @@
+/*
+ * Archivo: cls_equipos.h
+ * Descripción: Gestiona estado de equipos, errores y publicación de muestras.
+ * Necesita: Campos de protocolo y tag, bloqueos compartidos y lectores específicos.
+ * Retornos: leer: código del lector o -2 por suspensión; setters y esperas: void.
+ */
+
 #ifndef CLS_EQUIPOS
 
 #define CLS_EQUIPOS

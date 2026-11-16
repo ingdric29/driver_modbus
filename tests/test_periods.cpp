@@ -1,3 +1,8 @@
+// Archivo: test_periods.cpp
+// Descripción: Comprueba plazos monotónicos y períodos de adquisición/persistencia.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "periodic_deadline.h"
 #include <cassert>
 #include <limits>

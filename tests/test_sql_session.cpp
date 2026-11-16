@@ -1,3 +1,8 @@
+// Archivo: test_sql_session.cpp
+// Descripción: Comprueba sesiones, transacciones y validación con SQL local reservado.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "sql_session.h"
 #include <cppconn/statement.h>
 #include <cassert>

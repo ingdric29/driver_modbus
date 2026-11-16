@@ -1,3 +1,8 @@
+// Archivo: test_modbus_transport.cpp
+// Descripción: Comprueba lectura y escritura TCP/RTU en servidores locales y pseudoterminales.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "modbus_transport.h"
 #include <cassert>
 #include <thread>

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Archivo: run_state_test.sh
+# Descripción: Comprueba enlace del driver real con dobles de correo y pruebas de estado.
+# Necesita: Intérprete y dependencias del runner; consultar tests/README.md para el perfil SQL reservado.
+# Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test_dir=$(mktemp -d /tmp/driver-state.XXXXXX)

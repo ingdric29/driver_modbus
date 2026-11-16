@@ -1,5 +1,11 @@
-// Original implementation: Alejandro Diomede / Automatroni; maintenance: Javier Flores.
-// Function bodies and platform alternatives preserved during modularization.
+/*
+ * Archivo: conversiones.cpp
+ * Descripción: Convierte números y mantiene helpers de valores heredados.
+ * Necesita: Valores y cadenas de entrada; precisión cuando corresponda.
+ * Retornos: Número, cadena, bit o predicado según función; el formato decimal puede rechazar
+ * precisión inválida.
+ */
+
 #include "include/conversiones.h"
 #include <cstring>
 #include <stdexcept>
@@ -8,6 +14,11 @@
 
 using namespace std;
 
+/**
+ * Formatea un double con precisión decimal explícita.
+ * Parámetros: double numerodouble, int decimales
+ * Retorno: Cadena decimal; lanza invalid_argument si precisión no está entre 0 y 100.
+ */
 string cast_double_to_string(double numerodouble, int decimales) {
     if (decimales < 0 || decimales > 100)
         throw std::invalid_argument("precision outside [0,100]");
@@ -17,8 +28,18 @@ string cast_double_to_string(double numerodouble, int decimales) {
     return out.str();
 }
 
+/**
+ * Formatea un float con seis posiciones decimales.
+ * Parámetros: float numerofloat
+ * Retorno: Cadena; no modifica el valor numérico almacenado en SQL.
+ */
 string cast_float_to_string(float numerofloat) { return cast_double_to_string(numerofloat, 6); }
 
+/**
+ * Convierte un entero a su representación decimal.
+ * Parámetros: int numeroint
+ * Retorno: Cadena decimal.
+ */
 string cast_int_to_string(int numeroint) {
     char buffer1[20];
     memset(buffer1, 0, 20);
@@ -27,6 +48,11 @@ string cast_int_to_string(int numeroint) {
     return numerostr;
 }
 
+/**
+ * Convierte el predicado a una marca textual.
+ * Parámetros: bool valor
+ * Retorno: "1" para true; "0" para false.
+ */
 string cast_bool_to_string(bool valor) {
 
     if (valor) {
@@ -36,6 +62,11 @@ string cast_bool_to_string(bool valor) {
     }
 }
 
+/**
+ * Convierte texto a entero mediante la conversión C heredada.
+ * Parámetros: string cadena1
+ * Retorno: Entero convertido; no valida de forma estricta el texto.
+ */
 int cast_string_to_int(string cadena1) { // convierte un valor cadena string a entero
 
     int valor = 0;
@@ -46,6 +77,11 @@ int cast_string_to_int(string cadena1) { // convierte un valor cadena string a e
     return valor;
 }
 
+/**
+ * Interpreta número o formato heredado con unidades d/h/m/s/k.
+ * Parámetros: string cadena1
+ * Retorno: Valor float; Alive equivale a 1 y Dead a 0; conserva parsing heredado.
+ */
 float cast_string_to_float(string cadena1) { // convierte un valor cadena string a float
 
     float valor = 0.0;
@@ -95,6 +131,11 @@ float cast_string_to_float(string cadena1) { // convierte un valor cadena string
     return valor;
 }
 
+/**
+ * Convierte texto a número mediante la conversión C heredada.
+ * Parámetros: string cadena1
+ * Retorno: Número convertido; no valida de forma estricta el texto.
+ */
 double cast_string_to_double(string cadena1) { // convierte un valor cadena string a float
 
     double valor = 0.0;
@@ -104,6 +145,11 @@ double cast_string_to_double(string cadena1) { // convierte un valor cadena stri
     return valor;
 }
 
+/**
+ * Aplica la transformación heredada del factor de potencia.
+ * Parámetros: float regVal
+ * Retorno: Valor float transformado según el rango de entrada.
+ */
 float convert_float_fp(float regVal) {
     float PF_Val;
 
@@ -123,12 +169,22 @@ float convert_float_fp(float regVal) {
     return PF_Val;
 }
 
+/**
+ * Extrae un bit del entero indicado.
+ * Parámetros: int valor, int posicion = 0
+ * Retorno: 0 o 1; la posición debe ser válida para el tipo entero.
+ */
 int obtenervalorbit(int valor, int posicion = 0) {
     int res = 0;
     res = (valor >> posicion) & 0x1;
     return res;
 }
 
+/**
+ * Convierte cero/no cero a un predicado.
+ * Parámetros: int valor
+ * Retorno: false para cero; true para otro entero.
+ */
 bool cast_int_bool(int valor) {
     if (valor == 0) {
         return false;
@@ -137,10 +193,25 @@ bool cast_int_bool(int valor) {
     }
 }
 
+/**
+ * Decide si corresponde persistir según marca y modo solo cambios.
+ * Parámetros: bool fueescrito, int solocambios
+ * Retorno: false si ya se escribió y solo se registran cambios; true en otro caso.
+ */
 bool habilitarescribir(bool fueescrito, int solocambios) { return !(fueescrito && solocambios); }
 
+/**
+ * Selecciona el menor de los dos valores con la comparación heredada.
+ * Parámetros: double v1, double v2
+ * Retorno: Uno de los dos valores de entrada.
+ */
 double funmenor(double v1, double v2) { return (v1 > v2) ? v2 : v1; }
 
+/**
+ * Convierte dígitos hexadecimales mayúsculos con el algoritmo heredado.
+ * Parámetros: char num[]
+ * Retorno: Entero acumulado; no valida estrictamente todos los caracteres.
+ */
 int converthex2dec(char num[]) {
     int len = strlen(num);
     int base = 1;

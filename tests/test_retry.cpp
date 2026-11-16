@@ -1,3 +1,8 @@
+// Archivo: test_retry.cpp
+// Descripción: Comprueba espera progresiva y recuperación de reconexiones.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "retry_backoff.h"
 #include <cassert>
 int main() {

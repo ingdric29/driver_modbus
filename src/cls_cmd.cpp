@@ -1,7 +1,10 @@
 /*
-programa dedarrollado por ing. Alejandro diomede - Automatroni - email: diomede3009@gmail.com
-Define la estructura de datos llamada Equipos - tcp y serial
-*/
+ * Archivo: cls_cmd.cpp
+ * Descripción: Escribe comandos de un registro por Modbus TCP o RTU.
+ * Necesita: Destino, esclavo, registro, valor, timeout y estado de ejecución.
+ * Retornos: Métodos de escritura: resultado libmodbus; ejecutar: 0 si fue aceptada, negativo
+ * ante fallo.
+ */
 
 #include "include/cls_cmd.h"
 #include "include/conversiones.h"
@@ -18,6 +21,12 @@ extern void esperar(double segundos);
 extern uint32_t G_modbus_timeout;
 
 // retorna 1 si tiene exito escribiendo un registro, sino retorna -1
+/**
+ * Escribe un registro de 16 bits mediante un lease Modbus.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 si libmodbus confirma el registro; -1 ante fallo o parada sin éxito.
+ * Efectos: Puede reintentar; una respuesta Modbus no demuestra el efecto físico final.
+ */
 int cls_cmd::cmdescribir_serial(void) {
     // declaracion de variables para uso con el protocolo modbus
     modbus_t *ctx_tcp = NULL;
@@ -54,6 +63,12 @@ int cls_cmd::cmdescribir_serial(void) {
 }
 
 // retorna 1 si tiene exito escribiendo un registro, sino retorna -1
+/**
+ * Escribe un registro de 16 bits mediante un lease Modbus.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 si libmodbus confirma el registro; -1 ante fallo o parada sin éxito.
+ * Efectos: Puede reintentar; una respuesta Modbus no demuestra el efecto físico final.
+ */
 int cls_cmd::cmdescribir_tcp(void) {
     modbus_t *ctx_tcp = NULL;
     int rc = -1;
@@ -86,6 +101,11 @@ int cls_cmd::cmdescribir_tcp(void) {
     return rc;
 }
 
+/**
+ * Selecciona el transporte del comando y normaliza su resultado.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 si la escritura fue aceptada; negativo si falla o no se soporta el protocolo.
+ */
 int cls_cmd::ejecutar(void) {
     int res = -1;
     int resultadofinal = 0;

@@ -1,3 +1,10 @@
+/*
+ * Archivo: sample_window.h
+ * Descripción: Conserva muestras mínima, máxima y última de una ventana.
+ * Necesita: Muestras válidas con secuencia y fecha de adquisición.
+ * Retornos: Lista de muestras deduplicada o bool de ventana vacía; observe/clear son void.
+ */
+
 #ifndef DRIVER_SAMPLE_WINDOW_H
 #define DRIVER_SAMPLE_WINDOW_H
 #include <cstdint>

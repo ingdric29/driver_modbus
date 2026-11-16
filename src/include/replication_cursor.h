@@ -1,3 +1,10 @@
+/*
+ * Archivo: replication_cursor.h
+ * Descripción: Representa el avance de replicación y valida sus parámetros.
+ * Necesita: Identificadores, fechas y límites de los lotes.
+ * Retornos: Nombre de archivo, bool al leer un cursor y void al escribirlo; puede lanzar excepción.
+ */
+
 #ifndef DRIVER_REPLICATION_CURSOR_H
 #define DRIVER_REPLICATION_CURSOR_H
 #include <string>

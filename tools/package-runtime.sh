@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Archivo: package-runtime.sh
+# Descripción: Prepara una distribución de ejecución sin fuentes ni configuración privada.
+# Necesita: Directorio de binarios compilados y destino nuevo opcional.
+# Retornos: 0 al completar; error si falla una copia o el destino ya existe.
+
 set -euo pipefail
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 bin_dir="${1:-bin}"

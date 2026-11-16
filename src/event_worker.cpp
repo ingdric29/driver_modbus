@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: event_worker.cpp
+ * Descripción: Actualiza referencias y valores de eventos del catálogo.
+ * Necesita: Catálogos de equipos/eventos y estado de adquisición.
+ * Retornos: Códigos de actualización o 1 al terminar el trabajador; ver cada función.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -11,6 +16,11 @@
 
 using namespace std;
 
+/**
+ * Resuelve las referencias de los eventos contra el catálogo vigente.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0, incluido el caso sin catálogo disponible.
+ */
 int actualizar_posiciones_clsdefeventos() {
 
     if (GLOBAL_contador_defeventos == -1) {
@@ -27,6 +37,11 @@ int actualizar_posiciones_clsdefeventos() {
     return 0;
 }
 
+/**
+ * Actualiza los eventos cuando la adquisición ya publicó valores.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 tras recorrerlos; -1 si aún no hay estado o catálogo disponible.
+ */
 int actualizarvalores_clsdefeventos() {
     int ind = 0;
     if (GLOBAL_estado_primera_ejecucion_programa < 3) {
@@ -41,6 +56,11 @@ int actualizarvalores_clsdefeventos() {
     return 0;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int orden_actualizarvalores_clsdefeventos() {
 
     double diferencia_tiempo = 0.0;

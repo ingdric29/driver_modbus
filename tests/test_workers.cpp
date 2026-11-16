@@ -1,3 +1,8 @@
+// Archivo: test_workers.cpp
+// Descripción: Comprueba arranque, unión y propagación de errores de trabajadores.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "worker_group.h"
 #include <cassert>
 #include <stdexcept>

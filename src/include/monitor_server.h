@@ -1,3 +1,10 @@
+/*
+ * Archivo: monitor_server.h
+ * Descripción: Sirve snapshots en el socket local y libera recursos al cerrar.
+ * Necesita: Estado de monitor y directorio/socket autorizado.
+ * Retornos: Servicio y limpieza void; el constructor informa fallos mediante excepción.
+ */
+
 #ifndef AUTOMONITOR_MONITOR_SERVER_H
 #define AUTOMONITOR_MONITOR_SERVER_H
 #include <atomic>

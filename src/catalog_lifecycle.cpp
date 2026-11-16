@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: catalog_lifecycle.cpp
+ * Descripción: Detecta cambios SQL y libera los catálogos de una generación.
+ * Necesita: Tabla tbcambios; arreglos globales. Liberar solo después de unir los trabajadores.
+ * Retornos: lee_tbcambios: 0 sin cambios, 1 con cambios, -1 ante error; liberarmemoria: void.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -16,6 +21,12 @@ using namespace std;
 extern cls_defalarmas *defalarmas;
 extern cls_defeventos *defeventos;
 
+/**
+ * Compara los contadores SQL con la generación conocida.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 sin cambios; 1 con cambios; -1 ante fallo SQL.
+ * Efectos: Actualiza el contador global de cambios.
+ */
 int lee_tbcambios(void) {
 
     int cont_tbregistros;
@@ -81,6 +92,12 @@ int lee_tbcambios(void) {
     }
 }
 
+/**
+ * Libera catálogos y restablece sus punteros y contadores.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ * Efectos: Llamar únicamente después de unir los trabajadores.
+ */
 void liberarmemoria(void) {
     // Called only after all workers have joined (also handles partial startup).
     delete[] equipo_mbtcp;

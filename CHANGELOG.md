@@ -6,6 +6,11 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Encabezados descriptivos en código propio, herramientas, instalador y pruebas;
+  contratos de parámetros, retornos y efectos en funciones de implementación.
+- Retirados nombres personales de los encabezados propios. Licencias de terceros
+  y fixtures históricos conservados. Sin cambios en instrucciones ejecutables.
+
 - Tercera etapa de modularización: lectores TCP/RTU/RS232 separados del estado
   de equipos; conversiones agrupadas por categoría; acciones e histórico de
   alarmas separados de su evaluación. Se conservan los cuerpos, literales y

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Archivo: automonitor-mailcheck.py
+# Descripción: Diagnostica conectividad SMTP/TLS sin autenticar ni enviar mensajes.
+# Necesita: Python 3, servidor explícito o smtp_servidor en configdb.cfg y certificados confiables.
+# Retornos: Informe de diagnóstico y código de proceso según resultados; no utiliza contraseñas SMTP.
+
 """Diagnose SMTP connectivity/TLS without authentication or sending mail."""
 import argparse
 import configparser

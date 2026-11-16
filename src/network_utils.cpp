@@ -1,5 +1,11 @@
-// Original implementation: Alejandro Diomede / Automatroni; maintenance: Javier Flores.
-// Function bodies and platform alternatives preserved during modularization.
+/*
+ * Archivo: network_utils.cpp
+ * Descripción: Mantiene utilidades heredadas de comandos y red.
+ * Necesita: Comando o dirección autorizados, interfaz y soporte del sistema operativo.
+ * Retornos: Texto, predicado o código de interfaz; ver cada función. No valida ni escapa
+ * comandos externos.
+ */
+
 #include "include/conversiones.h"
 #include <cstring>
 #include <stdexcept>
@@ -8,6 +14,12 @@
 
 using namespace std;
 
+/**
+ * Ejecuta un comando mediante popen/_popen y recoge su salida.
+ * Parámetros: const char *cmd
+ * Retorno: Texto de stdout; puede lanzar excepción.
+ * Efectos: No escapa argumentos; usar únicamente comandos autorizados.
+ */
 string exec(const char *cmd) {
     char buffer[128];
     std::string result = "";
@@ -43,6 +55,11 @@ string exec(const char *cmd) {
     return result;
 }
 
+/**
+ * Ejecuta ping y busca el marcador time= en su salida.
+ * Parámetros: string ipaddress1
+ * Retorno: Predicado de coincidencia; no es una verificación general de conectividad.
+ */
 bool chequear_internet(string ipaddress1) {
 
     string res = "";
@@ -68,6 +85,11 @@ bool chequear_internet(string ipaddress1) {
     }
 }
 
+/**
+ * Consulta y muestra la MAC de una interfaz con ioctl.
+ * Parámetros: char *if_name
+ * Retorno: 0 si se completa; -1 si falla o el nombre es inválido.
+ */
 int imprimirmac_from_ifrname(char *if_name) {
 
     struct ifreq ifr = {};
@@ -95,6 +117,11 @@ int imprimirmac_from_ifrname(char *if_name) {
     return 0;
 }
 
+/**
+ * Codifica la MAC de una interfaz como entero heredado.
+ * Parámetros: char *if_name
+ * Retorno: MAC codificada; ante error retorna -1 convertido al tipo unsigned long long.
+ */
 unsigned long long valormac_from_ifrname(char *if_name) {
 
     struct ifreq ifr = {};
@@ -130,6 +157,11 @@ unsigned long long valormac_from_ifrname(char *if_name) {
     return valormac;
 }
 
+/**
+ * Recorre e imprime las interfaces de red enumeradas por ioctl.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: -1 si no abre el socket; 0 al finalizar o fallar la consulta ioctl.
+ */
 int listainterfaces() {
     struct ifconf st_ifconf;
     struct ifreq *arrst_ifreq;

@@ -1,5 +1,10 @@
-// Automonitor - separated from main.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: alarm_worker.cpp
+ * Descripción: Revisa periódicamente las alarmas y publica su estado al monitor.
+ * Necesita: Catálogo de alarmas, muestras disponibles y período de revisión.
+ * Retornos: 1 al completar la revisión o terminar el ciclo.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/runtime_control.h"
@@ -12,6 +17,11 @@
 
 using namespace std;
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenrevisarposiblesalarmasciclico() {
     while (driver_running()) {
         double diferencia_tiempoalarmas = 0.0;
@@ -25,6 +35,11 @@ int ordenrevisarposiblesalarmasciclico() {
     return 1;
 }
 
+/**
+ * Ejecuta la tarea indicada respetando su planificación y estado de parada.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
+ */
 int ordenrevisarposiblesalarmas() {
 
     imprimir_mensaje("inicio revision tabla de alarmas: " +

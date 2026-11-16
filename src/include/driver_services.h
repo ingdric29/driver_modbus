@@ -1,3 +1,11 @@
+/*
+ * Archivo: driver_services.h
+ * Descripción: Declara contratos y servicios compartidos entre módulos.
+ * Necesita: Definiciones únicas del estado y las implementaciones correspondientes.
+ * Retornos: La cabecera no retorna valores por sí sola; los métodos conservan sus contratos
+ * documentados en implementación.
+ */
+
 #ifndef DRIVER_SERVICES_H
 #define DRIVER_SERVICES_H
 #include "globales.h"

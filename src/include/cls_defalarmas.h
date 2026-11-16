@@ -1,3 +1,10 @@
+/*
+ * Archivo: cls_defalarmas.h
+ * Descripción: Mantiene el estado y evalúa expresiones de alarmas.
+ * Necesita: Definición de alarma, catálogo de equipos y muestras disponibles.
+ * Retornos: Estados de evaluación y datos de expresiones; ver contratos de los métodos.
+ */
+
 #ifndef CLS_DEFALARMAS
 #define CLS_DEFALARMAS
 

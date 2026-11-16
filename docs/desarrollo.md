@@ -60,3 +60,18 @@ SMS ni una ejecución completa sobre el esquema del usuario. El envío SMS
 heredado sigue desactivado; ahora devuelve error determinista en vez de usar
 un resultado sin inicializar. La compilación conserva advertencias heredadas
 de variables sin uso y conversiones de signo; no son pruebas de funcionalidad.
+
+## Comentarios y contratos
+
+Los archivos propios incluyen un encabezado con descripción, datos necesarios
+y retornos. Las funciones de implementación documentan parámetros, resultado
+y efectos importantes, incluidos bloqueos, SQL, envíos y operaciones destructivas.
+No asumir un único código de éxito: lecturas, catálogos, trabajadores y CURL
+usan convenciones distintas. Los comentarios describen el comportamiento actual,
+incluidas sus limitaciones; no prometen validaciones o confirmaciones inexistentes.
+
+Al cambiar una firma o comportamiento, actualizar su contrato y el encabezado.
+Mantener comentarios concisos que expliquen el propósito, sin repetir cada
+instrucción. Los encabezados propios no incluyen nombres personales. Los avisos
+de licencia/atribución de INIReader, ini y RS232 y los fixtures históricos se
+conservan sin modificaciones.

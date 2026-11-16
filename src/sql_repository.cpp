@@ -1,5 +1,11 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: sql_repository.cpp
+ * Descripción: Inserta, busca y actualiza registros con parámetros SQL.
+ * Necesita: Perfil de base, tablas, campos, valores y claves indicados en cada llamada.
+ * Retornos: Búsqueda: 1/0/-1; escritura: contrato por función. No equivale a confirmación física
+ * Modbus.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -16,6 +22,12 @@ using repository_detail::database_failure;
 using repository_detail::database_session;
 
 namespace {
+/**
+ * Ejecuta una escritura SQL parametrizada con los campos indicados.
+ * Parámetros: stdatabase *db, const std::string &table, string *fields, string *values, int
+ * count, const std::vector<int> &keys, const std::string &condition = ""
+ * Retorno: 0 si completa la operación; -1 por validación, acceso o fallo SQL.
+ */
 int update_fields(stdatabase *db, const std::string &table, string *fields, string *values,
                   int count, const std::vector<int> &keys, const std::string &condition = "") {
     if (!database_allowed(db) || count <= 0)
@@ -50,6 +62,12 @@ int update_fields(stdatabase *db, const std::string &table, string *fields, stri
     }
 }
 
+/**
+ * Busca una coincidencia de campos mediante parámetros SQL.
+ * Parámetros: stdatabase *db, const std::string &table, const std::vector<std::string> &fields,
+ * const std::vector<std::string> &values
+ * Retorno: 1 si existe; 0 si no existe; -1 por acceso o error SQL.
+ */
 int find_fields(stdatabase *db, const std::string &table, const std::vector<std::string> &fields,
                 const std::vector<std::string> &values) {
     if (!database_allowed(db))
@@ -75,6 +93,14 @@ int find_fields(stdatabase *db, const std::string &table, const std::vector<std:
 }
 } // namespace
 
+/**
+ * Guarda una muestra histórica mediante transacción.
+ * Parámetros: time_t fechatiempo, string tag, string valorstr, float valorfloat, int
+ * dispositivo, string rastro, string nombre_concentrador, string nombre_dispositivo, string
+ * direccion_db, int puerto_db, string nombre_db, string usuario_db, string clave_db, string
+ * dbtabla
+ * Retorno: 1 si confirma la muestra; -1 ante fallo.
+ */
 int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat, int dispositivo,
                string rastro, string nombre_concentrador, string nombre_dispositivo,
                string direccion_db, int puerto_db, string nombre_db, string usuario_db,
@@ -95,30 +121,63 @@ int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat
     }
 }
 
+/**
+ * Busca una coincidencia de campos mediante parámetros SQL.
+ * Parámetros: stdatabase *db, string tabla, string campo, string valor
+ * Retorno: 1 si existe; 0 si no existe; -1 por acceso o error SQL.
+ */
 int buscarentabla(stdatabase *db, string tabla, string campo, string valor) {
     return find_fields(db, tabla, {campo}, {valor});
 }
 
+/**
+ * Busca una coincidencia de campos mediante parámetros SQL.
+ * Parámetros: stdatabase *db, string tabla, string campo1, string campo2, string campo3, string
+ * valor1, string valor2, string valor3
+ * Retorno: 1 si existe; 0 si no existe; -1 por acceso o error SQL.
+ */
 int buscarentabla3(stdatabase *db, string tabla, string campo1, string campo2, string campo3,
                    string valor1, string valor2, string valor3) {
     return find_fields(db, tabla, {campo1, campo2, campo3}, {valor1, valor2, valor3});
 }
 
+/**
+ * Ejecuta una escritura SQL parametrizada con los campos indicados.
+ * Parámetros: stdatabase *db, string tabla, int indice, string *campo, string *valor, int
+ * cantidad
+ * Retorno: 0 si completa la operación; -1 por validación, acceso o fallo SQL.
+ */
 int actualizar_valor(stdatabase *db, string tabla, int indice, string *campo, string *valor,
                      int cantidad) {
     return update_fields(db, tabla, campo, valor, cantidad, {indice});
 }
 
+/**
+ * Ejecuta una escritura SQL parametrizada con los campos indicados.
+ * Parámetros: stdatabase *db, string tabla, int indice1, int indice2, int indice3, string
+ * *campo, string *valor, int cantidad
+ * Retorno: 0 si completa la operación; -1 por validación, acceso o fallo SQL.
+ */
 int actualizar_valor3(stdatabase *db, string tabla, int indice1, int indice2, int indice3,
                       string *campo, string *valor, int cantidad) {
     return update_fields(db, tabla, campo, valor, cantidad, {indice1, indice2, indice3});
 }
 
+/**
+ * Ejecuta una escritura SQL parametrizada con los campos indicados.
+ * Parámetros: stdatabase *db, string tabla, string campo, string valor, string condicion
+ * Retorno: 0 si completa la operación; -1 por validación, acceso o fallo SQL.
+ */
 int actualizar_valor_condicion(stdatabase *db, string tabla, string campo, string valor,
                                string condicion) {
     return update_fields(db, tabla, &campo, &valor, 1, {}, condicion);
 }
 
+/**
+ * Ejecuta una escritura SQL parametrizada con los campos indicados.
+ * Parámetros: stdatabase *db, string tabla, string *campo, string *valor, int cantidad
+ * Retorno: 0 si completa la operación; -1 por validación, acceso o fallo SQL.
+ */
 int insertar_valor(stdatabase *db, string tabla, string *campo, string *valor, int cantidad) {
     if (!database_allowed(db) || cantidad <= 0)
         return -1;
@@ -143,6 +202,12 @@ int insertar_valor(stdatabase *db, string tabla, string *campo, string *valor, i
     }
 }
 
+/**
+ * Actualiza si existe la clave o inserta un nuevo registro.
+ * Parámetros: struct stdatabase *db, string tabla, int indice, string *campo, string *valor, int
+ * cantidad
+ * Retorno: 0 si la escritura es satisfactoria; -1 ante fallo.
+ */
 int insertar_inteligente(struct stdatabase *db, string tabla, int indice, string *campo,
                          string *valor, int cantidad) {
     int res = -1;
@@ -167,6 +232,12 @@ int insertar_inteligente(struct stdatabase *db, string tabla, int indice, string
     return resfinal;
 }
 
+/**
+ * Actualiza si existe la clave o inserta un nuevo registro.
+ * Parámetros: struct stdatabase *db, string tabla, int indice1, int indice2, int indice3, string
+ * *campo, string *valor, int cantidad
+ * Retorno: 0 si la escritura es satisfactoria; -1 ante fallo.
+ */
 int insertar_inteligente3(struct stdatabase *db, string tabla, int indice1, int indice2,
                           int indice3, string *campo, string *valor, int cantidad) {
     int res = -1;

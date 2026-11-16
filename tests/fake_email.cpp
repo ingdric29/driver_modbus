@@ -1,3 +1,8 @@
+// Archivo: fake_email.cpp
+// Descripción: Doble de transporte de correo para comprobar alarmas sin envíos externos.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: Las aserciones o errores hacen fallar la prueba; las bibliotecas de fixtures aportan datos simulados.
+
 #include "fake_email.h"
 namespace test_email {
 std::vector<stdestino> deliveries;

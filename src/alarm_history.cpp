@@ -1,4 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; modularized without logic changes.
+/*
+ * Archivo: alarm_history.cpp
+ * Descripción: Registra activación o desactivación de alarmas en SQL.
+ * Necesita: Alarma, muestra asociada, concentrador y tabla tbhistoalarmas de la base local.
+ * Retornos: 0 si confirma una inserción; -1 si no se inserta o falla la operación.
+ */
+
 #include "include/driver_services.h"
 #include "include/cls_defalarmas.h"
 #include "include/conversiones.h"
@@ -7,6 +13,11 @@
 
 using namespace std;
 
+/**
+ * Inserta el histórico de activación/desactivación con su dispositivo.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: 0 si confirma inserción; -1 si no inserta o falla la escritura.
+ */
 int cls_defalarmas::insertar_tbhistoalarmas() {
     string arr_campos1[13];
     string arr_valores1[13];

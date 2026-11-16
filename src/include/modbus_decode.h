@@ -1,3 +1,10 @@
+/*
+ * Archivo: modbus_decode.h
+ * Descripción: Decodifica enteros de palabras y valida conversión numérica.
+ * Necesita: Palabras suficientes en el orden indicado y un valor numérico a convertir.
+ * Retornos: Enteros decodificados; numeric_to_int satura en los límites de int y devuelve 0 para NaN o infinito.
+ */
+
 #ifndef MODBUS_DECODE_H
 #define MODBUS_DECODE_H
 

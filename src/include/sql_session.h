@@ -1,3 +1,11 @@
+/*
+ * Archivo: sql_session.h
+ * Descripción: Gestiona sesiones SQL por hilo y transacciones de históricos.
+ * Necesita: Perfil SQL, identificadores válidos y muestras a almacenar.
+ * Retornos: Conexiones/helpers o void; los errores de SQL/validación se propagan como
+ * excepciones.
+ */
+
 #ifndef DRIVER_SQL_SESSION_H
 #define DRIVER_SQL_SESSION_H
 #include <cppconn/driver.h>

@@ -1,4 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; modularized without logic changes.
+/*
+ * Archivo: equipment_rs232.cpp
+ * Descripción: Implementa la lectura específica del protocolo del equipo.
+ * Necesita: Campos del equipo y contexto de transporte o buffer serie, según protocolo.
+ * Retornos: void; actualiza resultadoleer_rc, valor y estado del equipo.
+ */
+
 #include "include/globales.h"
 #include "include/conversiones.h"
 #include "include/equipment_internal.h"
@@ -13,6 +19,12 @@
 
 using namespace std;
 
+/**
+ * Extrae el valor entre delimitadores del buffer serie.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void); resultadoleer_rc indica éxito o fallo.
+ * Efectos: Bloquea el buffer y rechaza una ventana de tamaño negativo.
+ */
 void cls_equipos::leer_rs232(void) {
     std::lock_guard<std::mutex> serial(*buffer_mutex);
 

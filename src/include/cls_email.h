@@ -1,3 +1,11 @@
+/*
+ * Archivo: cls_email.h
+ * Descripción: Prepara y envía notificaciones por SMTP mediante libcurl.
+ * Necesita: Origen y destino, configuración SMTP autorizada y plantilla HTML.
+ * Retornos: Código CURL convertido a int en el envío: 0 para aceptación del transporte, distinto
+ * de 0 ante fallo.
+ */
+
 #ifndef CLS_EMAIL
 
 #define CLS_EMAIL

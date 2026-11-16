@@ -1,5 +1,10 @@
-// Automonitor - separated from loadconfig.cpp; public function contracts unchanged.
-// Original implementation: Alejandro Diomede / Automatroni.
+/*
+ * Archivo: action_catalog.cpp
+ * Descripción: Carga definiciones de alarmas, correo, eventos y SMS.
+ * Necesita: Conexión y esquema SQL; catálogos reemplazados entre generaciones.
+ * Retornos: Cantidad cargada, 0 cuando la operación se omite o -1 ante error, según la función.
+ */
+
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/repository_support.h"
@@ -18,6 +23,12 @@ extern cls_defeventos *defeventos;
 
 using repository_detail::database_session;
 
+/**
+ * Carga el catálogo correspondiente desde SQL.
+ * Parámetros: struct stdatabase *db
+ * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
+ * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
+ */
 int actualizar_defalarmas(struct stdatabase *db) {
 
     if (db == &stdbexterna) {
@@ -142,6 +153,12 @@ int actualizar_defalarmas(struct stdatabase *db) {
     }
 }
 
+/**
+ * Carga el catálogo correspondiente desde SQL.
+ * Parámetros: struct stdatabase *db
+ * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
+ * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
+ */
 int actualizar_directorio(struct stdatabase *db) {
 
     if (db == &stdbexterna) {
@@ -222,6 +239,12 @@ int actualizar_directorio(struct stdatabase *db) {
     }
 }
 
+/**
+ * Carga el catálogo correspondiente desde SQL.
+ * Parámetros: struct stdatabase *db
+ * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
+ * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
+ */
 int actualizar_defeventos(struct stdatabase *db) {
 
     if (db == &stdbexterna) {
@@ -306,6 +329,12 @@ int actualizar_defeventos(struct stdatabase *db) {
     }
 }
 
+/**
+ * Carga el catálogo correspondiente desde SQL.
+ * Parámetros: struct stdatabase *db
+ * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
+ * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
+ */
 int actualizar_smslist(struct stdatabase *db) {
 
     if (db == &stdbexterna) {

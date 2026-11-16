@@ -1,3 +1,11 @@
+/*
+ * Archivo: cls_cmd.h
+ * Descripción: Escribe comandos de un registro por Modbus TCP o RTU.
+ * Necesita: Destino, esclavo, registro, valor, timeout y estado de ejecución.
+ * Retornos: Métodos de escritura: resultado libmodbus; ejecutar: 0 si fue aceptada, negativo
+ * ante fallo.
+ */
+
 #ifndef CLS_CMD
 
 #define CLS_CMD

@@ -1,14 +1,26 @@
 /*
-	Modificacion hecha por: Ing. Javier Flores
-	Fecha: 12/11/2024
-*/
+ * Archivo: cls_sms.cpp
+ * Descripción: Conserva el emisor SMS heredado deshabilitado.
+ * Necesita: Campos del módem y libcurl para preparar la petición, sin ejecutarla.
+ * Retornos: CURLE_FAILED_INIT; no confirma ningún envío SMS.
+ */
 
 #include "include/cls_sms.h"
 #include "include/globales.h"
 
+/**
+ * Construye el objeto SMS sin añadir configuración.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Sin valor de retorno (constructor).
+ */
 cls_sms::cls_sms() {}
 
 // 0 si todo ok, y !0 si hubo error
+/**
+ * Prepara la petición heredada sin ejecutar el envío SMS.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: CURLE_FAILED_INIT; el canal permanece deshabilitado.
+ */
 int cls_sms::enviar() {
     CURL *curl;
     CURLcode res =

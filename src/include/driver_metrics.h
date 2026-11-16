@@ -1,3 +1,11 @@
+/*
+ * Archivo: driver_metrics.h
+ * Descripción: Acumula contadores y tiempos de lectura/persistencia.
+ * Necesita: Resultados de operaciones y contadores atómicos.
+ * Retornos: Resúmenes de texto; las lecturas incluyen fallos y omisiones, no solo muestras
+ * válidas.
+ */
+
 #ifndef DRIVER_METRICS_H
 #define DRIVER_METRICS_H
 #include <atomic>

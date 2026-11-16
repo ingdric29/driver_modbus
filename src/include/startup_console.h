@@ -1,3 +1,10 @@
+/*
+ * Archivo: startup_console.h
+ * Descripción: Alinea filas y unidades del resumen de arranque.
+ * Necesita: Etiquetas, valores y salida estándar disponible.
+ * Retornos: startup_row escribe y retorna void; startup_seconds devuelve texto con unidad.
+ */
+
 #ifndef AUTOMONITOR_STARTUP_CONSOLE_H
 #define AUTOMONITOR_STARTUP_CONSOLE_H
 #include <iostream>

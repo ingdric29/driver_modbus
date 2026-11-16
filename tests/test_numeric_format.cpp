@@ -1,3 +1,8 @@
+// Archivo: test_numeric_format.cpp
+// Descripción: Comprueba formato numérico y conversión/validación de fechas.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "conversiones.h"
 #include <cassert>
 #include <limits>

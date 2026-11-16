@@ -1,5 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; maintenance: Javier Flores.
-// Function bodies and platform alternatives preserved during modularization.
+/*
+ * Archivo: text_conversions.cpp
+ * Descripción: Separa, normaliza y transforma cadenas.
+ * Necesita: Cadenas, delimitadores y patrones válidos para la operación solicitada.
+ * Retornos: Cadena, vector de cadenas o huella numérica; no modifica argumentos const.
+ */
+
 #include "include/conversiones.h"
 #include <cstring>
 #include <stdexcept>
@@ -8,6 +13,11 @@
 
 using namespace std;
 
+/**
+ * Separa la cadena por un carácter usando las reglas heredadas.
+ * Parámetros: const std::string &str, char separator
+ * Retorno: Vector de fragmentos; puede conservar un elemento final vacío.
+ */
 StringVector cast_string(const std::string &str, char separator) {
     StringVector result;
     size_t pos1 = 0;
@@ -24,12 +34,22 @@ StringVector cast_string(const std::string &str, char separator) {
     return result;
 }
 
+/**
+ * Copia una cadena C terminada en cero.
+ * Parámetros: char *arr
+ * Retorno: Cadena std::string; arr debe ser no nulo y estar terminado.
+ */
 string cast_arrchar_to_string(char *arr) {
     string s1;
     s1 = arr;
     return s1;
 }
 
+/**
+ * Reemplaza un patrón en una copia de la cadena.
+ * Parámetros: std::string str, const std::string &from, const std::string &to
+ * Retorno: Cadena modificada; from debe ser no vacío.
+ */
 std::string ReplaceAll(std::string str, const std::string &from, const std::string &to) {
     size_t start_pos = 0;
     while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
@@ -39,6 +59,11 @@ std::string ReplaceAll(std::string str, const std::string &from, const std::stri
     return str;
 }
 
+/**
+ * Divide una cadena con getline y el delimitador indicado.
+ * Parámetros: const string &cadena, const char &delim
+ * Retorno: Vector de fragmentos según las reglas de getline.
+ */
 std::vector<string> split1(const string &cadena, const char &delim) {
     std::vector<string> vector2;
     std::stringstream ss1;
@@ -50,6 +75,11 @@ std::vector<string> split1(const string &cadena, const char &delim) {
     return vector2;
 }
 
+/**
+ * Calcula una suma ponderada heredada de los caracteres.
+ * Parámetros: string cadena
+ * Retorno: Huella long; no es un hash criptográfico.
+ */
 long huella(string cadena) {
     int longitud = cadena.length();
     long acum = 0;
@@ -59,6 +89,11 @@ long huella(string cadena) {
     return acum;
 }
 
+/**
+ * Transforma mayúsculas/minúsculas mediante las funciones C heredadas.
+ * Parámetros: string str
+ * Retorno: Cadena transformada; conserva las limitaciones de caracteres del código actual.
+ */
 string cast_minus_mayus(string str) {
     string mayus;
     char C;
@@ -69,6 +104,11 @@ string cast_minus_mayus(string str) {
     return mayus;
 }
 
+/**
+ * Transforma mayúsculas/minúsculas mediante las funciones C heredadas.
+ * Parámetros: string str
+ * Retorno: Cadena transformada; conserva las limitaciones de caracteres del código actual.
+ */
 string cast_mayus_minus(string str) {
     string minus;
     char C;
@@ -79,6 +119,11 @@ string cast_mayus_minus(string str) {
     return minus;
 }
 
+/**
+ * Sustituye secuencias #XX por el carácter hexadecimal correspondiente.
+ * Parámetros: const string &entradacadena
+ * Retorno: Cadena transformada; requiere secuencias de entrada válidas.
+ */
 string tratamientocadena(const string &entradacadena) {
     string cadena = "";
     string caracter = "";
@@ -105,6 +150,11 @@ string tratamientocadena(const string &entradacadena) {
     return cadena;
 }
 
+/**
+ * Filtra los caracteres cuyo código no supera el espacio.
+ * Parámetros: const string &cadenaoriginal
+ * Retorno: Cadena con los caracteres conservados.
+ */
 string limpiarcadena(const string &cadenaoriginal) {
     string cadenanueva;
     int caracter;

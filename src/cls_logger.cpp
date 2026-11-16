@@ -1,10 +1,11 @@
 /*
-CLASE LOGGER:
-Permite hacer un registro de los eventos que sucedan en la ejecucion del programa.
-    Codigo realizado por: Ing. Javier Flores
-    Ultima modificacion: 15/11/2024
+ * Archivo: cls_logger.cpp
+ * Descripción: Registra eventos, escribe logs y rota archivos por tamaño.
+ * Necesita: Directorio padre del trabajo, permisos de escritura y límite de tamaño.
+ * Retornos: Métodos de escritura: void; helpers: ruta o fecha. Notifica fallos de archivo en
+ * consola.
+ */
 
-*/
 #include "include/cls_logger.h"
 #include "include/monitor_state.h"
 #include <iostream>
@@ -20,12 +21,22 @@ Permite hacer un registro de los eventos que sucedan en la ejecucion del program
 #include <vector>
 #include <mutex>
 namespace {
+/**
+ * Obtiene el bloqueo único de escritura y rotación del logger.
+ * Parámetros: ninguno.
+ * Retorno: referencia al mutex compartido.
+ */
 std::mutex &log_mutex() {
     static std::mutex m;
     return m;
 }
 } // namespace
 
+/**
+ * Resuelve una ruta respecto al padre del directorio de trabajo.
+ * Parámetros: std::string nombreCarpeta
+ * Retorno: Ruta de texto; no se basa en la ubicación del ejecutable.
+ */
 std::string obtenerDirectorio(std::string nombreCarpeta) {
     boost::filesystem::path directorioPrograma = boost::filesystem::current_path();
     boost::filesystem::path directorioCarpeta = directorioPrograma.parent_path();
@@ -38,6 +49,11 @@ std::string obtenerDirectorio(std::string nombreCarpeta) {
     return rutaFinal.string();
 }
 
+/**
+ * Configura límite y ruta del log y crea su directorio si falta.
+ * Parámetros: size_t limiteBytes
+ * Retorno: Sin valor de retorno (constructor).
+ */
 Logger::Logger(size_t limiteBytes)
     : limiteBytes(limiteBytes), nombreArchivo("devlog.log"),
       directorioLog(obtenerDirectorio("log")) {
@@ -45,6 +61,12 @@ Logger::Logger(size_t limiteBytes)
     crearDirectorioLog();
 }
 
+/**
+ * Registra el evento y escribe el archivo de log.
+ * Parámetros: const std::string &mensajeError, bool mostrarConsola
+ * Retorno: Ninguno (void).
+ * Efectos: Serializa la escritura y muestra consola solo si se solicita.
+ */
 void Logger::registrarError(const std::string &mensajeError, bool mostrarConsola) {
     monitor::State::instance().event(mensajeError);
     std::lock_guard<std::mutex> lock(log_mutex());
@@ -63,6 +85,11 @@ void Logger::registrarError(const std::string &mensajeError, bool mostrarConsola
     }
 }
 
+/**
+ * Crea el directorio de log cuando no existe.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ */
 void Logger::crearDirectorioLog() {
     struct stat info;
     if (stat(directorioLog.c_str(), &info) != 0) {
@@ -75,6 +102,11 @@ void Logger::crearDirectorioLog() {
     }
 }
 
+/**
+ * Comprueba el tamaño y solicita rotación al superar el límite.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ */
 void Logger::verificarTamañoArchivo() {
     std::string rutaArchivo = directorioLog + "/" + nombreArchivo;
 
@@ -85,6 +117,12 @@ void Logger::verificarTamañoArchivo() {
     }
 }
 
+/**
+ * Rota el archivo actual y elimina excedentes.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ * Efectos: Renombra o elimina archivos de log.
+ */
 void Logger::rotarArchivos() {
     limpiarArchivosAntiguos();
 
@@ -100,6 +138,11 @@ void Logger::rotarArchivos() {
            (directorioLog + "/" + nuevoNombre).c_str());
 }
 
+/**
+ * Elimina los archivos rotados que exceden la conservación existente.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Ninguno (void).
+ */
 void Logger::limpiarArchivosAntiguos() {
     const int MAX_ARCHIVOS_LOG = 5;
     std::vector<std::string> archivosParaBorrar;
@@ -121,10 +164,20 @@ void Logger::limpiarArchivosAntiguos() {
     }
 }
 
+/**
+ * Construye el nombre del archivo rotado.
+ * Parámetros: int indice
+ * Retorno: Nombre de archivo para el índice indicado.
+ */
 std::string Logger::obtenerNombreArchivoConIndice(int indice) {
     return "devlog_" + std::to_string(indice) + ".log";
 }
 
+/**
+ * Formatea fecha y hora locales para el log.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Cadena de fecha/hora del host.
+ */
 std::string Logger::obtenerFechaHoraActual() {
     auto t = std::time(nullptr);
     std::tm tm;

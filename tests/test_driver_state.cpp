@@ -1,3 +1,8 @@
+// Archivo: test_driver_state.cpp
+// Descripción: Comprueba parsing serie, muestras concurrentes, catálogos y perfiles SQL reservados.
+// Necesita: Compilación del runner correspondiente y datos aislados de prueba.
+// Retornos: 0 al completar las comprobaciones; un error o aserción hace fallar la prueba.
+
 #include "globales.h"
 #include <cassert>
 #include <limits>

@@ -1,3 +1,10 @@
+/*
+ * Archivo: acquisition.cpp
+ * Descripción: Planifica lecturas vencidas y precarga bloques compatibles.
+ * Necesita: Arreglo de tags, períodos, estado compartido y transporte Modbus.
+ * Retornos: Resultado de lectura/ciclo; la precarga no retorna datos directamente.
+ */
+
 #include "include/driver_services.h"
 #include "include/runtime_control.h"
 #include "include/driver_metrics.h"
@@ -6,6 +13,11 @@
 #include <map>
 #include "include/register_batch.h"
 namespace {
+/**
+ * Calcula las palabras requeridas por la interpretación del tag.
+ * Parámetros: const cls_equipos &tag
+ * Retorno: Número de registros; usa cuatro para longle64 y dos para tipos de 32 bits.
+ */
 int requested_registers(const cls_equipos &tag) {
     if (tag.interpretacion == "longle64")
         return 4;
@@ -14,6 +26,12 @@ int requested_registers(const cls_equipos &tag) {
         return 2;
     return std::max(1, std::min(tag.cantidad1, 20));
 }
+/**
+ * Precarga rangos compatibles de tags vencidos no suspendidos.
+ * Parámetros: cls_equipos *tags, int count
+ * Retorno: Ninguno (void).
+ * Efectos: Realiza I/O Modbus y prepara la caché del ciclo.
+ */
 void prefetch_due_tags(cls_equipos *tags, int count) {
     std::map<std::string, std::vector<int>> due;
     const auto now = PeriodicDeadline::Clock::now();
@@ -53,6 +71,11 @@ void prefetch_due_tags(cls_equipos *tags, int count) {
 }
 } // namespace
 
+/**
+ * Recorre tags vencidos y avanza sus plazos de lectura.
+ * Parámetros: cls_equipos *equipo, int arge_cantidad
+ * Retorno: Resultado final del recorrido; -1 si no hubo lectura final o ante excepción.
+ */
 int ordenlecturaequipos(cls_equipos *equipo, int arge_cantidad) {
     RegisterCycle cycle;
     prefetch_due_tags(equipo, arge_cantidad);
@@ -86,6 +109,11 @@ int ordenlecturaequipos(cls_equipos *equipo, int arge_cantidad) {
 }
 //Correccion: Se habilita y deshabilita la escritura en la base de datos en base a un error de comunicacion.
 //Fecha de Correccion: 30/10/24
+/**
+ * Repite la adquisición hasta la parada o ausencia de equipos.
+ * Parámetros: cls_equipos *equipo, int arge_cantidad
+ * Retorno: 1 al finalizar; 2 si captura una excepción.
+ */
 int ordenlecturaequiposciclico(cls_equipos *equipo, int arge_cantidad) {
     bool iniciado = false;
 

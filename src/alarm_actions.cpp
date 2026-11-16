@@ -1,4 +1,11 @@
-// Original implementation: Alejandro Diomede / Automatroni; modularized without logic changes.
+/*
+ * Archivo: alarm_actions.cpp
+ * Descripción: Ejecuta acciones CMD, EMAIL y SMS de una alarma.
+ * Necesita: Cadena de acciones, estado de activación y catálogos de comandos/destinatarios.
+ * Retornos: 0 si los resultados agregados son satisfactorios; -1 en otro caso. Conserva la
+ * agregación heredada.
+ */
+
 #include "include/driver_services.h"
 #include "include/cls_defalarmas.h"
 #include "include/conversiones.h"
@@ -7,6 +14,12 @@
 
 using namespace std;
 
+/**
+ * Procesa las acciones CMD/EMAIL/SMS indicadas en la cadena.
+ * Parámetros: const string &accionstr, bool alarmaactivada
+ * Retorno: 0 si los resultados agregados son satisfactorios; -1 en otro caso.
+ * Efectos: Mantiene las marcas y la agregación heredadas, no resultados por destinatario.
+ */
 int cls_defalarmas::ejecutar_accion(const string &accionstr, bool alarmaactivada) {
     std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
     size_t pos, pos_ant, inicio, fin;

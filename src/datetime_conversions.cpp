@@ -1,5 +1,10 @@
-// Original implementation: Alejandro Diomede / Automatroni; maintenance: Javier Flores.
-// Function bodies and platform alternatives preserved during modularization.
+/*
+ * Archivo: datetime_conversions.cpp
+ * Descripción: Convierte fechas SQL y genera fechas para correo.
+ * Necesita: Fecha o timestamp y reloj/zona del host; funciones UTC indicadas por nombre.
+ * Retornos: Timestamp, cadena de fecha o time_t(-1) al rechazar una fecha SQL.
+ */
+
 #include "include/conversiones.h"
 #include <cstring>
 #include <stdexcept>
@@ -8,6 +13,11 @@
 
 using namespace std;
 
+/**
+ * Valida y convierte una fecha SQL en tiempo local.
+ * Parámetros: const string &value
+ * Retorno: Timestamp o time_t(-1) si la fecha es inválida.
+ */
 time_t cast_datetime_to_time(const string &value) {
     std::tm parsed{};
     int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, consumed = 0;
@@ -30,6 +40,11 @@ time_t cast_datetime_to_time(const string &value) {
     return result;
 }
 
+/**
+ * Formatea un timestamp como fecha SQL local.
+ * Parámetros: time_t tiempo
+ * Retorno: Cadena YYYY-MM-DD HH:MM:SS.
+ */
 string cast_time_to_datetime(time_t tiempo) {
     struct tm local_tm;
     struct tm *timeinfo;
@@ -40,6 +55,11 @@ string cast_time_to_datetime(time_t tiempo) {
     return str;
 }
 
+/**
+ * Forma una fecha de correo con el reloj y zona indicados por la función.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Texto de fecha; las variantes utc y fecha_para_emails usan UTC.
+ */
 string fecha_para_emails() {
     string s1;
     const char *wday[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -57,6 +77,11 @@ string fecha_para_emails() {
     return s1;
 }
 
+/**
+ * Forma una fecha de correo con el reloj y zona indicados por la función.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Texto de fecha; las variantes utc y fecha_para_emails usan UTC.
+ */
 string fecha_para_emails_local() {
     string s1;
     const char *wday[7] = {"Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"};
@@ -74,6 +99,11 @@ string fecha_para_emails_local() {
     return s1;
 }
 
+/**
+ * Forma una fecha de correo con el reloj y zona indicados por la función.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Texto de fecha; las variantes utc y fecha_para_emails usan UTC.
+ */
 string fecha_para_emails_local_es() {
     string s1;
     const char *wday[7] = {"Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"};
@@ -91,6 +121,11 @@ string fecha_para_emails_local_es() {
     return s1;
 }
 
+/**
+ * Forma una fecha de correo con el reloj y zona indicados por la función.
+ * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
+ * Retorno: Texto de fecha; las variantes utc y fecha_para_emails usan UTC.
+ */
 string fecha_para_emails_utc_es() {
     string s1;
     const char *wday[7] = {"Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"};

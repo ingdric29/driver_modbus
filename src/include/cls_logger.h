@@ -1,3 +1,11 @@
+/*
+ * Archivo: cls_logger.h
+ * Descripción: Registra eventos, escribe logs y rota archivos por tamaño.
+ * Necesita: Directorio padre del trabajo, permisos de escritura y límite de tamaño.
+ * Retornos: Métodos de escritura: void; helpers: ruta o fecha. Notifica fallos de archivo en
+ * consola.
+ */
+
 #ifndef LOGGER_H
 #define LOGGER_H
 
