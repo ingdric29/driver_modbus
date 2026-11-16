@@ -2,3 +2,10 @@
 
 .runtime/
 __pycache__/
+
+# Generated compiler objects, including legacy in-tree builds.
+*.o
+
+# Runtime logs are local to each installation.
+/log/
+/autostart/nohup.out

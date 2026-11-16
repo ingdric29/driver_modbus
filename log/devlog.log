@@ -1,6 +1,0 @@
-[2024-11-19 11:44:17] INFO: Devlog initialized. Configuration file loaded.
-[2024-11-19 11:44:17] ERROR: INVALID KEYS DETECTED! Please contact your provider to obtain the correct keys. License not activated. Devlog stopped.
-[2024-11-19 11:44:17] ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Can't connect to server on '127.0.0.1' (115) (MySQL error code: 2002, SQLState: HY000 )
-[2024-11-19 11:45:41] INFO: Devlog initialized. Configuration file loaded.
-[2024-11-19 11:45:41] ERROR: SQLException in src/loadconfig.cpp(insertar_valor) on line 2126.# Error description: Cannot add or update a child row: a foreign key constraint fails (`dbdevlog`.`tbhistoalarmas`, CONSTRAINT `tbhistoalarmas_ibfk_2` FOREIGN KEY (`dispositivo`) REFERENCES `tbdispositivos` (`nombre`) ON UPDATE CASCADE) (MySQL error code: 1452, SQLState: 23000 )
-[2024-11-19 11:45:41] INFO: Start Devlog.
