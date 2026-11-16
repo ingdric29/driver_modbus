@@ -12,7 +12,7 @@ for unit in modbus_decode workers periods sample_window pending_batch alarm_expr
   timeout 15 "$test_dir/$unit"
   echo "PASS $unit"
 done
-"${CXX:-g++}" "${common[@]}" tests/test_numeric_format.cpp src/conversiones.cpp -o "$test_dir/format"
+"${CXX:-g++}" "${common[@]}" tests/test_numeric_format.cpp src/conversiones.cpp src/modbus_conversions.cpp src/datetime_conversions.cpp src/text_conversions.cpp src/network_utils.cpp -o "$test_dir/format"
 timeout 15 "$test_dir/format"
 echo 'PASS numeric_format'
 for unit in register_batch modbus_transport; do

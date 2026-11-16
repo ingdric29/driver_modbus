@@ -6,6 +6,12 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Tercera etapa de modularización: lectores TCP/RTU/RS232 separados del estado
+  de equipos; conversiones agrupadas por categoría; acciones e histórico de
+  alarmas separados de su evaluación. Se conservan los cuerpos, literales y
+  contratos públicos, el logger y la inicialización estática existentes.
+- Runners de estado y conversiones actualizados para los módulos nuevos.
+
 - Segunda etapa de modularización: funciones de `main.cpp` separadas en
   coordinador, comandos, mantenimiento, serie, eventos, alarmas, búsquedas y
   soporte. Se conservan los cuerpos y contratos de las funciones, los períodos

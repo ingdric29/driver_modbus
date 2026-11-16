@@ -11,7 +11,13 @@
 | `catalog_lookup.cpp` / `runtime_support.cpp` | Búsquedas por ID, mensajes, esperas y conversiones heredadas |
 | `acquisition.cpp` | Vencimientos individuales y agrupación de tags ya vencidos |
 | `persistence.cpp` | Snapshots, ventanas pendientes, reintento y confirmación SQL |
-| `cls_equipos.cpp` | Lectura y publicación de valores TCP/RTU/RS232 |
+| `cls_equipos.cpp` | Construcción, estado de comunicación y publicación de muestras |
+| `equipment_tcp.cpp` / `equipment_rtu.cpp` / `equipment_rs232.cpp` | Lectura de cada protocolo, conservando los métodos de la clase |
+| `cls_defalarmas.cpp` | Estado y evaluación de expresiones y alarmas |
+| `alarm_actions.cpp` / `alarm_history.cpp` | Ejecución de acciones y registro del histórico |
+| `conversiones.cpp` | Conversiones numéricas y helpers de valores heredados |
+| `modbus_conversions.cpp` / `text_conversions.cpp` | Conversiones Modbus heredadas y utilidades de texto |
+| `datetime_conversions.cpp` / `network_utils.cpp` | Fechas e interfaces/utilidades de red |
 | `modbus_transport.h` | Conexiones compartidas, exclusión por bus y recuperación |
 | `modbus_decode.h` | Conversión explícita de palabras a enteros y vistas legacy |
 | `sample_window.h` / `pending_batch.h` | Extremos adquiridos y confirmación de lotes |
@@ -46,6 +52,13 @@ en su orden original, incluido el logger; no se introduce un contexto de estado
 nuevo. La carga y unión de trabajadores sigue siendo responsabilidad exclusiva
 del coordinador. El mantenimiento conserva su detección de cambios y los mismos
 tiempos: separar archivos no crea trabajadores adicionales.
+
+La tercera etapa mantiene las mismas clases y la API de `conversiones.h`.
+`equipment_internal.h` declara el logger compartido de equipos, cuya única
+instancia permanece en `cls_equipos.cpp` junto a sus definiciones estáticas.
+El guard de publicación al monitor sigue privado del módulo de estado. No se
+unifican los lectores TCP/RTU ni se cambian los reintentos de acciones, los
+decodificadores o las reglas de formato numérico al separar implementaciones.
 
 Se mantienen los nombres del esquema existente, incluidos `html_id` y
 `html_final` como delimitadores RS232. HTML/S9 ya no forma parte del driver.

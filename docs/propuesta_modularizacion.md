@@ -1,7 +1,7 @@
 # Propuesta de separación de responsabilidades
 
-Estado: primera y segunda etapas implementadas. La tercera etapa permanece
-pendiente de selección y aprobación. No se cambia el esquema SQL, los
+Estado: las tres etapas de separación están implementadas. Los cambios
+funcionales adicionales requieren planificación y aprobación por separado. No se cambia el esquema SQL, los
 protocolos, las reglas de alarmas ni las opciones de configuración.
 
 ## Primera etapa: separación de loadconfig.cpp — implementada
@@ -48,17 +48,33 @@ las firmas de funciones de `globales.h` no cambian. La separación de estado o
 introducción de un contexto requiere una propuesta posterior: puede afectar
 inicialización, concurrencia y cierre.
 
-## Tercera etapa: equipos, conversiones y alarmas
+## Tercera etapa: equipos, conversiones y alarmas — implementada
 
-- `cls_equipos.cpp`: separar lectura TCP, lectura RTU y parsing RS232 de la
-  publicación de muestras y el estado de comunicación. Conservar inicialmente
-  los métodos públicos de la clase. No mezclar esta operación con una nueva
-  planificación concurrente ni con la unificación de todos los decodificadores.
-- `conversiones.cpp`: agrupar conversiones numéricas/texto, fechas e interfaces
-  de red en módulos propios. Mantener las alternativas Windows/Linux.
-- `cls_defalarmas.cpp`: separar evaluación de expresiones, ejecución de acciones
-  y persistencia del histórico. No cambiar los reintentos ni los resultados de
-  correo como efecto secundario del movimiento.
+| Archivo | Responsabilidad |
+| --- | --- |
+| `cls_equipos.cpp` | Construcción, estado, errores, publicación de muestras y logger/estáticos originales |
+| `equipment_tcp.cpp` | `cls_equipos::leer_mbtcp` |
+| `equipment_rtu.cpp` | `cls_equipos::leer_mbserial` |
+| `equipment_rs232.cpp` | `cls_equipos::leer_rs232`, parsing del buffer recibido |
+| `conversiones.cpp` | Conversiones numéricas y helpers de valores |
+| `modbus_conversions.cpp` | Conversiones heredadas de palabras Modbus a float |
+| `text_conversions.cpp` | Separación, normalización y tratamiento de cadenas |
+| `datetime_conversions.cpp` | Fechas y formatos de correo |
+| `network_utils.cpp` | Ejecución de comandos y utilidades de interfaces/red existentes |
+| `cls_defalarmas.cpp` | Constructor, resolución de tags y evaluación |
+| `alarm_actions.cpp` | Ejecución de CMD/EMAIL/SMS con la lógica existente |
+| `alarm_history.cpp` | Persistencia del histórico de alarmas |
+
+Se conservan las firmas públicas, cuerpos y literales de las 56 funciones
+involucradas, las alternativas de plataforma y el orden de inicialización de
+estáticos de equipos. `equipment_internal.h` comparte una única instancia del
+logger; no introduce estado nuevo. Los runners de estado y conversiones enlazan
+los módulos nuevos. La ubicación de archivo/línea en los diagnósticos cambia
+para reflejar el módulo que contiene ahora la función.
+
+Esta etapa no cambia escalamiento, precisión SQL, algoritmos de conversión,
+reintentos, destinatarios, políticas de borrado ni concurrencia por protocolo.
+Las bibliotecas incorporadas y los fixtures históricos no se modifican.
 
 ## Comprobaciones para cada movimiento
 

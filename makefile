@@ -24,8 +24,17 @@ SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenanc
        src/config_file.cpp src/device_catalog.cpp src/action_catalog.cpp \
        src/command_repository.cpp src/sql_repository.cpp src/replication.cpp \
        src/retention.cpp src/catalog_lifecycle.cpp src/repository_support.cpp \
-       src/ini.c src/INIReader.cpp src/cls_equipos.cpp src/conversiones.cpp \
-       src/cls_cmd.cpp src/cls_defalarmas.cpp src/enviarmail.cpp src/cls_email.cpp \
+       src/ini.c src/INIReader.cpp src/cls_equipos.cpp \
+       src/equipment_tcp.cpp \
+       src/equipment_rtu.cpp \
+       src/equipment_rs232.cpp src/conversiones.cpp \
+       src/modbus_conversions.cpp \
+       src/datetime_conversions.cpp \
+       src/text_conversions.cpp \
+       src/network_utils.cpp \
+       src/cls_cmd.cpp src/cls_defalarmas.cpp \
+       src/alarm_actions.cpp \
+       src/alarm_history.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql clean clean-objects dist

@@ -8,7 +8,8 @@ g++ -std=c++11 -Wall -Wextra -Werror -fsanitize=address,undefined \
   -Isrc/include tests/test_modbus_decode.cpp -o "$build_dir/decode"
 "$build_dir/decode"
 g++ -std=c++11 -fsanitize=address,undefined -Isrc/include \
-  tests/test_numeric_format.cpp src/conversiones.cpp -o "$build_dir/format"
+  tests/test_numeric_format.cpp src/conversiones.cpp src/modbus_conversions.cpp \
+  src/datetime_conversions.cpp src/text_conversions.cpp src/network_utils.cpp -o "$build_dir/format"
 "$build_dir/format"
 ```
 
