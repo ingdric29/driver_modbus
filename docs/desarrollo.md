@@ -1,5 +1,15 @@
 # Desarrollo
 
+El código propio usa C++11, cuatro espacios, finales de línea LF y el estilo
+de `.clang-format` (clang-format 19). No reformatear automáticamente las
+bibliotecas incorporadas INIReader/ini/rs232 ni los fixtures históricos de pruebas.
+Los mensajes operativos de consola usan español y las etiquetas `[ OK ]`,
+`[ ESTADO ]`, `[ AVISO ]` y `[ ERROR ]`. Los identificadores técnicos, campos de
+métricas y diagnósticos de las bibliotecas conservan sus nombres originales.
+
+La [propuesta de modularización](propuesta_modularizacion.md) está pendiente de
+aprobación; esta limpieza no mueve funciones entre módulos.
+
 Dependencias Debian: `build-essential`, `libmodbus-dev`, `libmysqlcppconn-dev`,
 `libcurl4-openssl-dev`, `libboost-filesystem-dev`, `libboost-system-dev`.
 
@@ -11,8 +21,8 @@ make test
 Los ejecutables nuevos son `bin/automonitorv1` y `bin/automonitorctl`
 ([monitor SSH](monitor.md), Python 3/curses). Objetos y dependencias quedan en
 `.build`; los ejecutables generados de `bin/` no se versionan.
-Los cambios de headers se detectan automáticamente. `make orquesta` construye
-el supervisor opcional en `bin/orquesta`; las pruebas no lo ejecutan.
+Los cambios de cabeceras se detectan automáticamente. Orquesta fue retirado;
+el driver se inicia directamente o mediante un servicio configurado aparte.
 
 Para ejecutar con una configuración autorizada, usar `bin` como directorio
 de trabajo: el programa busca configuración, plantillas y logs en su padre.
@@ -23,9 +33,9 @@ intermedios. No inicia servicios ni modifica configuración. Los scripts histór
 autoinicio se retiraron; migrar cualquier referencia externa antes de actualizar
 una instalación que los utilice.
 
-En el entorno cloud se usó `/workspace/driver-env/build.sh`, con bibliotecas
-Debian verificadas extraídas localmente. El makefile admite `INCLUDES`, `LIBS`,
-`CPPFLAGS`, `LDFLAGS`, `CXX`, `CXXFLAGS`, `BUILD_DIR` y `TARGET` para ese caso.
+Para bibliotecas fuera del sistema, el makefile admite `INCLUDES`, `LIBS`,
+`CPPFLAGS`, `LDFLAGS`, `CXX`, `CXXFLAGS`, `BUILD_DIR`, `BIN_DIR` y `TARGET`.
+Las rutas de dependencias son propias de cada entorno y no se incluyen en Git.
 Los repositorios cloud ya están aislados; trabajar sobre el checkout existente
 sin crear worktrees salvo petición explícita.
 

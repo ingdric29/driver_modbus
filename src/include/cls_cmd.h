@@ -14,40 +14,36 @@
 
 using namespace std;
 
-
 class cls_cmd {
-public:
-	//propiedades
+  public:
+    //propiedades
 
-	int id;
-	string nombre; //nombre
-	string direccion_ip;
-	int puerto;
-	int direccion_esclavo;
-	string interface1;
-	int velocidad;
-	string paridad;
-	int bitsparada;
-	string equipo;
-	string usuario;
-	string password;
-	bool habilitar;
-	string protocolo;
+    int id;
+    string nombre; //nombre
+    string direccion_ip;
+    int puerto;
+    int direccion_esclavo;
+    string interface1;
+    int velocidad;
+    string paridad;
+    int bitsparada;
+    string equipo;
+    string usuario;
+    string password;
+    bool habilitar;
+    string protocolo;
 
-	int registro;
-	int clsvalor;
-	string datetime;
-	bool hab_ejecutar;
-	string lote;
+    int registro;
+    int clsvalor;
+    string datetime;
+    bool hab_ejecutar;
+    string lote;
 
-	// metodos
+    // metodos
 
-	int ejecutar(void);
-	int cmdescribir_serial(void);
-	int cmdescribir_tcp(void);
-
+    int ejecutar(void);
+    int cmdescribir_serial(void);
+    int cmdescribir_tcp(void);
 };
-
-
 
 #endif

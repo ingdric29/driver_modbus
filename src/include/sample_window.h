@@ -17,22 +17,36 @@ struct SampleValue {
 class SampleWindow {
     bool populated_ = false;
     SampleValue first_, minimum_, maximum_, last_;
-public:
-    void observe(const SampleValue& sample) {
-        if (!std::isfinite(sample.value)) return;
-        if (!populated_) { first_ = minimum_ = maximum_ = sample; populated_ = true; }
-        if (sample.value < minimum_.value) minimum_ = sample;
-        if (sample.value > maximum_.value) maximum_ = sample;
+
+  public:
+    void observe(const SampleValue &sample) {
+        if (!std::isfinite(sample.value))
+            return;
+        if (!populated_) {
+            first_ = minimum_ = maximum_ = sample;
+            populated_ = true;
+        }
+        if (sample.value < minimum_.value)
+            minimum_ = sample;
+        if (sample.value > maximum_.value)
+            maximum_ = sample;
         last_ = sample;
     }
     bool empty() const { return !populated_; }
     std::vector<SampleValue> samples(bool preserve_peaks) const {
-        if (!populated_) return {};
+        if (!populated_)
+            return {};
         std::vector<SampleValue> values = preserve_peaks
-            ? std::vector<SampleValue>{minimum_, maximum_, last_}
-            : std::vector<SampleValue>{last_};
-        std::sort(values.begin(), values.end(), [](const SampleValue& a, const SampleValue& b) { return a.sequence < b.sequence; });
-        values.erase(std::unique(values.begin(), values.end(), [](const SampleValue& a, const SampleValue& b) { return a.sequence == b.sequence; }), values.end());
+                                              ? std::vector<SampleValue>{minimum_, maximum_, last_}
+                                              : std::vector<SampleValue>{last_};
+        std::sort(values.begin(), values.end(), [](const SampleValue &a, const SampleValue &b) {
+            return a.sequence < b.sequence;
+        });
+        values.erase(std::unique(values.begin(), values.end(),
+                                 [](const SampleValue &a, const SampleValue &b) {
+                                     return a.sequence == b.sequence;
+                                 }),
+                     values.end());
         return values;
     }
     void clear() { populated_ = false; }

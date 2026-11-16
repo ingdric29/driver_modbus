@@ -10,7 +10,7 @@ la adquisición. Pueden conectarse varios visores con el mismo usuario Linux.
 Desde `~/driver_modbus`:
 
 ```bash
-git pull origin mejoras-driver-pasos-1-2
+git pull --ff-only origin automonitor-modbus-driver-V1.2.0-pruebas
 make -j2
 ```
 
@@ -24,7 +24,7 @@ mecanismo habitual (SIGINT/SIGTERM), esperar su cierre y arrancar **una sola**
 instancia con la configuración habitual. Por ejemplo, en la primera sesión SSH:
 
 ```bash
-cd ~/driver_modbus/.build
+cd ~/driver_modbus/bin
 ./automonitorv1
 ```
 
@@ -35,7 +35,7 @@ cd ~/driver_modbus
 ./bin/automonitorctl
 ```
 
-El driver puede seguir ejecutándose con el servicio/supervisor que ya utilices.
+El driver puede seguir ejecutándose con el servicio que ya utilices.
 Ese servicio debe apuntar al binario actualizado y conservar el directorio de
 trabajo habitual (`bin`, cuyo padre contiene `configdb.cfg`). Los
 scripts históricos del repositorio no se modifican ni se ejecutan automáticamente.

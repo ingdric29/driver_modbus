@@ -6,6 +6,10 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Retirado Orquesta y su objetivo de compilación; arranque directo del driver.
+- Documentación de rama/rutas actualizada, trazas comentadas y operaciones sin
+  efecto retiradas, formato del código propio y mensajes operativos uniformados.
+- Propuesta documental para separar módulos; implementación pendiente de aprobación.
 - Ejecutables y herramientas generados en `bin/`, con objetos en `.build`;
   retirados los binarios históricos versionados.
 - `make dist` crea una distribución sin fuentes ni configuración privada.

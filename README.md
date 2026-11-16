@@ -33,7 +33,7 @@ si un comando falla, detenerse y revisar su salida antes de continuar.
 
 En una instalación existente, detener primero la instancia del driver mediante
 su mecanismo habitual. Si está en primer plano, usar Ctrl+C. Detener también el
-supervisor o servicio de autoinicio para que no vuelva a lanzarlo durante las
+servicio de autoinicio para que no vuelva a lanzarlo durante las
 pruebas. No iniciar una segunda instancia sobre los mismos equipos.
 
 Respaldar la configuración local antes de actualizar:
@@ -149,9 +149,8 @@ No provocar cambios peligrosos en el proceso industrial para probar alarmas.
 Detener la instancia de prueba con Ctrl+C antes de reactivar el servicio habitual.
 Configurar su ejecutable como `~/driver_modbus/bin/automonitorv1` y su directorio
 de trabajo como `~/driver_modbus/bin` (usar rutas absolutas expandidas en la
-configuración del servicio). Los scripts históricos que apuntan a `bin` ejecutan
-el binario antiguo. No se instala ni habilita automáticamente un servicio con
-estos comandos; adaptar el supervisor existente y comprobar que solo haya una
+configuración del servicio). No se instala ni habilita automáticamente un servicio con
+estos comandos; adaptar el servicio existente y comprobar que solo haya una
 instancia del driver.
 
 ## Requisitos y dependencias
@@ -195,12 +194,10 @@ En la rama mejorada, desde la raíz del repositorio:
 
 ```bash
 make -j2
-# Supervisor opcional:
-make orquesta
 ```
 
 Se generan `bin/automonitorv1`, `bin/automonitorctl` y
-`bin/automonitor-mailcheck`; el supervisor se genera en `bin/orquesta`.
+`bin/automonitor-mailcheck`. El supervisor Orquesta fue retirado.
 Los binarios generados no se versionan. La compilación detecta cambios de
 cabeceras. Para reconstruir desde las fuentes:
 
@@ -468,7 +465,7 @@ Después de `make test`, ejecutar `make dist`. Se crea una carpeta nueva bajo
 `dist/` con `bin/` (driver, visor, diagnóstico y metadatos de versión), `html/`
 y `LEEME.txt`. No contiene fuentes C++, tests, objetos, Git ni configuración
 privada. Las herramientas Python y `version.h` son dependencias de ejecución.
-El supervisor opcional no se incluye ni se arranca automáticamente.
+La distribucion no incluye un supervisor ni configura arranque automatico.
 
 Copiar el `configdb.cfg` autorizado a la raíz de esa distribución y protegerlo
 con `chmod 600`. Ejecutar el driver desde su `bin/`. Usar la distribución en

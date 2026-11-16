@@ -13,11 +13,12 @@ class Server {
     std::thread thread_;
     void serve();
     void cleanup() noexcept;
-public:
-    explicit Server(const std::string& directory);
+
+  public:
+    explicit Server(const std::string &directory);
     ~Server();
-    Server(const Server&) = delete;
-    Server& operator=(const Server&) = delete;
+    Server(const Server &) = delete;
+    Server &operator=(const Server &) = delete;
 };
-}
+} // namespace monitor
 #endif

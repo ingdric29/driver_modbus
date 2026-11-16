@@ -22,7 +22,7 @@ SRCS = src/main.cpp src/acquisition.cpp src/persistence.cpp src/loadconfig.cpp \
        src/cls_cmd.cpp src/cls_defalarmas.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
-.PHONY: all test test-sql orquesta clean clean-objects dist
+.PHONY: all test test-sql clean clean-objects dist
 all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
 $(BIN_DIR)/automonitorctl: tools/automonitorctl.py src/include/version.h
 	@mkdir -p $(@D)
@@ -42,10 +42,6 @@ $(BUILD_DIR)/%.o: %.cpp
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
-orquesta: $(BIN_DIR)/orquesta
-$(BIN_DIR)/orquesta: src/orquesta.cpp src/cls_logger.cpp
-	@mkdir -p $(@D)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) -lboost_filesystem -lboost_system -o $@
 test: all
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh

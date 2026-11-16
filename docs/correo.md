@@ -89,13 +89,13 @@ cuerpos de mensajes en la consola del driver.
 
 ```bash
 cd ~/driver_modbus
-git pull origin mejoras-driver-pasos-1-2
+git pull --ff-only origin automonitor-modbus-driver-V1.2.0-pruebas
 make -j2
 ```
 
 Comprobar la URL SMTP de la configuración local si se editó manualmente.
 Detener la instancia existente con SIGINT/SIGTERM y arrancar una sola instancia
-actualizada desde `.build`. No ejecutar el binario nuevo encima del existente.
+actualizada desde `bin`. No ejecutar el binario nuevo encima del existente.
 
 El log mantiene alarma, dispositivo, directorio, resultado cURL/SMTP y tiempos.
 El modo `EMISOR_ORIGINAL limites=libcurl_original` identifica esta restauración.
