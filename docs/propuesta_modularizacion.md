@@ -1,33 +1,30 @@
 # Propuesta de separación de responsabilidades
 
-Estado: propuesta pendiente de selección y aprobación. No se han movido
-funciones como parte de esta limpieza. No propone cambiar el esquema SQL,
-los protocolos, las reglas de alarmas ni las opciones de configuración.
+Estado: primera etapa implementada. Las etapas segunda y tercera permanecen
+pendientes de selección y aprobación. No se cambia el esquema SQL, los
+protocolos, las reglas de alarmas ni las opciones de configuración.
 
-## Primera etapa: separar loadconfig.cpp
+## Primera etapa: separación de loadconfig.cpp — implementada
 
-Es el archivo con más responsabilidades mezcladas. Empezaría por él, en cambios
-pequeños que muevan funciones manteniendo sus nombres y contratos actuales.
+El archivo se sustituyó por estos módulos, conservando nombres, parámetros,
+retornos, bloqueos, consultas SQL y lógica de las funciones trasladadas:
 
-| Archivo propuesto | Responsabilidad y funciones actuales |
+| Archivo | Responsabilidad |
 | --- | --- |
-| `config_file.cpp` | Lectura y validación del CFG: `loadconfigdb` |
-| `device_catalog.cpp` | Catálogo de equipos: `actualizar_leer_equipo` y asociación de estado compartido |
-| `action_catalog.cpp` | Carga de alarmas, directorio, SMS y eventos: `actualizar_defalarmas`, `actualizar_directorio`, `actualizar_smslist`, `actualizar_defeventos` |
-| `command_repository.cpp` | Consulta de solicitudes, carga de comandos y confirmación: `leer_tbejecutar`, `leer_tbcmd`, `escribir_tbcmd_fechahora` |
-| `sql_repository.cpp` | Wrappers de inserción, búsqueda y actualización de campos |
-| `replication.cpp` | `sincronizar_tablas` y `replicaciontablaselectiva` |
-| `retention.cpp` | `borrar_registros`, sin alterar todavía su política de borrado |
+| `config_file.cpp` | Lectura, validación y resumen CFG: `loadconfigdb` |
+| `device_catalog.cpp` | Catálogo de equipos: `actualizar_leer_equipo` y estado compartido |
+| `action_catalog.cpp` | Alarmas, directorio, SMS y eventos |
+| `command_repository.cpp` | Solicitudes, carga y confirmación de comandos |
+| `sql_repository.cpp` | Inserciones, búsquedas y actualizaciones; helpers particulares privados |
+| `replication.cpp` | Sincronización y replicación selectiva |
+| `retention.cpp` | Borrado histórico con su política existente |
+| `catalog_lifecycle.cpp` | `lee_tbcambios` y `liberarmemoria` |
+| `repository_support.cpp` | Acceso, errores SQL y una única instancia del logger |
 
-Los helpers del espacio anónimo de `loadconfig.cpp` se revisarían antes de
-moverlos: los que sean compartidos necesitan una interfaz interna explícita;
-los particulares deben permanecer privados del módulo que los utiliza.
-`sql_session.h` seguiría gestionando conexiones/transacciones, sin duplicar
-esa función en los repositorios nuevos.
-
-No movería todo en un único cambio: primero configuración, después comandos,
-luego replicación/retención y finalmente catálogos y helpers SQL. Revisaría en
-cada paso que no cambien los vínculos entre tablas y objetos ni el ciclo de vida.
+`repository_support.h` declara los helpers compartidos bajo `repository_detail`.
+Las conexiones y transacciones siguen gestionadas por `sql_session.h`.
+El makefile y el runner de estado enlazan los módulos nuevos. Las referencias
+de archivo/línea de los diagnósticos reflejan ahora su ubicación real.
 
 ## Segunda etapa: adelgazar main.cpp
 
