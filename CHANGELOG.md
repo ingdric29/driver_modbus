@@ -6,6 +6,8 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Sin publicar — rama de pruebas
 
+- Barra de progreso por ocho etapas en `install.sh`; avanza solo tras éxito,
+  conserva la salida de los comandos y el código de error original.
 - Encabezados descriptivos en código propio, herramientas, instalador y pruebas;
   contratos de parámetros, retornos y efectos en funciones de implementación.
 - Retirados nombres personales de los encabezados propios. Licencias de terceros

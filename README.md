@@ -249,6 +249,11 @@ Para instalar o actualizar las dependencias, compilar y ejecutar las pruebas:
 bash install.sh
 ```
 
+El instalador muestra una barra de ocho etapas completadas, de 0 a 100%.
+El porcentaje no estima el tiempo restante: compilación y pruebas pueden tardar
+más que otros pasos. Los mensajes de los comandos permanecen visibles y, ante
+un error, se detiene sin marcar la etapa como completada.
+
 Ejecutar como usuario normal desde una instalación Debian/Raspberry Pi OS.
 El instalador solicita `sudo` para `apt-get update` y la instalación de paquetes;
 compila con dos trabajos y ejecuta `make test` como el usuario actual. No hace
