@@ -9,6 +9,7 @@
 #include "include/driver_services.h"
 #include "include/conversiones.h"
 #include "include/version.h"
+#include "include/local_acquisition.h"
 #include "include/modbus_transport.h"
 #include "include/runtime_control.h"
 #include "include/monitor_state.h"
@@ -156,6 +157,15 @@ std::recursive_mutex GLOBAL_output_mutex;
  */
 int main(int argc, char *argv[]) {
     install_driver_signals();
+
+    if (argc > 1 && (std::string(argv[1]) == "--local-config" ||
+                     std::string(argv[1]) == "--check-local-config")) {
+        if (argc != 3) {
+            std::cerr << "Uso: automonitorv1 --local-config archivo.ini\n";
+            return EXIT_FAILURE;
+        }
+        return local_driver::run(argv[2], std::string(argv[1]) == "--check-local-config");
+    }
 
     if (argc > 1 && std::string(argv[1]) == "--version") {
         cout << "Automonitor Driver " << AUTOMONITOR_VERSION << " | commit " << AUTOMONITOR_COMMIT

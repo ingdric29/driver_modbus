@@ -41,7 +41,7 @@ SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenanc
        src/alarm_actions.cpp \
        src/alarm_history.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp \
-       $(SNAP7_WRAPPER) src/s7_transport.cpp
+       $(SNAP7_WRAPPER) src/s7_transport.cpp src/local_config.cpp src/local_acquisition.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql clean clean-objects dist
 all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
@@ -73,7 +73,7 @@ $(BUILD_DIR)/%.o: %.cpp
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
-test: all test-snap7
+test: all test-snap7 test-local
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_email_test.sh
@@ -91,9 +91,16 @@ test-snap7: all $(BUILD_DIR)/tests/test_snap7_dependency $(BUILD_DIR)/tests/test
 	python3 tests/test_snap7_distribution.py "$(abspath $(BIN_DIR))"
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
+.PHONY: test-local
+$(BUILD_DIR)/tests/local_fixture: tests/local_fixture.cpp tests/s7_fixture.h $(BUILD_DIR)/$(SNAP7_WRAPPER:.cpp=.o) $(SNAP7_LIBRARY)
+	@mkdir -p $(@D)
+	$(CXX) -std=c++11 -pthread $(CPPFLAGS) tests/local_fixture.cpp $(BUILD_DIR)/$(SNAP7_WRAPPER:.cpp=.o) $(SNAP7_LIBRARY) $(LIBS) -lmodbus -Wl,-rpath,$(abspath $(BIN_DIR)/lib) -o $@
+test-local: all $(BUILD_DIR)/tests/local_fixture
+	python3 tests/test_local_acquisition.py "$(abspath $(TARGET))" "$(abspath $(BUILD_DIR)/tests/local_fixture)"
 clean-objects:
 	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(SNAP7_OBJECTS) $(SNAP7_OBJECTS:.o=.d) $(BUILD_DIR)/tests/test_snap7_dependency
 	rm -f $(BUILD_DIR)/tests/test_s7_transport
+	rm -f $(BUILD_DIR)/tests/local_fixture
 clean: clean-objects
 	rm -f $(TARGET) $(SNAP7_LIBRARY) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
 dist: all

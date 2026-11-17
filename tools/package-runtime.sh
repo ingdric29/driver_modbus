@@ -29,6 +29,7 @@ done
 # The Python monitor reads this file for its version identification.
 install -m 644 "$bin_dir/version.h" "$output/bin/version.h"
 install -m 644 html/plantilla_emails.html html/logo_automonitor.png "$output/html/"
+install -m 644 examples/local-acquisition.ini "$output/local-acquisition.example.ini"
 cat > "$output/LEEME.txt" <<'EOF'
 AUTOMONITOR - distribucion Linux
 

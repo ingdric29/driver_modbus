@@ -28,9 +28,9 @@ No ejecutar pruebas SQL de integración sobre producción.
 
 ## Ramas y alcance
 
-La incorporación Siemens S7 está en la etapa de dependencia y compilación:
-[estado y pruebas](docs/siemens_s7.md). Snap7 se incluye en la distribución;
-la adquisición S7 todavía no está implementada.
+La incorporación Siemens S7 permite adquisición local de DB sin SQL:
+[configuración, estado y pruebas](docs/siemens_s7.md). Snap7 se incluye en la
+distribución; el catálogo SQL de Siemens sigue fuera de este alcance.
 
 | Rama | Uso y diferencias |
 |---|---|

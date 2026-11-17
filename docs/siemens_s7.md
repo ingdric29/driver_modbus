@@ -1,8 +1,8 @@
 # Integración Siemens S7: dependencia y compilación
 
-Estado: etapas 2 y 3. Hay parser/decodificador DB y transporte de solo lectura,
-con pruebas locales. La adquisición del driver y su configuración están pendientes.
-No se añadieron escrituras ni reglas SQL. El alcance completo está en
+Estado: etapa 4. Hay adquisición local de DB S7 y MBTCP con el mismo ejecutable,
+monitor y gestión de trabajadores, sin SQL. No se añadieron escrituras ni reglas SQL.
+El alcance completo está en
 [acuerdos](acuerdos_siemens_s7.md).
 
 ## Dependencia reproducible
@@ -48,6 +48,46 @@ la receta cloud concreta está en el [informe de etapa 0](etapas/00_linea_base.m
 `make test` incluye estas verificaciones y la regresión existente sin SQL.
 `make clean` elimina también los objetos/biblioteca/prueba de Snap7 generados.
 No se deben ejecutar formateadores sobre `third_party/snap7`.
+
+## Configuración y adquisición local (sin SQL)
+
+Copiar `examples/local-acquisition.ini` a una ubicación local y ajustar destinos
+y mapas autorizados. El ejemplo usa loopback, no la IP de un equipo productivo.
+
+```bash
+cd bin
+./automonitorv1 --check-local-config /ruta/local.ini
+./automonitorv1 --local-config /ruta/local.ini
+# En otra terminal, desde la raíz de esa instalación:
+./bin/automonitorctl --once
+```
+
+No se lee configdb.cfg en este modo y no hay conexiones ni persistencia SQL.
+El arranque sin estas opciones conserva el flujo normal del driver. Un único
+driver posee el socket y lock de `.runtime` de la instalación; el monitor
+consulta ese mismo proceso, sin iniciar otra adquisición.
+
+INIReader existente carga secciones `device:nombre` y `tag:dispositivo:nombre`.
+Los nombres admiten minúsculas ASCII, números, `_` y `-`, hasta 30 caracteres.
+Campos de dispositivo: protocol (SIEMENS_S7 o MBTCP), host IPv4 numérica, port,
+rack, slot, timeout_ms, slave y enabled (0/1). Defaults: S7 puerto 102, rack 0,
+slot 1, timeout 1000 ms; MBTCP puerto 502/esclavo 1. Campos de tag: address,
+type, period (segundos, mínimo 0.02), scale multiplicativo y unit. Para MBTCP
+local: types word/word_signed y function hr/rr; la configuración SQL normal
+conserva todos sus tipos y protocolos anteriores.
+
+Se valida el catálogo completo antes de conectar: campos desconocidos, destinos
+duplicados, referencias ausentes y tipos/rangos inválidos provocan error explícito.
+Límites: 256 KiB por archivo, 64 dispositivos y 2048 tags. Los deshabilitados
+no conectan. Un trabajador por PLC S7 aísla bloqueos y fallos; Modbus mantiene
+un trabajador de protocolo para conservar sus buffers estáticos heredados.
+No se cambia la precisión histórica de Modbus; S7 decodifica y publica double
+sin pasar por campos float heredados. Fallos conservan el último valor válido
+con calidad ERROR/REINTENTANDO, nunca como una muestra nueva.
+
+`make test-local` ejecuta el driver real con dos servidores Snap7 y uno Modbus
+en loopback, verifica los ocho tipos, escalamiento, aislamiento ante caída,
+recuperación y apagado. Se incluye en `make test`.
 
 ## Distribución
 
