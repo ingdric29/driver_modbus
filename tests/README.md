@@ -180,3 +180,13 @@ el usuario y la clave ficticios del INI, y comprueba seis mensajes aceptados
 sin duplicados. Esto cubre configuración, SQL/directorio, evaluación de alarmas,
 preparación y envío con libcurl en el mismo proceso, sin credenciales reales
 ni servidores externos. Usa la base reservada `driver_email_fixture`.
+
+## SQL mixto Siemens/Modbus aislado
+
+`make test-s7-sql` crea su propio servidor MariaDB temporal y puerto loopback,
+usa el driver real y no consulta credenciales ni la base del usuario. Requiere
+mariadb-install-db, mariadbd y mariadb. `S7_TEST_SYSROOT` apunta al prefijo con
+bin/ y sbin/ (por defecto /usr; en cloud usar sysroot/usr tras activate.sh).
+Comprueba persistencia simultánea, rastro, DWORD, solocambios/registrable,
+rollback y recuperación de fallo SQL, caída del PLC y cierre. Es independiente
+de la instancia fija utilizada por el antiguo make test-sql.

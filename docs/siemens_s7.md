@@ -131,3 +131,16 @@ Las demás bibliotecas del sistema siguen siendo requisitos externos.
 Se validó Linux x86_64. La compilación y adquisición integrada en Raspberry Pi
 5 ARM64 con el S7-1200 están pendientes de la etapa 6; las pruebas físicas
 previas del usuario corresponden a los ensayos independientes adjuntos.
+
+## Persistencia SQL en el arranque habitual
+
+La integración SQL ya está disponible; reemplaza la limitación histórica de
+etapas 0–5. Arrancar sin `--local-config` usa configdb.cfg y carga también S7
+habilitados del concentrador configurado. Se requieren `tbdispositivos.rack`,
+`slot` y `tbregistros.direccion_siemens`; tipos exclusivamente `s7_*`.
+No se modifica ni depende de agregar esas columnas a qrytablacom.
+
+El [informe SQL](etapas/07_sql_siemens.md) describe rastro, instantáneos,
+histórico, transacciones, reintentos y límites de RAM. `make test-s7-sql`
+es opt-in y usa un servidor temporal aislado, sin esquema del usuario.
+La persistencia física en Raspberry debe comprobarse antes de declararla validada.

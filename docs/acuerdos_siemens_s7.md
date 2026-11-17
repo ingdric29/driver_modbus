@@ -89,3 +89,13 @@ La etapa 0 se validó sin SQL y publicó en el commit `ed0e573aba568a8327f53d123
 ## Avance posterior: etapas 2 a 5
 
 Se validaron direcciones/tipos, transporte, adquisición local y operación/agrupación. Informes: [2](etapas/02_direcciones_tipos.md), [3](etapas/03_transporte_s7.md), [4](etapas/04_adquisicion_local.md) y [5](etapas/05_operacion_agrupacion.md). El ejecutable admite configuración local sin SQL para S7 y MBTCP, monitor, agrupación y recarga. No se incorporó Siemens al catálogo SQL. La etapa 6 está pendiente de comprobar esta integración en Raspberry y PLC real; el usuario dispone de los equipos y una sesión SSH. La [guía física](validacion_raspberry_s7.md) establece qué evidencia recoger para cerrar dicha etapa.
+
+## Ampliación autorizada: persistencia SQL Siemens
+
+Tras la lectura física confirmada por el usuario, se autorizó incorporar
+catálogo y escritura SQL con Modbus y Siemens simultáneos. Se confirmaron las
+interpretaciones s7_*, direccion_siemens y el agregado por el usuario de rack/slot
+en tbdispositivos, con respaldo previo a esas columnas. El [informe SQL](etapas/07_sql_siemens.md)
+documenta la implementación y pruebas aisladas; la comprobación física de
+persistencia en la base del usuario sigue pendiente. El modo local sin SQL se
+conserva, al igual que los protocolos e interpretaciones Modbus existentes.

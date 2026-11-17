@@ -16,7 +16,7 @@ snap7_lib_dir="${SNAP7_LIB_DIR:-$PWD/bin/lib}"
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" -Dmain=driver_entry -c src/main.cpp -o "$test_dir/main.o"
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" tests/test_driver_state.cpp "$test_dir/main.o" \
   src/driver_runtime.cpp src/command_worker.cpp src/maintenance_worker.cpp \
-  src/local_config.cpp src/local_acquisition.cpp src/s7_transport.cpp third_party/snap7/release/wrappers/c-cpp/snap7.cpp \
+  src/local_config.cpp src/local_acquisition.cpp src/s7_sql.cpp src/s7_transport.cpp third_party/snap7/release/wrappers/c-cpp/snap7.cpp \
   src/serial_worker.cpp src/event_worker.cpp src/alarm_worker.cpp \
   src/catalog_lookup.cpp src/runtime_support.cpp \
   src/acquisition.cpp src/persistence.cpp src/config_file.cpp src/device_catalog.cpp src/action_catalog.cpp \

@@ -41,7 +41,7 @@ SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenanc
        src/alarm_actions.cpp \
        src/alarm_history.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp \
-       $(SNAP7_WRAPPER) src/s7_transport.cpp src/local_config.cpp src/local_acquisition.cpp
+       $(SNAP7_WRAPPER) src/s7_transport.cpp src/local_config.cpp src/local_acquisition.cpp src/s7_sql.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql clean clean-objects dist
 all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
@@ -106,3 +106,7 @@ clean: clean-objects
 dist: all
 	bash tools/package-runtime.sh "$(BIN_DIR)" "$(DIST_DIR)"
 -include $(OBJECTS:.o=.d) $(SNAP7_OBJECTS:.o=.d)
+
+.PHONY: test-s7-sql
+test-s7-sql: all $(BUILD_DIR)/tests/local_fixture
+	python3 tests/test_s7_sql.py "$(abspath $(TARGET))" "$(abspath $(BUILD_DIR)/tests/local_fixture)"

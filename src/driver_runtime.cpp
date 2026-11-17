@@ -13,6 +13,7 @@
 #include <ctime>
 #include <iostream>
 #include "include/worker_group.h"
+#include "include/s7_sql.h"
 #include "include/modbus_transport.h"
 #include "include/driver_metrics.h"
 #include "include/monitor_state.h"
@@ -50,6 +51,7 @@ int muestrear(void) {
         actualizar_valor_condicion(&stdblocal, "tbdispositivos_sta", "estado", "0", "`id`>'0'");
         monitor::State::instance().phase("EJECUTANDO");
         WorkerGroup workers(GLOBAL_EJECUTARHILOS);
+        local_driver::start_sql_s7(workers);
         workers.start(ordenlecturaconfiguracionciclico);
         workers.start(ordenejecucionciclico);
         workers.start(ordenlecturaequiposciclico, equipo_mbtcp, GLOBAL_contador_equipos_mbtcp);

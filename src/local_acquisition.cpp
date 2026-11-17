@@ -1,11 +1,12 @@
 /*
  * Archivo: local_acquisition.cpp
- * Descripción: Integra adquisición S7 y lector MBTCP existente sin iniciar SQL.
+ * Descripción: Comparte adquisición S7 entre modo local y catálogo SQL; reutiliza MBTCP.
  * Necesita: Configuración local validada; señales, WorkerGroup, monitor y plazos existentes.
  * Retornos: Código de proceso; publica muestras válidas y calidad de errores en el monitor.
  */
 #include "include/local_acquisition.h"
 #include "include/s7_batch.h"
+#include "include/s7_sql.h"
 #include <csignal>
 #include "include/worker_group.h"
 #include "include/runtime_control.h"
@@ -27,6 +28,7 @@ struct TagState {
     SampleWindow samples;
     std::unique_ptr<cls_equipos> modbus;
     int timeout_ms = 1000;
+    std::shared_ptr<SqlSample> sql_sample;
 };
 std::atomic<bool> reload_requested{false};
 void reload_signal(int) { reload_requested.store(true, std::memory_order_relaxed); }
@@ -35,6 +37,7 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
     int rc = result.kind == s7::ErrorKind::Retry ? -3 : -1;
     std::string text, diagnostic;
     time_t acquired = 0;
+    SampleValue accepted;
     if (result.ok()) {
         try {
             if (offset > result.bytes.size())
@@ -52,6 +55,7 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
             sample.text = text;
             sample.acquired = acquired;
             tag.samples.observe(sample);
+            accepted = sample;
             rc = 1;
         } catch (const std::invalid_argument &error) {
             diagnostic = error.what();
@@ -59,6 +63,12 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
     } else if (result.kind != s7::ErrorKind::Retry) {
         diagnostic =
             "Snap7 rc=" + std::to_string(result.error) + ": " + s7::error_text(result.error);
+    }
+    if (tag.sql_sample) {
+        std::lock_guard<std::mutex> lock(tag.sql_sample->mutex);
+        tag.sql_sample->valid = rc > 0;
+        if (rc > 0)
+            tag.sql_sample->latest = accepted;
     }
     auto &state = monitor::State::instance();
     if (result.kind != s7::ErrorKind::Retry)
@@ -132,6 +142,35 @@ void acquire(const Device &device, std::vector<std::shared_ptr<TagState>> tags) 
     }
 }
 } // namespace
+void start_sql_s7(WorkerGroup &workers) {
+    auto catalog = load_sql_s7();
+    auto &state = monitor::State::instance();
+    for (const auto &device : catalog.config.devices) {
+        std::vector<std::shared_ptr<TagState>> tags;
+        for (const auto &entry : catalog.tags) {
+            if (entry.device != device.name)
+                continue;
+            auto tag = std::make_shared<TagState>();
+            tag->config = entry.tag;
+            tag->sql_sample = entry.sample;
+            monitor::Tag info;
+            info.device = device.name;
+            info.device_key = "s7:" + std::to_string(entry.device_id);
+            info.protocol = "SIEMENS_S7";
+            info.endpoint = device.endpoint.host + ":" + std::to_string(device.endpoint.port);
+            info.source_address = entry.tag.address_text;
+            info.name = entry.tag.name;
+            info.period = entry.tag.period;
+            info.unit = entry.tag.unit;
+            info.address = entry.tag.address.byte;
+            tag->key = state.add_tag(info);
+            tags.push_back(tag);
+        }
+        workers.start(acquire, device, tags);
+    }
+    if (!catalog.tags.empty())
+        workers.start(write_sql_s7, catalog.tags);
+}
 int run(const std::string &path, bool check_only) {
     try {
         auto config = load(path);
