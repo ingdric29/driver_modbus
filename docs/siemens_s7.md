@@ -1,8 +1,8 @@
 # Integración Siemens S7: dependencia y compilación
 
-Estado: etapa 1. Snap7 está integrado en compilación y distribución; el driver
-todavía no adquiere datos S7. No se añadieron direcciones, configuración de PLC,
-escrituras, comandos nuevos ni reglas SQL. El alcance completo está en
+Estado: etapas 2 y 3. Hay parser/decodificador DB y transporte de solo lectura,
+con pruebas locales. La adquisición del driver y su configuración están pendientes.
+No se añadieron escrituras ni reglas SQL. El alcance completo está en
 [acuerdos](acuerdos_siemens_s7.md).
 
 ## Dependencia reproducible

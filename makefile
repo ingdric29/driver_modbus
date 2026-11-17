@@ -41,7 +41,7 @@ SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenanc
        src/alarm_actions.cpp \
        src/alarm_history.cpp src/enviarmail.cpp src/cls_email.cpp \
        src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp \
-       $(SNAP7_WRAPPER)
+       $(SNAP7_WRAPPER) src/s7_transport.cpp
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql clean clean-objects dist
 all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
@@ -81,14 +81,19 @@ test: all test-snap7
 	python3 tests/test_monitor_client.py
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
 .PHONY: test-snap7
-test-snap7: all $(BUILD_DIR)/tests/test_snap7_dependency
+$(BUILD_DIR)/tests/test_s7_transport: tests/test_s7_transport.cpp tests/s7_fixture.h src/s7_transport.cpp src/include/s7_transport.h src/include/retry_backoff.h $(BUILD_DIR)/$(SNAP7_WRAPPER:.cpp=.o) $(SNAP7_LIBRARY)
+	@mkdir -p $(@D)
+	$(CXX) -std=c++11 -pthread -Wall -Wextra -Werror -Isrc/include tests/test_s7_transport.cpp src/s7_transport.cpp $(BUILD_DIR)/$(SNAP7_WRAPPER:.cpp=.o) $(SNAP7_LIBRARY) -Wl,-rpath,$(abspath $(BIN_DIR)/lib) -o $@
+test-snap7: all $(BUILD_DIR)/tests/test_snap7_dependency $(BUILD_DIR)/tests/test_s7_transport
 	python3 tests/test_snap7_sources.py
 	timeout 10 $(BUILD_DIR)/tests/test_snap7_dependency
+	timeout 15 $(BUILD_DIR)/tests/test_s7_transport
 	python3 tests/test_snap7_distribution.py "$(abspath $(BIN_DIR))"
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
 clean-objects:
 	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(SNAP7_OBJECTS) $(SNAP7_OBJECTS:.o=.d) $(BUILD_DIR)/tests/test_snap7_dependency
+	rm -f $(BUILD_DIR)/tests/test_s7_transport
 clean: clean-objects
 	rm -f $(TARGET) $(SNAP7_LIBRARY) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
 dist: all
