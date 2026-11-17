@@ -70,6 +70,9 @@ periodo_muestreo_tbcambios=1
         prefix='USE driver_s7_fixture; '
         until(lambda: sql(prefix+"SELECT COUNT(DISTINCT dispositivo) FROM tbvalores")=='2')
         until(lambda: sql(prefix+"SELECT COUNT(*) FROM tbinstantaneos WHERE dispositivo=52")=='3')
+        startup=(base/'driver.log').read_text()
+        assert any(line.split()==['Tags','Siemens','S7','3'] for line in startup.splitlines()), startup
+        assert any(line.split()==['PLC','Siemens','S7','1'] for line in startup.splitlines()), startup
         assert sql(prefix+"SELECT valorfloat FROM tbinstantaneos WHERE dispositivo=52 AND tag='dword'")=='4294967295'
         assert sql(prefix+"SELECT COUNT(*) FROM tbvalores WHERE dispositivo=52 AND tag='bool'")=='0'
         assert sql(prefix+"SELECT COUNT(*) FROM tbvalores WHERE dispositivo=52 AND tag='real'")=='1'

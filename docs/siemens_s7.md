@@ -152,3 +152,12 @@ REAL se convierte al decimal corto que recupera el mismo float Siemens, antes
 25.6, sin expandirlo a 25.600000381469727. El monitor y SQL comparten el formato.
 No es un redondeo fijo de todos los tipos ni una alteración de Modbus. Véase el
 [informe de precisión](etapas/08_real_decimales.md), incluidos límites y pruebas.
+
+## Instalación con el script existente
+
+Para instalar/actualizar y verificar S7 junto con Modbus usar
+`bash install.sh --test-s7-sql`. `bash install.sh` conserva la suite ordinaria
+sin iniciar SQL temporal. Ambos compilan Snap7, generan distribución y conservan
+configdb.cfg. En ADQUISICION el arranque normal muestra ahora Tags Siemens S7 y
+PLC Siemens S7 con los conteos del catálogo filtrado por concentrador, incluso
+cuando son cero. No cuenta las lecturas ni las filas históricas.

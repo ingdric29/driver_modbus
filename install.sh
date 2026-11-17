@@ -9,7 +9,16 @@ set -Eeuo pipefail
 # Debian / Raspberry Pi OS. Ejecutar como usuario normal: bash install.sh
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PASO="Inicio"
-ETAPAS_TOTALES=8
+OMITIR_PAQUETES=0
+PROBAR_SQL=0
+for argumento in "$@"; do
+    case "$argumento" in
+        --skip-packages) OMITIR_PAQUETES=1 ;;
+        --test-s7-sql) PROBAR_SQL=1 ;;
+        *) printf 'Uso: bash install.sh [--skip-packages] [--test-s7-sql]\n' >&2; exit 2 ;;
+    esac
+done
+ETAPAS_TOTALES=$((8 + PROBAR_SQL))
 ETAPAS_COMPLETADAS=0
 
 # Dibuja el avance por etapas completadas, no por tiempo estimado.
@@ -51,12 +60,14 @@ if (( EUID == 0 )); then
     printf '          Se solicitará sudo para instalar paquetes.\n' >&2
     exit 1
 fi
+if (( ! OMITIR_PAQUETES )); then
 for herramienta in apt-get sudo; do
     if ! command -v "$herramienta" >/dev/null 2>&1; then
         printf '[ ERROR ] Falta la herramienta: %s\n' "$herramienta" >&2
         exit 1
     fi
 done
+fi
 cd "$REPO_DIR"
 if [[ ! -f makefile || ! -f src/main.cpp ]]; then
     printf '[ ERROR ] No se encontró el proyecto junto al instalador.\n' >&2
@@ -67,17 +78,21 @@ printf '  Directorio: %s\n' "$REPO_DIR"
 printf '  Progreso por etapas; su duración puede variar.\n\n'
 mostrar_progreso
 paso "Comprobar permisos para instalar paquetes"
-sudo -v
+if (( ! OMITIR_PAQUETES )); then sudo -v; fi
 completar_paso
 paso "Actualizar el índice de paquetes"
-sudo apt-get update
+if (( ! OMITIR_PAQUETES )); then sudo apt-get update; fi
 completar_paso
 paso "Instalar o actualizar dependencias"
+if (( ! OMITIR_PAQUETES )); then
+paquetes_sql=()
+if (( PROBAR_SQL )); then paquetes_sql=(mariadb-server mariadb-client); fi
 sudo apt-get install -y \
     build-essential git pkg-config \
     libmodbus-dev libmysqlcppconn-dev libcurl4-openssl-dev \
     libboost-filesystem-dev libboost-system-dev \
-    python3 openssl ca-certificates
+    python3 openssl ca-certificates "${paquetes_sql[@]}"
+fi
 completar_paso
 paso "Compilar el driver y sus herramientas"
 make -j2
@@ -85,11 +100,16 @@ completar_paso
 paso "Ejecutar pruebas locales"
 make test
 completar_paso
+if (( PROBAR_SQL )); then
+    paso "Probar SQL Siemens/Modbus en base temporal aislada"
+    make test-s7-sql
+    completar_paso
+fi
 paso "Verificar versiones"
 ./bin/automonitorv1 --version
 ./bin/automonitorctl --version
 completar_paso
-paso "Preparar distribucion sin fuentes ni configuracion privada"
+paso "Preparar distribucion con Snap7 y sus licencias, sin fuentes del driver ni configuracion privada"
 make dist
 completar_paso
 paso "Limpiar objetos intermedios"

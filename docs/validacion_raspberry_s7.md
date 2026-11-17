@@ -23,8 +23,7 @@ git merge --ff-only origin/automonitor-modbus-driver-V1.2.0-pruebas
 git rev-parse HEAD
 uname -a
 g++ --version
-make -j2
-make test
+bash install.sh
 ./bin/automonitorv1 --version
 file bin/automonitorv1 bin/lib/libsnap7.so
 ldd bin/automonitorv1

@@ -7,6 +7,7 @@
 #include "include/local_acquisition.h"
 #include "include/s7_batch.h"
 #include "include/s7_sql.h"
+#include "include/startup_console.h"
 #include <csignal>
 #include "include/worker_group.h"
 #include "include/runtime_control.h"
@@ -141,6 +142,8 @@ void acquire(const Device &device, std::vector<std::shared_ptr<TagState>> tags) 
 } // namespace
 void start_sql_s7(WorkerGroup &workers) {
     auto catalog = load_sql_s7();
+    startup_row("Tags Siemens S7", std::to_string(catalog.tags.size()));
+    startup_row("PLC Siemens S7", std::to_string(catalog.config.devices.size()));
     auto &state = monitor::State::instance();
     for (const auto &device : catalog.config.devices) {
         std::vector<std::shared_ptr<TagState>> tags;

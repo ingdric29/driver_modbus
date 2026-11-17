@@ -509,3 +509,11 @@ fuentes y pruebas se conservan en el checkout para mantenimiento y actualizació
 La actualización de esta rama retira los binarios históricos versionados de
 `bin/`; compilar antes de volver a arrancar y adaptar los servicios que usen
 la ruta anterior `.build`.
+
+## Instalación y actualización recomendadas
+
+Desde el repositorio, como usuario normal: `bash install.sh --test-s7-sql`.
+Instala dependencias, compila, ejecuta regresión y SQL aislado, genera distribución
+y limpia objetos, conservando configdb.cfg. Para omitir SQL aislado usar
+`bash install.sh`. No ejecutar después make manualmente ni copiar la biblioteca
+Snap7 del cloud a la Raspberry: el script la compila para la máquina destino.

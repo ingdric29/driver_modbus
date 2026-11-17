@@ -18,8 +18,7 @@ Snap7 se compila desde las fuentes fijadas en `third_party/snap7`; no necesita
 descargas ni una instalación global. Véase [integración S7](siemens_s7.md).
 
 ```bash
-make -j2
-make test
+bash install.sh
 ```
 
 Los ejecutables nuevos son `bin/automonitorv1` y `bin/automonitorctl`
@@ -92,3 +91,20 @@ de Windows/hardware industrial. Evidencia y commits en el
 Las tres etapas de separación no implementan automáticamente los cambios
 funcionales pendientes. No mezclar futuras modificaciones de precisión,
 retención o comandos con una nueva reorganización sin pruebas específicas.
+
+## Vía recomendada de instalación y actualización
+
+Usar `bash install.sh` en Debian/Raspberry como usuario normal. El instalador
+comprueba/instala dependencias, compila Snap7 y el driver, ejecuta la regresión,
+crea distribución con licencias/fuentes Snap7 y limpia objetos; conserva el CFG.
+Para incluir la prueba SQL mixta aislada: `bash install.sh --test-s7-sql`.
+Esta opción prepara además MariaDB Server/Client como dependencias de prueba.
+El test crea un servidor temporal separado, no usa dbdevlog ni sus credenciales.
+No inicia adquisición al terminar; arrancar desde bin con ./automonitorv1.
+
+`--skip-packages` permite usar el mismo flujo con dependencias ya preparadas,
+sin sudo/APT (por ejemplo cloud). No verifica ni instala paquetes de sistema;
+la compilación y pruebas detectan dependencias faltantes. Admite INCLUDES y LIBS
+en el entorno para las bibliotecas locales, y S7_TEST_SYSROOT para el fixture SQL.
+Las instrucciones make de informes anteriores describen pasos internos; no es
+necesario repetirlos manualmente tras un instalador exitoso.
