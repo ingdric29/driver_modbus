@@ -18,6 +18,7 @@ struct Endpoint {
     int port = 102, rack = 0, slot = 1, timeout_ms = 1000;
 };
 void validate_endpoint(const Endpoint &endpoint);
+std::string error_text(int error);
 enum class ErrorKind { None, Retry, Transport, Remote, Configuration };
 struct ReadResult {
     ErrorKind kind = ErrorKind::None;
@@ -25,6 +26,7 @@ struct ReadResult {
     std::vector<uint8_t> bytes;
     uint64_t latency_us = 0;
     std::chrono::system_clock::time_point acquired;
+    std::chrono::steady_clock::time_point completed;
     bool ok() const { return kind == ErrorKind::None; }
 };
 struct TransportStats {

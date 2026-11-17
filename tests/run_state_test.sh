@@ -12,6 +12,7 @@ read -r -a extra_cpp <<< "${CPPFLAGS:-}"
 read -r -a extra_ld <<< "${LDFLAGS:-}"
 read -r -a extra_flags <<< "${TEST_CXXFLAGS:-}"
 includes=(-Isrc/include -I/usr/include/modbus "${extra_cpp[@]}")
+snap7_lib_dir="${SNAP7_LIB_DIR:-$PWD/bin/lib}"
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" -Dmain=driver_entry -c src/main.cpp -o "$test_dir/main.o"
 "${CXX:-g++}" -std=c++11 -pthread "${extra_flags[@]}" "${includes[@]}" tests/test_driver_state.cpp "$test_dir/main.o" \
   src/driver_runtime.cpp src/command_worker.cpp src/maintenance_worker.cpp \
@@ -33,7 +34,7 @@ includes=(-Isrc/include -I/usr/include/modbus "${extra_cpp[@]}")
   src/alarm_actions.cpp \
   src/alarm_history.cpp tests/fake_email.cpp src/cls_email.cpp \
   src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp \
-  "${extra_ld[@]}" -Lbin/lib -Wl,-rpath,"$PWD/bin/lib" -lsnap7 -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -o "$test_dir/test"
+  "${extra_ld[@]}" -L"$snap7_lib_dir" -Wl,-rpath,"$snap7_lib_dir" -lsnap7 -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -o "$test_dir/test"
 mkdir "$test_dir/run"
 cd "$test_dir/run"
 timeout 30 "$test_dir/test"

@@ -1,6 +1,6 @@
 # Integración Siemens S7: dependencia y compilación
 
-Estado: etapa 4. Hay adquisición local de DB S7 y MBTCP con el mismo ejecutable,
+Estado: etapa 5. Hay adquisición local de DB S7 y MBTCP con el mismo ejecutable,
 monitor y gestión de trabajadores, sin SQL. No se añadieron escrituras ni reglas SQL.
 El alcance completo está en
 [acuerdos](acuerdos_siemens_s7.md).
@@ -87,7 +87,39 @@ con calidad ERROR/REINTENTANDO, nunca como una muestra nueva.
 
 `make test-local` ejecuta el driver real con dos servidores Snap7 y uno Modbus
 en loopback, verifica los ocho tipos, escalamiento, aislamiento ante caída,
-recuperación y apagado. Se incluye en `make test`.
+recuperación, recarga y apagado. Se incluye en `make test`.
+
+## Agrupación, diagnóstico y recarga
+
+Se agrupan exclusivamente tags vencidos contiguos/superpuestos del mismo PLC y
+DB. El límite útil deriva de la PDU negociada menos los 18 bytes del encabezado
+de respuesta de lectura de bytes; antes de conectar se usa un límite conservador
+de 222 bytes. Snap7 conserva además su fragmentación interna. No se adelanta un
+tag lento por compartir bloque con uno rápido. Cada muestra lleva la hora de
+finalización de su solicitud; las derivadas del mismo bloque comparten reloj.
+Si el PLC rechaza un rango agrupado, se intenta cada tag por separado para no
+invalidar vecinos correctos. Un fallo TCP/ISO no dispara ese fallback.
+
+`automonitorctl --once --device plc` muestra dirección y último diagnóstico.
+`--json` incluye `s7_links` con PDU, intentos, conexiones, fallos y llamadas
+DBRead por dispositivo/generación. Son llamadas lógicas de biblioteca, no un
+conteo de paquetes TCP. Las métricas generales acumulan resultados por tag e
+intentos/reutilizaciones de conexión; no se reinician al recargar. Los eventos
+son acotados y los errores idénticos no generan una línea por ciclo.
+
+Para recargar, reemplazar el INI completo de forma atómica y enviar SIGHUP al
+PID mostrado por el monitor (por ejemplo, `kill -HUP PID`). El monitor es de
+solo lectura y no envía órdenes. Se valida el candidato mientras los trabajadores
+actuales siguen funcionando; si es inválido se conserva la generación vigente.
+Si es válido se detienen/unen todos los trabajadores antes de reemplazar el
+catálogo y reabrir sesiones. Se pueden añadir, modificar o deshabilitar equipos.
+Los valores y contadores por tag reinician con la generación; el socket y PID
+permanecen. SIGTERM/Ctrl+C interrumpen esperas y cierran sesiones tras la operación
+actual, acotada por los timeouts; no hay cola SQL que vaciar en este modo.
+
+La [guía física por SSH](validacion_raspberry_s7.md) detalla los pasos pendientes
+para cerrar la etapa 6. Los resultados físicos anteriores del usuario no se
+presentan como prueba de esta integración nueva.
 
 ## Distribución
 

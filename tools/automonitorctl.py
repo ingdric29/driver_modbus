@@ -102,9 +102,11 @@ def device_line(device):
 
 def tag_line(tag):
     value = '--' if tag['value'] is None else '{} {}'.format(tag['value'], tag['unit']).strip()
-    return '{} = {} | {} | periodo {}s | edad {} | tag {:.2f}ms | rc={} | errores {}/{}'.format(
-        tag['name'], value, tag['status'], tag['period_s'], elapsed(tag['age_ms']),
-        tag['latency_us'] / 1000, tag['result'], tag['consecutive_failures'], tag['failures'])
+    address = ' [{}]'.format(tag['source_address']) if tag.get('source_address') else ''
+    diagnostic = ' | ' + tag['diagnostic'] if tag.get('diagnostic') else ''
+    return '{}{} = {} | {} | periodo {}s | edad {} | tag {:.2f}ms | rc={} | errores {}/{}{}'.format(
+        tag['name'], address, value, tag['status'], tag['period_s'], elapsed(tag['age_ms']),
+        tag['latency_us'] / 1000, tag['result'], tag['consecutive_failures'], tag['failures'], diagnostic)
 
 
 def compact_tag(tag):
@@ -131,6 +133,9 @@ def plain(snapshot, device_name=None):
              'MariaDB {} (ultima operacion hace {}) | Alarmas activas {} / sin evaluar {} | Ventanas pendientes {}'.format(
                  db['status'], elapsed(db['age_ms']), snapshot['alarms_active'], snapshot['alarms_unknown'], snapshot['metrics']['pending_windows'])]
     devices = [find_device(snapshot['devices'], device_name)] if device_name else snapshot['devices']
+    for link in snapshot.get('s7_links', []):
+        lines.append('S7 {} | PDU {} | llamadas DBRead {} | conexiones {} | fallos {}'.format(
+            link['device'], link['pdu'], link['dbread_calls'], link['connections'], link['failures']))
     for device in devices:
         lines.append(device_line(device))
         if device_name:

@@ -12,7 +12,7 @@ read -r -a extra_cpp <<< "${CPPFLAGS:-}"
 read -r -a extra_ld <<< "${LDFLAGS:-}"
 read -r -a extra_flags <<< "${TEST_CXXFLAGS:--fsanitize=address,undefined -fno-omit-frame-pointer}"
 common=(-std=c++11 -pthread -Wall -Wextra -Isrc/include -I/usr/include/modbus "${extra_cpp[@]}" "${extra_flags[@]}")
-for unit in modbus_decode workers periods sample_window pending_batch alarm_expression retry s7_decode; do
+for unit in modbus_decode workers periods sample_window pending_batch alarm_expression retry s7_decode s7_batch; do
   "${CXX:-g++}" "${common[@]}" "tests/test_${unit}.cpp" -o "$test_dir/$unit"
   timeout 15 "$test_dir/$unit"
   echo "PASS $unit"

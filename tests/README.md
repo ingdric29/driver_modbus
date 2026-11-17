@@ -8,6 +8,19 @@ como parte de `make test`. Ver [alcance S7](../docs/siemens_s7.md).
 
 ## Pruebas existentes
 
+## Adquisición local y S7
+
+`make test-local` ejecuta el driver real sin SQL contra dos servidores Snap7 y
+un servidor Modbus TCP locales. Comprueba los ocho tipos, escalamiento,
+aislamiento ante caídas, recuperación, calidad, periodos, 600 tags agrupados,
+errores parciales, recarga válida/inválida, exclusión de otra instancia y cierre.
+Los clientes de estas pruebas solo realizan lecturas. `s7_decode` y `s7_batch` se
+ejecutan también con ASan/UBSan en el runner unitario.
+
+La prueba de hardware posterior está descrita en
+[validación Raspberry/S7](../docs/validacion_raspberry_s7.md); no se ejecuta
+automáticamente como parte de `make test`.
+
 Desde la raíz del repositorio, con GCC y C++11:
 
 ```bash

@@ -33,6 +33,10 @@ class DistributionTest(unittest.TestCase):
             )
             self.assertIn(str(library), linked.stdout)
             self.assertFalse((relocated / "configdb.cfg").exists())
+            subprocess.run(
+                [str(binary), "--check-local-config", str(relocated / "local-acquisition.example.ini")],
+                cwd=directory, capture_output=True, text=True, check=True, timeout=10,
+            )
             self.assertFalse((relocated / "src").exists())
             self.assertTrue((relocated / "licenses/snap7/lgpl-3.0.txt").is_file())
             with tarfile.open(relocated / "share/snap7-source.tar.gz") as archive:

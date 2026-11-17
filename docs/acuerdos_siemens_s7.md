@@ -85,3 +85,7 @@ Los próximos detalles se resolverán con evidencia del código: formato final d
 ## Avance posterior: etapas 0 y 1
 
 La etapa 0 se validó sin SQL y publicó en el commit `ed0e573aba568a8327f53d1234c732791e18e873`. La etapa 1 incorporó Snap7 fijado, compilación y distribución, con regresión aprobada. Informes: [etapa 0](etapas/00_linea_base.md) y [etapa 1](etapas/01_snap7_compilacion.md). El parser, la configuración y la adquisición S7 siguen pendientes de etapas posteriores. Estos avances no amplían el alcance acordado.
+
+## Avance posterior: etapas 2 a 5
+
+Se validaron direcciones/tipos, transporte, adquisición local y operación/agrupación. Informes: [2](etapas/02_direcciones_tipos.md), [3](etapas/03_transporte_s7.md), [4](etapas/04_adquisicion_local.md) y [5](etapas/05_operacion_agrupacion.md). El ejecutable admite configuración local sin SQL para S7 y MBTCP, monitor, agrupación y recarga. No se incorporó Siemens al catálogo SQL. La etapa 6 está pendiente de comprobar esta integración en Raspberry y PLC real; el usuario dispone de los equipos y una sesión SSH. La [guía física](validacion_raspberry_s7.md) establece qué evidencia recoger para cerrar dicha etapa.

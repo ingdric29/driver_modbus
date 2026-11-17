@@ -82,7 +82,7 @@ inline std::string number(double n) {
 }
 struct Tag {
     uint64_t key = 0;
-    std::string device_key, device, protocol, endpoint, name, unit;
+    std::string device_key, device, protocol, endpoint, name, unit, source_address, diagnostic;
     int slave = 0, address = 0;
     double period = 1;
     bool attempted = false, valid = false, has_value = false;
@@ -110,6 +110,10 @@ struct Alarm {
     bool known = false, active = false;
     std::string device, description;
 };
+struct S7Link {
+    uint64_t attempts = 0, connections = 0, dbread_calls = 0, failures = 0;
+    int pdu = 0;
+};
 struct Snapshot {
     std::string concentrator, phase, db_endpoint, db_schema;
     uint64_t generation = 0, sql_ok = 0, sql_errors = 0;
@@ -118,6 +122,7 @@ struct Snapshot {
     std::vector<Tag> tags;
     std::deque<Event> events;
     std::map<int, Alarm> alarms;
+    std::map<std::string, S7Link> s7_links;
 };
 class State {
     std::mutex mutex_;
@@ -169,6 +174,7 @@ class State {
         std::lock_guard<std::mutex> lock(mutex_);
         state_.tags.clear();
         state_.alarms.clear();
+        state_.s7_links.clear();
         ++state_.generation;
     }
     uint64_t add_tag(Tag tag) {
@@ -177,6 +183,29 @@ class State {
         // Keys are contiguous inside a generation, so publication stays O(1).
         state_.tags.push_back(tag);
         return tag.key;
+    }
+    void s7_link(const std::string &device, const S7Link &link) noexcept {
+        try {
+            std::lock_guard<std::mutex> lock(mutex_);
+            state_.s7_links[device] = link;
+        } catch (...) {
+        }
+    }
+    void detail(uint64_t key, const std::string &text) noexcept {
+        try {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (state_.tags.empty() || key < state_.tags.front().key)
+                return;
+            auto index = key - state_.tags.front().key;
+            if (index >= state_.tags.size())
+                return;
+            auto &tag = state_.tags[index];
+            auto detail = text.substr(0, 256);
+            if (!detail.empty() && tag.diagnostic != detail)
+                event_locked("WARN", "S7", tag.device + " / " + tag.name + ": " + detail);
+            tag.diagnostic = detail;
+        } catch (...) {
+        }
     }
     void add_alarm(int id, const std::string &device = "", const std::string &description = "") {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -313,7 +342,18 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
         << ",\"reused_connections\":" << m.reused_connections.load()
         << ",\"stored_samples\":" << m.stored_samples.load()
         << ",\"sql_failures\":" << m.sql_failures.load()
-        << ",\"pending_windows\":" << m.pending_windows.load() << "},\"devices\":[";
+        << ",\"pending_windows\":" << m.pending_windows.load() << "},\"s7_links\":[";
+    bool first_link = true;
+    for (const auto &item : s.s7_links) {
+        if (!first_link)
+            out << ',';
+        first_link = false;
+        const auto &l = item.second;
+        out << "{\"device\":" << quote(item.first) << ",\"attempts\":" << l.attempts
+            << ",\"connections\":" << l.connections << ",\"dbread_calls\":" << l.dbread_calls
+            << ",\"failures\":" << l.failures << ",\"pdu\":" << l.pdu << '}';
+    }
+    out << "],\"devices\":[";
     std::map<std::string, std::vector<const Tag *>> devices;
     for (const auto &tag : s.tags)
         devices[tag.device_key].push_back(&tag);
@@ -351,8 +391,10 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
                 out << ',';
             first_tag = false;
             out << "{\"key\":" << t->key << ",\"name\":" << quote(t->name)
-                << ",\"address\":" << t->address << ",\"period_s\":" << number(t->period)
-                << ",\"unit\":" << quote(t->unit) << ",\"status\":" << quote(t->quality(now))
+                << ",\"source_address\":" << quote(t->source_address)
+                << ",\"diagnostic\":" << quote(t->diagnostic) << ",\"address\":" << t->address
+                << ",\"period_s\":" << number(t->period) << ",\"unit\":" << quote(t->unit)
+                << ",\"status\":" << quote(t->quality(now))
                 << ",\"value\":" << (t->has_value ? quote(t->text) : "null")
                 << ",\"acquired_at\":" << (t->has_value ? std::to_string(t->acquired) : "null")
                 << ",\"age_ms\":"

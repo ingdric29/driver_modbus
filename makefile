@@ -75,7 +75,7 @@ $(BUILD_DIR)/%.o: %.c
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 test: all test-snap7 test-local
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
-	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
+	SNAP7_LIB_DIR='$(abspath $(BIN_DIR)/lib)' CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_email_test.sh
 	python3 tests/test_mailcheck.py
 	python3 tests/test_monitor_client.py

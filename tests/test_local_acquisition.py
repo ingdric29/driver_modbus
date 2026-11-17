@@ -151,6 +151,84 @@ period=0.05
         subprocess.run([str(BINARY), "--check-local-config", str(self.config)],
                        cwd=self.base / "bin", check=True, capture_output=True, timeout=3)
 
+    def test_batching_periods_reload_and_partial_errors(self):
+        self.write_config("""[tag:plc:slow]
+address=DB100.DBB16
+type=BYTE
+period=0.25
+[tag:plc:edge]
+address=DB100.DBB4095
+type=BYTE
+period=0.05
+[tag:plc:missing]
+address=DB100.DBB4096
+type=BYTE
+period=0.05
+""")
+        original = self.config.read_text()
+        self.start_driver()
+        def tags(s):
+            return {t['name']: t for d in s['devices'] if d['name'] == 'plc' for t in d['tags']}
+        data = self.wait_for(lambda s: len(tags(s)) == 11 and tags(s)['real']['reads'] >= 12
+                             and len(s.get('s7_links', [])) == 2)
+        values = tags(data)
+        self.assertEqual(values['edge']['status'], 'ACTUAL')
+        self.assertEqual(float(values['edge']['value']), 255)
+        self.assertEqual(values['missing']['status'], 'ERROR')
+        self.assertIsNone(values['missing']['value'])
+        self.assertIn('Snap7 rc=', values['missing']['diagnostic'])
+        self.assertEqual(values['real']['source_address'], 'DB100.DBD8')
+        self.assertGreater(values['real']['reads'], values['slow']['reads'] * 2)
+        link = next(l for l in data['s7_links'] if l['device'] == 'plc')
+        self.assertEqual(link['connections'], 1)  # Remote address failures keep the session.
+        self.assertGreaterEqual(link['pdu'], 240)
+        self.assertLess(link['dbread_calls'], sum(t['reads'] for t in values.values()))
+        generation = data['generation']
+        self.config.write_text(original.replace('scale=2', 'scale=4'))
+        os.kill(self.driver.pid, signal.SIGHUP)
+        changed = self.wait_for(lambda s: s['generation'] == generation + 1
+                                and tags(s).get('real', {}).get('value') == '100')
+        # Invalid reload must preserve generation and the current acquisition.
+        self.config.write_text(original.replace('DB100.DBD8', 'DB100.DBW8'))
+        os.kill(self.driver.pid, signal.SIGHUP)
+        rejected = self.wait_for(lambda s: any('Recarga rechazada' in e['message'] for e in s['events']))
+        self.assertEqual(rejected['generation'], changed['generation'])
+        self.assertEqual(tags(rejected)['real']['value'], '100')
+        reads = tags(rejected)['real']['reads']
+        self.wait_for(lambda s: tags(s)['real']['reads'] > reads + 2)
+        # Apply a second valid generation removing a PLC without a second process.
+        self.config.write_text(original.replace('[device:plc2]', '[device:plc2]\nenabled=0'))
+        os.kill(self.driver.pid, signal.SIGHUP)
+        removed = self.wait_for(lambda s: s['generation'] == generation + 2 and len(s['devices']) == 2)
+        self.assertEqual(removed['pid'], self.driver.pid)
+        second = subprocess.run([str(BINARY), '--local-config', str(self.config)],
+                                cwd=self.base / 'bin', capture_output=True, text=True, timeout=3)
+        self.assertNotEqual(second.returncode, 0)
+        self.assertIsNone(self.driver.poll())
+        started = time.monotonic()
+        self.driver.terminate()
+        self.assertEqual(self.driver.wait(timeout=3), 0)
+        self.assertLess(time.monotonic() - started, 2)
+        self.assertFalse(self.socket.exists())
+        viewer = subprocess.run([sys.executable, str(BINARY.parent / 'automonitorctl'),
+                                 '--socket', str(self.socket), '--once'],
+                                capture_output=True, text=True, timeout=3)
+        self.assertNotEqual(viewer.returncode, 0)
+
+    def test_large_grouped_reads(self):
+        self.config.write_text(f"[device:plc]\nprotocol=SIEMENS_S7\nhost=127.0.0.1\nport={self.s7_port}\n"
+                               + ''.join(f"[tag:plc:b{i}]\naddress=DB100.DBB{i}\ntype=BYTE\nperiod=1\n"
+                                         for i in range(1000, 1600)))
+        self.start_driver()
+        data = self.wait_for(lambda s: len(s['devices']) == 1
+                             and len(s['devices'][0]['tags']) == 600
+                             and all(t['status'] == 'ACTUAL' for t in s['devices'][0]['tags'])
+                             and len(s.get('s7_links', [])) == 1)
+        for tag in data['devices'][0]['tags']:
+            self.assertEqual(int(tag['value']), int(tag['name'][1:]) % 256)
+        self.assertLessEqual(data['s7_links'][0]['dbread_calls'], 6)
+        self.assertEqual(data['s7_links'][0]['connections'], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

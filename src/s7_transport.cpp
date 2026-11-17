@@ -12,6 +12,7 @@
 #include <stdexcept>
 
 namespace s7 {
+std::string error_text(int error) { return CliErrorText(error); }
 void validate_endpoint(const Endpoint &e) {
     in_addr address;
     if (inet_pton(AF_INET, e.host.c_str(), &address) != 1 || e.port < 1 || e.port > 65535 ||
@@ -92,6 +93,7 @@ ReadResult Transport::read(int db, int start, int count) {
                 }
             } else {
                 result.acquired = std::chrono::system_clock::now();
+                result.completed = std::chrono::steady_clock::now();
                 p.retry.succeeded();
             }
         }

@@ -20,6 +20,14 @@ struct DriverMetrics {
         static DriverMetrics metrics;
         return metrics;
     }
+    void record_read(int result, uint64_t elapsed) {
+        ++reads;
+        if (result <= 0)
+            ++read_failures;
+        auto maximum = maximum_read_us.load();
+        while (maximum < elapsed && !maximum_read_us.compare_exchange_weak(maximum, elapsed)) {
+        }
+    }
     std::string console_summary() const {
         std::ostringstream out;
         out << "[ METRICAS ] Totales desde el inicio\n"
@@ -51,16 +59,10 @@ class ReadMeasurement {
     explicit ReadMeasurement(int &result) : result_(result) {}
     ~ReadMeasurement() {
         auto &metrics = DriverMetrics::instance();
-        ++metrics.reads;
-        if (result_ <= 0)
-            ++metrics.read_failures;
         const uint64_t elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                                      std::chrono::steady_clock::now() - start_)
                                      .count();
-        auto maximum = metrics.maximum_read_us.load();
-        while (maximum < elapsed &&
-               !metrics.maximum_read_us.compare_exchange_weak(maximum, elapsed)) {
-        }
+        metrics.record_read(result_, elapsed);
     }
 };
 #endif
