@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
     }
     if (argc > 1)
         GLOBAL_habilitar_imprimir = atoi(argv[1]);
-    cout << "\n  AUTOMONITOR  /  MODBUS DRIVER\n"
+    cout << "\n  AUTOMONITOR  /  INDUSTRIAL DRIVER\n"
          << "  Version " << AUTOMONITOR_VERSION << "  |  AUTOMATRONI C.A.\n"
          << "  www.automatroni.com\n"
          << "  ------------------------------------------------------------\n";

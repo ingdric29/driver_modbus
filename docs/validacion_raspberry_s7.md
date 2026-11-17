@@ -17,9 +17,9 @@ Desde el checkout existente (ajustar su ruta):
 ```bash
 cd ~/driver_modbus
 git status --short
-git fetch origin automonitor-modbus-driver-V1.2.0-pruebas
-git switch automonitor-modbus-driver-V1.2.0-pruebas
-git merge --ff-only origin/automonitor-modbus-driver-V1.2.0-pruebas
+git fetch origin automonitor-driver-V1.3.0
+git switch automonitor-driver-V1.3.0
+git merge --ff-only origin/automonitor-driver-V1.3.0
 git rev-parse HEAD
 uname -a
 g++ --version

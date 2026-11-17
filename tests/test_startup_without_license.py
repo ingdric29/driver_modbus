@@ -44,7 +44,7 @@ habilitar_acceso_externo=0
         assert completed.returncode == 1, (label, completed.returncode, output)
         assert "[ INICIO ] Cargando catalogo" in output, (label, output)
         assert "SQLException" in output, (label, output)
-        for section in ("MODBUS DRIVER", "CONFIGURACION", "INTERVALOS", "[ OK ] Configuracion cargada."):
+        for section in ("INDUSTRIAL DRIVER", "CONFIGURACION", "INTERVALOS", "[ OK ] Configuracion cargada."):
             assert section in output, (label, output)
         assert "Deshabilitada" in output and "fixture-private-password" not in output
         assert "[ OK ] Trabajadores iniciados." not in output  # Database startup failed.

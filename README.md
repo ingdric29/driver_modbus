@@ -1,20 +1,20 @@
-# Automonitor / Devlog — Driver Modbus
+# AutoMonitor Driver — Adquisición industrial multiprotocolo
 
-**Versión de la rama mejorada: 1.2.0.** Ver [CHANGELOG.md](CHANGELOG.md).
+**Versión: 1.3.0.** Ver [CHANGELOG.md](CHANGELOG.md).
 
 Driver C++ para adquisición de variables industriales, evaluación de alarmas y
-registro de datos. Soporta Modbus TCP, Modbus RTU y lectura serie RS232; utiliza
+registro de datos. Soporta Siemens S7, Modbus TCP, Modbus RTU y lectura serie RS232; utiliza
 MySQL/MariaDB para configuración y persistencia, y libcurl para correo SMTP.
 
 ## Cierre de jornada — 16 de noviembre de 2026
 
-Trabajo realizado en `automonitor-modbus-driver-V1.2.0-pruebas`:
+Trabajo realizado en `automonitor-driver-V1.3.0`:
 limpieza, corrección de warnings, consola de arranque, nuevo instalador con
 barra de progreso, ejecutables en `bin/`, distribución sin fuentes y las tres
 etapas de modularización. El código propio incluye encabezados y contratos
 comentados. Orquesta y los scripts antiguos de autoinicio fueron retirados.
 
-La versión sigue siendo **1.2.0**. La rama estable y `main` no incorporan todavía
+La versión de producto es **1.3.0**. La rama estable y `main` no incorporan todavía
 estos cambios. Las comprobaciones cloud pasaron en Linux con recursos simulados;
 la validación de operación en la Raspberry corresponde a la instalación local.
 
@@ -36,22 +36,22 @@ ver [informe de integración SQL](docs/etapas/07_sql_siemens.md).
 | Rama | Uso y diferencias |
 |---|---|
 | `main` | Versión histórica. Compila hacia `bin/automonitorv1`; incluye binarios y objetos ARM64 versionados. No incluye `automonitorctl` ni la suite de pruebas de la rama mejorada. |
-| `automonitor-modbus-driver-V1.2.0-pruebas` | Desarrollo mejorado: ejecutables en `bin` y objetos en `.build`, monitor SSH, reutilización de conexiones Modbus, agrupación de registros compatibles, métricas, pruebas y correcciones del emisor de correo. |
+| `automonitor-driver-V1.3.0` | Desarrollo mejorado: ejecutables en `bin` y objetos en `.build`, monitor SSH, reutilización de conexiones Modbus, agrupación de registros compatibles, métricas, pruebas y correcciones del emisor de correo. |
 
 Los comandos de `bin`, monitor y pruebas de este documento corresponden a
-`automonitor-modbus-driver-V1.2.0-pruebas`. No están disponibles en `main` sin incorporar esos
+`automonitor-driver-V1.3.0`. No están disponibles en `main` sin incorporar esos
 cambios. Antes de cambiar de rama, conserva cualquier modificación local:
 
 ```bash
 git status --short
 git branch --show-current
 # Solo con el trabajo local guardado:
-git switch automonitor-modbus-driver-V1.2.0-pruebas
+git switch automonitor-driver-V1.3.0
 ```
 
 ## Guía paso a paso en Raspberry: instalación, pruebas y arranque
 
-Esta guía corresponde a `automonitor-modbus-driver-V1.2.0-pruebas`. Ejecutar cada paso en orden;
+Esta guía corresponde a `automonitor-driver-V1.3.0`. Ejecutar cada paso en orden;
 si un comando falla, detenerse y revisar su salida antes de continuar.
 
 ### 1. Preparar la instalación o actualizar una existente
@@ -68,8 +68,8 @@ cd ~/driver_modbus
 cp -p configdb.cfg "$HOME/configdb.cfg.backup-$(date +%Y%m%d-%H%M%S)"
 git status --short
 git fetch origin --tags
-git switch automonitor-modbus-driver-V1.2.0-pruebas
-git pull --ff-only origin automonitor-modbus-driver-V1.2.0-pruebas
+git switch automonitor-driver-V1.3.0
+git pull --ff-only origin automonitor-driver-V1.3.0
 ```
 
 Si Git informa cambios incompatibles o conflictos, detenerse y conservarlos.
@@ -82,7 +82,7 @@ Para una instalación nueva, instalar Git si hace falta y clonar la rama:
 ```bash
 sudo apt-get update
 sudo apt-get install -y git
-git clone --branch automonitor-modbus-driver-V1.2.0-pruebas \
+git clone --branch automonitor-driver-V1.3.0 \
   https://github.com/ingdric29/driver_modbus.git ~/driver_modbus
 cd ~/driver_modbus
 ```
@@ -133,7 +133,7 @@ Solo si termina correctamente, comprobar la identificación y ejecutar la suite:
 make test
 ```
 
-En esta entrega ambos deben mostrar la versión de producto `1.2.0`; el driver
+En esta entrega ambos deben mostrar la versión de producto `1.3.0`; el driver
 muestra también commit y fecha UTC de compilación. Compilar como usuario normal,
 sin `sudo make`. La suite usa servidores locales y pseudoterminales: valida
 software, pero no sustituye las pruebas con equipos físicos.

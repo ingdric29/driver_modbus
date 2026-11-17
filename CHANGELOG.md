@@ -4,6 +4,24 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## 1.3.0 — 2026-11-17
+
+Nombre de producto: AutoMonitor Driver; adquisición industrial multiprotocolo.
+Versión sin sufijo RC ni de pruebas, por decisión del usuario. La rama actual se
+renombra a automonitor-driver-V1.3.0 conservando historial. No se crea etiqueta
+ni release automáticamente. Ejecutables automonitorv1/automonitorctl conservados.
+
+- Siemens S7 por Snap7 fijado: lectura DB y ocho tipos, sesiones por PLC,
+  reconexión, agrupación/PDU y adquisición simultánea con Modbus.
+- Catálogo SQL con rack/slot, direccion_siemens y tipos s7_*; instantáneos,
+  histórico, rastro, registrable/solocambios y reintentos acotados en RAM.
+- Corrección de representación decimal REAL sin imponer decimales fijos.
+- Instalador existente con prueba SQL mixta opcional; resumen de tags/PLC S7.
+- Monitor, recarga y pruebas locales de fallos, persistencia y distribución.
+- Usuario confirmó lectura física con variaciones y escritura SQL en Raspberry.
+  La validación física de las últimas correcciones sigue pendiente.
+- Alarmas/eventos Siemens, I/Q/M y cola persistente siguen pendientes.
+
 ## En desarrollo — 2026-11-16 — rama de pruebas
 
 Cambios publicados en Git en `automonitor-modbus-driver-V1.2.0-pruebas`,
