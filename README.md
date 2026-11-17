@@ -1,5 +1,7 @@
 # AutoMonitor Driver — Adquisición industrial multiprotocolo
 
+[Informe de jornada — 17 de noviembre de 2026](docs/registro_2026-11-17.md).
+
 **Versión: 1.3.0.** Ver [CHANGELOG.md](CHANGELOG.md).
 
 Driver C++ para adquisición de variables industriales, evaluación de alarmas y
