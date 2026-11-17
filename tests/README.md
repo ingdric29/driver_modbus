@@ -1,5 +1,13 @@
 # Pruebas sin hardware
 
+## Dependencia Snap7 (etapa 1)
+
+`make test-snap7` verifica las fuentes fijadas, el enlace C/C++ y el paquete
+trasladado a otro directorio. No conecta a PLC ni a SQL. También se ejecuta
+como parte de `make test`. Ver [alcance S7](../docs/siemens_s7.md).
+
+## Pruebas existentes
+
 Desde la raíz del repositorio, con GCC y C++11:
 
 ```bash

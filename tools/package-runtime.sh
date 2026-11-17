@@ -8,6 +8,7 @@ set -euo pipefail
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 bin_dir="${1:-bin}"
 output="${2:-}"
+test -f "$bin_dir/lib/libsnap7.so"
 if [[ -z "$output" ]]; then
     mkdir -p dist
     output="$(mktemp -d dist/automonitor-$(uname -m).XXXXXX)"
@@ -16,6 +17,12 @@ else
     mkdir -- "$output"
 fi
 mkdir -- "$output/bin" "$output/html"
+mkdir -p -- "$output/bin/lib" "$output/licenses/snap7" "$output/share"
+install -m 755 "$bin_dir/lib/libsnap7.so" "$output/bin/lib/libsnap7.so"
+install -m 644 third_party/snap7/gpl.txt third_party/snap7/lgpl-3.0.txt \
+    third_party/snap7/UPSTREAM.md "$output/licenses/snap7/"
+# Corresponding Snap7 sources and build instructions, without application sources.
+tar -czf "$output/share/snap7-source.tar.gz" -C third_party snap7
 for name in automonitorv1 automonitorctl automonitor-mailcheck; do
     install -m 755 "$bin_dir/$name" "$output/bin/$name"
 done
@@ -25,11 +32,15 @@ install -m 644 html/plantilla_emails.html html/logo_automonitor.png "$output/htm
 cat > "$output/LEEME.txt" <<'EOF'
 AUTOMONITOR - distribucion Linux
 
-Este directorio no contiene fuentes C++, objetos, tests ni historial Git.
+Este directorio no contiene fuentes del driver, objetos, tests ni historial Git.
 Los visores Python y version.h son necesarios para las herramientas.
 Usar en la arquitectura y sistema compatibles con la compilacion.
 Requiere Python 3, libmodbus, MySQL Connector/C++, curl y Boost
-filesystem/system. Las bibliotecas compartidas no se incluyen.
+filesystem/system. Esas bibliotecas del sistema no se incluyen.
+Snap7 se incluye como biblioteca compartida reemplazable en bin/lib/libsnap7.so.
+Avisos LGPL/GPL: licenses/snap7/. Fuentes y receta: share/snap7-source.tar.gz.
+El ejecutable resuelve Snap7 relativo a bin mediante $ORIGIN/lib.
+La inclusion de Snap7 no habilita aun adquisicion Siemens S7.
 
 Copiar configdb.cfg autorizado junto a este archivo y protegerlo con chmod 600.
 No se incluye configuracion privada ni se crea el esquema SQL.

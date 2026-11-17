@@ -1,0 +1,2 @@
+# Preserve the exact bytes of pinned third-party sources and license texts.
+third_party/snap7/** -text

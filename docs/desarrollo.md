@@ -2,7 +2,7 @@
 
 El código propio usa C++11, cuatro espacios, finales de línea LF y el estilo
 de `.clang-format` (clang-format 19). No reformatear automáticamente las
-bibliotecas incorporadas INIReader/ini/rs232 ni los fixtures históricos de pruebas.
+bibliotecas incorporadas INIReader/ini/rs232/Snap7 ni los fixtures históricos de pruebas.
 Los mensajes operativos de consola usan español y las etiquetas `[ OK ]`,
 `[ ESTADO ]`, `[ AVISO ]` y `[ ERROR ]`. Los identificadores técnicos, campos de
 métricas y diagnósticos de las bibliotecas conservan sus nombres originales.
@@ -14,6 +14,8 @@ inicialización de globales y estáticos; los runners enlazan los módulos nuevo
 
 Dependencias Debian: `build-essential`, `libmodbus-dev`, `libmysqlcppconn-dev`,
 `libcurl4-openssl-dev`, `libboost-filesystem-dev`, `libboost-system-dev`.
+Snap7 se compila desde las fuentes fijadas en `third_party/snap7`; no necesita
+descargas ni una instalación global. Véase [integración S7](siemens_s7.md).
 
 ```bash
 make -j2
@@ -30,7 +32,8 @@ Para ejecutar con una configuración autorizada, usar `bin` como directorio
 de trabajo: el programa busca configuración, plantillas y logs en su padre.
 El instalador Linux se ejecuta con `bash install.sh` como usuario normal:
 actualiza el índice APT, instala dependencias, compila y ejecuta las pruebas.
-También crea `dist/` sin fuentes ni configuración privada y limpia los objetos
+También crea `dist/` sin fuentes del driver ni configuración privada (incluye las
+fuentes correspondientes de Snap7 y sus licencias) y limpia los objetos
 intermedios. No inicia servicios ni modifica configuración. Los scripts históricos de
 autoinicio se retiraron; migrar cualquier referencia externa antes de actualizar
 una instalación que los utilice.

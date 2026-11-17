@@ -74,10 +74,14 @@ Secuencia de cierre acordada:
 
 El SHA y la comprobación remota pueden figurar en el mensaje de cierre o en un registro posterior: no se exige insertar en un commit su propio SHA. Si falla el push, declarar que el commit solo está local y no presentar la etapa como sincronizada. No se acordó mezclar a main ni publicar una release.
 
-## Estado al exportar
+## Estado inicial al exportar los acuerdos
 
 La rama remota confirmada apunta a `9a04c039ef75d47af480687baacb388f072768bb` en la inspección realizada. La rama activa del checkout no se cambió durante la revisión de herramientas. No se ha iniciado la etapa 0 ni se ha implementado S7.
 
 Las dependencias locales están en `/workspace/driver-modbus-env`, no en la ruta histórica `/workspace/.driver-env`. Se preparó `activate.sh` para exponer herramientas locales en cada shell. Los scripts iniciales de onboarding proceden de main y no deben usarse para compilar la rama reorganizada sin revisarlos en la etapa 0.
 
 Los próximos detalles se resolverán con evidencia del código: formato final de configuración local, identidad de sesión por destino, parámetros de timeout y estrategia de concurrencia. No se fijan aún cuotas, tolerancias, colas ni reglas SQL nuevas tomadas del PDF.
+
+## Avance posterior: etapas 0 y 1
+
+La etapa 0 se validó sin SQL y publicó en el commit `ed0e573aba568a8327f53d1234c732791e18e873`. La etapa 1 incorporó Snap7 fijado, compilación y distribución, con regresión aprobada. Informes: [etapa 0](etapas/00_linea_base.md) y [etapa 1](etapas/01_snap7_compilacion.md). El parser, la configuración y la adquisición S7 siguen pendientes de etapas posteriores. Estos avances no amplían el alcance acordado.

@@ -17,6 +17,11 @@ $(BUILD_DIR)/src/main.o $(BUILD_DIR)/src/monitor_server.o: FORCE
 CXXFLAGS ?= -g -O2 -Wall -Wextra -Wformat=2
 CXXFLAGS += -std=c++11 -pthread
 LDLIBS += -lmodbus -lmysqlcppconn -lcurl -lboost_filesystem -lboost_system -pthread
+SNAP7_DIR := third_party/snap7
+SNAP7_LIBRARY := $(BIN_DIR)/lib/libsnap7.so
+SNAP7_SOURCES := $(wildcard $(SNAP7_DIR)/src/sys/*.cpp $(SNAP7_DIR)/src/core/*.cpp $(SNAP7_DIR)/src/lib/*.cpp)
+SNAP7_OBJECTS := $(addprefix $(BUILD_DIR)/,$(SNAP7_SOURCES:.cpp=.o))
+SNAP7_WRAPPER := $(SNAP7_DIR)/release/wrappers/c-cpp/snap7.cpp
 SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenance_worker.cpp \
        src/serial_worker.cpp src/event_worker.cpp src/alarm_worker.cpp \
        src/catalog_lookup.cpp src/runtime_support.cpp \
@@ -35,7 +40,8 @@ SRCS = src/main.cpp src/driver_runtime.cpp src/command_worker.cpp src/maintenanc
        src/cls_cmd.cpp src/cls_defalarmas.cpp \
        src/alarm_actions.cpp \
        src/alarm_history.cpp src/enviarmail.cpp src/cls_email.cpp \
-       src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp
+       src/cls_defeventos.cpp src/cls_sms.cpp src/cls_logger.cpp src/rs232.c src/monitor_server.cpp \
+       $(SNAP7_WRAPPER)
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(addsuffix .o,$(basename $(SRCS))))
 .PHONY: all test test-sql clean clean-objects dist
 all: $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
@@ -48,28 +54,43 @@ $(BIN_DIR)/version.h: src/include/version.h
 $(BIN_DIR)/automonitor-mailcheck: tools/automonitor-mailcheck.py
 	@mkdir -p $(@D)
 	install -m 755 $< $@
-$(TARGET): $(OBJECTS)
+$(TARGET): $(OBJECTS) $(SNAP7_LIBRARY)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) $(LDLIBS) -o $@
+	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) $(LDLIBS) -Wl,-rpath,'$$ORIGIN/lib' -o $@
+# Keep upstream sources unchanged and compile them for the current target.
+$(BUILD_DIR)/$(SNAP7_DIR)/src/%.o: $(SNAP7_DIR)/src/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) -std=c++11 -O2 -fPIC -pthread -I$(SNAP7_DIR)/src/sys -I$(SNAP7_DIR)/src/core -I$(SNAP7_DIR)/src/lib -MMD -MP -c $< -o $@
+$(SNAP7_LIBRARY): $(SNAP7_OBJECTS)
+	@mkdir -p $(@D)
+	$(CXX) -shared -Wl,-soname,libsnap7.so $^ -pthread -lrt -o $@
+$(BUILD_DIR)/tests/test_snap7_dependency: tests/test_snap7_dependency.cpp $(BUILD_DIR)/$(SNAP7_WRAPPER:.cpp=.o) $(SNAP7_LIBRARY)
+	@mkdir -p $(@D)
+	$(CXX) -std=c++11 -Wall -Wextra -Werror -I$(SNAP7_DIR)/release/wrappers/c-cpp $^ -Wl,-rpath,$(abspath $(BIN_DIR)/lib) -o $@
 $(BUILD_DIR)/%.o: %.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
-test: all
+test: all test-snap7
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_unit_tests.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_state_test.sh
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' bash tests/run_email_test.sh
 	python3 tests/test_mailcheck.py
 	python3 tests/test_monitor_client.py
 	python3 tests/test_startup_without_license.py "$(abspath $(TARGET))"
+.PHONY: test-snap7
+test-snap7: all $(BUILD_DIR)/tests/test_snap7_dependency
+	python3 tests/test_snap7_sources.py
+	timeout 10 $(BUILD_DIR)/tests/test_snap7_dependency
+	python3 tests/test_snap7_distribution.py "$(abspath $(BIN_DIR))"
 test-sql: $(TARGET)
 	CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LIBS)' DRIVER_BINARY='$(abspath $(TARGET))' bash tests/run_sql_test.sh
 clean-objects:
-	rm -f $(OBJECTS) $(OBJECTS:.o=.d)
+	rm -f $(OBJECTS) $(OBJECTS:.o=.d) $(SNAP7_OBJECTS) $(SNAP7_OBJECTS:.o=.d) $(BUILD_DIR)/tests/test_snap7_dependency
 clean: clean-objects
-	rm -f $(TARGET) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
+	rm -f $(TARGET) $(SNAP7_LIBRARY) $(BIN_DIR)/automonitorctl $(BIN_DIR)/automonitor-mailcheck $(BIN_DIR)/version.h
 dist: all
 	bash tools/package-runtime.sh "$(BIN_DIR)" "$(DIST_DIR)"
--include $(OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(SNAP7_OBJECTS:.o=.d)

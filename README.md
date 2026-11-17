@@ -28,6 +28,10 @@ No ejecutar pruebas SQL de integración sobre producción.
 
 ## Ramas y alcance
 
+La incorporación Siemens S7 está en la etapa de dependencia y compilación:
+[estado y pruebas](docs/siemens_s7.md). Snap7 se incluye en la distribución;
+la adquisición S7 todavía no está implementada.
+
 | Rama | Uso y diferencias |
 |---|---|
 | `main` | Versión histórica. Compila hacia `bin/automonitorv1`; incluye binarios y objetos ARM64 versionados. No incluye `automonitorctl` ni la suite de pruebas de la rama mejorada. |
