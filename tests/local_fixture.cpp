@@ -58,6 +58,14 @@ int main() {
                   << std::endl;
         char command;
         while (std::cin.get(command)) {
+            if (command == 'r') {
+                fixture.server.LockArea(srvAreaDB, 100);
+                fixture.data[8] = 0x41;
+                fixture.data[9] = 0xcc;
+                fixture.data[10] = 0xcc;
+                fixture.data[11] = 0xcd;
+                fixture.server.UnlockArea(srvAreaDB, 100);
+            }
             if (command == 'v') {
                 fixture.server.LockArea(srvAreaDB, 100);
                 fixture.data[8] = 0x41;

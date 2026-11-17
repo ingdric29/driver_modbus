@@ -85,6 +85,11 @@ periodo_muestreo_tbcambios=1
         sql(prefix+'DROP TRIGGER reject_dword')
         until(lambda: sql(prefix+"SELECT valorfloat FROM tbinstantaneos WHERE dispositivo=52 AND tag='dword'")=='42')
         assert sql(prefix+"SELECT COUNT(*) FROM tbvalores WHERE dispositivo=52 AND tag='real'")=='2'
+        peer.stdin.write('r\n');peer.stdin.flush()
+        until(lambda: sql(prefix+"SELECT CONCAT(valorstr,'|',valorfloat) FROM tbinstantaneos WHERE dispositivo=52 AND tag='real'")=='25.6|25.6')
+        until(lambda: sql(prefix+"SELECT CONCAT(valorstr,'|',valorfloat) FROM tbvalores WHERE dispositivo=52 AND tag='real' ORDER BY id DESC LIMIT 1")=='25.6|25.6')
+        observed=viewer.fetch(base/'.runtime/automonitor.sock')
+        assert next(t for d in observed['devices'] if d['protocol']=='SIEMENS_S7' for t in d['tags'] if t['name']=='real')['value']=='25.6'
         before=sql(prefix+"SELECT COUNT(*) FROM tbvalores WHERE dispositivo=52")
         peer.stdin.write('x\n');peer.stdin.flush();time.sleep(.5)
         before=sql(prefix+"SELECT COUNT(*) FROM tbvalores WHERE dispositivo=52")

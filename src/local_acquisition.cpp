@@ -44,10 +44,7 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
                 throw std::invalid_argument("S7 invalid block offset");
             double value = s7::decode(t.address, t.type, result.bytes.data() + offset,
                                       result.bytes.size() - offset, t.scale);
-            std::ostringstream out;
-            out.imbue(std::locale::classic());
-            out << std::setprecision(17) << value;
-            text = out.str();
+            text = s7::value_text(value);
             acquired = std::chrono::system_clock::to_time_t(result.acquired);
             SampleValue sample;
             sample.sequence = ++tag.sequence;

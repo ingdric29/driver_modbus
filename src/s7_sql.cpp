@@ -104,13 +104,17 @@ StoreResult store_s7(const SqlTag &tag, const SampleValue &sample, bool instant,
     try {
         con = connection();
         con->setAutoCommit(false);
-        std::ostringstream text;
-        text.imbue(std::locale::classic());
-        text << std::setprecision(12) << sample.value;
+        auto text = s7::value_text(sample.value);
+        if (text.size() > 20) {
+            std::ostringstream compact;
+            compact.imbue(std::locale::classic());
+            compact << std::setprecision(12) << sample.value;
+            text = compact.str();
+        }
         auto bind = [&](sql::PreparedStatement &s) {
             s.setString(1, sql_timestamp(sample.acquired));
             s.setString(2, tag.tag.name);
-            s.setString(3, text.str());
+            s.setString(3, text);
             s.setDouble(4, sample.value);
             s.setInt(5, tag.device_id);
             s.setString(6, tag.trace);

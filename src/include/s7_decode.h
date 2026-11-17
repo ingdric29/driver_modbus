@@ -12,6 +12,9 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <sstream>
+#include <iomanip>
+#include <locale>
 
 namespace s7 {
 enum class Type { Bool, Byte, SInt, Word, Int, DWord, DInt, Real };
@@ -102,6 +105,54 @@ inline void validate(const Address &address, Type type) {
         (type == Type::Bool ? address.bit < 0 || address.bit > 7 : address.bit != -1))
         throw std::invalid_argument("S7 address and type are incompatible");
 }
+// Decimal text must recover the original binary32, not expose its binary64 expansion.
+inline double real_decimal(float value) {
+    if (!std::isfinite(value))
+        throw std::invalid_argument("S7 non-finite REAL");
+    for (int digits = 1; digits <= std::numeric_limits<float>::max_digits10; ++digits) {
+        std::ostringstream out;
+        out.imbue(std::locale::classic());
+        out << std::setprecision(digits) << value;
+        std::istringstream back(out.str());
+        back.imbue(std::locale::classic());
+        float recovered = 0;
+        if (!(back >> recovered) || recovered != value ||
+            std::signbit(recovered) != std::signbit(value))
+            continue;
+        std::istringstream decimal(out.str());
+        decimal.imbue(std::locale::classic());
+        double result = 0;
+        if (decimal >> result)
+            return result;
+    }
+    // Some standard libraries reject subnormal or boundary float input.
+    return static_cast<double>(value);
+}
+// Shortest significant-digit count that preserves the normalized numeric value.
+inline std::string value_text(double value) {
+    if (!std::isfinite(value))
+        throw std::invalid_argument("S7 non-finite value");
+    if (std::trunc(value) == value && std::fabs(value) <= 1e15) {
+        std::ostringstream out;
+        out.imbue(std::locale::classic());
+        out << std::fixed << std::setprecision(0) << value;
+        return out.str();
+    }
+    std::string text;
+    for (int digits = 1; digits <= std::numeric_limits<double>::max_digits10; ++digits) {
+        std::ostringstream out;
+        out.imbue(std::locale::classic());
+        out << std::setprecision(digits) << value;
+        text = out.str();
+        std::istringstream back(text);
+        back.imbue(std::locale::classic());
+        double recovered = 0;
+        if ((back >> recovered) && recovered == value &&
+            std::signbit(recovered) == std::signbit(value))
+            return text;
+    }
+    return text;
+}
 // Buffer begins at address.byte; bit numbering is Siemens 0..7 in that byte.
 inline double decode(const Address &address, Type type, const uint8_t *bytes, size_t size,
                      double scale = 1) {
@@ -130,7 +181,7 @@ inline double decode(const Address &address, Type type, const uint8_t *bytes, si
                       "S7 REAL requires IEEE754 binary32");
         float real;
         std::memcpy(&real, &raw, sizeof(real));
-        value = real;
+        value = real_decimal(real);
         break;
     }
     default:

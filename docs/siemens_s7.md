@@ -144,3 +144,11 @@ El [informe SQL](etapas/07_sql_siemens.md) describe rastro, instantáneos,
 histórico, transacciones, reintentos y límites de RAM. `make test-s7-sql`
 es opt-in y usa un servidor temporal aislado, sin esquema del usuario.
 La persistencia física en Raspberry debe comprobarse antes de declararla validada.
+
+## Representación decimal de REAL
+
+REAL se convierte al decimal corto que recupera el mismo float Siemens, antes
+ de aplicar el escalamiento: con escala 1, 0x41CCCCCD se publica y almacena como
+25.6, sin expandirlo a 25.600000381469727. El monitor y SQL comparten el formato.
+No es un redondeo fijo de todos los tipos ni una alteración de Modbus. Véase el
+[informe de precisión](etapas/08_real_decimales.md), incluidos límites y pruebas.

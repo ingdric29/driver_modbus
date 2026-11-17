@@ -49,6 +49,24 @@ int main() {
     assert(value("DB1.DBD4", "REAL", {0x41, 0xc8, 0, 0}) == 25);
     assert(value("DB1.DBD4", "s7_real", {0xc1, 0xc8, 0, 0}, -2) == 50);
     assert(value("DB1.DBD4", "REAL", {0, 0, 0, 0}, 0) == 0);
+    assert(value("DB1.DBD4", "REAL", {0x41, 0xcc, 0xcc, 0xcd}) == 25.6);
+    assert(s7::value_text(value("DB1.DBD4", "REAL", {0x41, 0xcc, 0xcc, 0xcd})) == "25.6");
+    assert(s7::value_text(s7::real_decimal(0.1f)) == "0.1");
+    assert(s7::value_text(s7::real_decimal(-25.6f)) == "-25.6");
+    assert(s7::value_text(4294967295.0) == "4294967295");
+    for (float f :
+         {25.6f, std::nextafter(25.6f, INFINITY), 1.2345678f, 0.00000012345678f,
+          std::numeric_limits<float>::denorm_min(), std::numeric_limits<float>::max(), -0.0f}) {
+        auto normalized = s7::real_decimal(f);
+        std::istringstream input(s7::value_text(normalized));
+        input.imbue(std::locale::classic());
+        double stored = 0;
+        input >> stored;
+        assert(stored == normalized);
+        assert(normalized == 0 ? std::signbit(normalized) == std::signbit(f) : true);
+        assert(f == std::numeric_limits<float>::max() || static_cast<float>(normalized) == f);
+    }
+    assert(s7::real_decimal(std::nextafter(25.6f, INFINITY)) != 25.6);
     rejected([] { value("DB1.DBD4", "REAL", {0x7f, 0x80, 0, 0}); });
     rejected([] { value("DB1.DBD4", "REAL", {0xff, 0x80, 0, 0}); });
     rejected([] { value("DB1.DBD4", "REAL", {0x7f, 0xc0, 0, 0}); });
