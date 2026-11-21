@@ -25,11 +25,13 @@ using repository_detail::is_external_target;
  * schema, string user, string password
  * Retorno: 0 si completa u omite la consulta; -1 ante error SQL.
  * Efectos: Escribe ejecutar, segundos y lote; consumir la solicitud no confirma la escritura
- * Modbus.
+ * Modbus. request_id opcional identifica la fila observada, no una ejecución única.
  */
 int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, int port,
-                    string schema, string user, string password) {
+                    string schema, string user, string password, int *request_id) {
     ejecutar = 0;
+    if (request_id)
+        *request_id = 0;
     if (is_external_target(host, port, schema) &&
         (!GLOBAL_habilitar_acceso_externo || !GLOBAL_ACCESO_EXTERNO))
         return 0;
@@ -42,6 +44,8 @@ int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, 
         std::unique_ptr<sql::ResultSet> row(select->executeQuery());
         if (!row->next())
             return 0;
+        if (request_id)
+            *request_id = row->getInt("id");
         const int requested = row->getInt("ejecutar_tbcmd");
         segundos = cast_string_to_double(row->getString("tiempo_segundos"));
         lote = row->getString("lote");

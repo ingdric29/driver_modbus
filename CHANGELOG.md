@@ -4,6 +4,15 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Desarrollo de órdenes Modbus — 2026-11-21
+
+- Medición monotónica por recorrido local/externo: bloqueo, SQL, ejecución y
+  confirmación. Diagnóstico por ejecución/comando e intentos FC06; percentiles
+  en ventana acotada y resumen al cierre.
+- Prueba aislada SQL → Modbus con alarmas CMD/EMAIL, SMTP TLS, fallos Modbus y
+  de confirmación SQL. Disponible con `bash install.sh --test-command-sql`.
+- Alcance y límites: [informe de medición](docs/etapas/11_ordenes_metricas.md).
+
 ## 1.3.0 — 2026-11-17
 
 Nombre de producto: AutoMonitor Driver; adquisición industrial multiprotocolo.

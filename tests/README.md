@@ -1,5 +1,23 @@
 # Pruebas sin hardware
 
+## Órdenes Modbus y continuidad de alarmas
+
+`bash install.sh --test-command-sql` compila, ejecuta la regresión ordinaria y
+añade `make test-command-sql`. Esta integración inicia su propia MariaDB temporal
+en puerto loopback libre, sin leer la configuración privada. Admite el prefijo
+`COMMAND_TEST_SYSROOT` o `S7_TEST_SYSROOT` (predeterminado `/usr`). Requiere
+MariaDB servidor/cliente, OpenSSL y las dependencias habituales del driver.
+
+Comprueba SQL → FC06 real, lote/habilitación de comando, tres intentos heredados,
+fallo de confirmación SQL sin repetir la escritura, adquisición concurrente,
+acción de alarma CMD y tres correos TLS/AUTH de activación/desactivación/reactivación.
+El SMTP es local y sus destinatarios son `example.invalid`. Publica tiempos
+observados desde el retorno del cliente SQL hasta la recepción en el PLC simulado;
+no son mediciones físicas ni establecen un objetivo universal de latencia.
+
+`test_command_metrics.cpp` verifica percentiles, ventana de 256 muestras,
+separación por origen, concurrencia y observaciones de transporte por hilo.
+
 ## Dependencia Snap7 (etapa 1)
 
 `make test-snap7` verifica las fuentes fijadas, el enlace C/C++ y el paquete

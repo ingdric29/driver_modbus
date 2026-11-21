@@ -98,6 +98,9 @@ Usar `bash install.sh` en Debian/Raspberry como usuario normal. El instalador
 comprueba/instala dependencias, compila Snap7 y el driver, ejecuta la regresión,
 crea distribución con licencias/fuentes Snap7 y limpia objetos; conserva el CFG.
 Para incluir la prueba SQL mixta aislada: `bash install.sh --test-s7-sql`.
+Para órdenes Modbus y regresión de alarmas/correo con servidores temporales:
+`bash install.sh --test-command-sql`. Ambos flags se pueden combinar.
+Diagnósticos y límites en el [informe de órdenes, etapa 1](etapas/11_ordenes_metricas.md).
 Esta opción prepara además MariaDB Server/Client como dependencias de prueba.
 El test crea un servidor temporal separado, no usa dbdevlog ni sus credenciales.
 No inicia adquisición al terminar; arrancar desde bin con ./automonitorv1.

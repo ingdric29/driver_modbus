@@ -14,6 +14,7 @@
 #include <modbus.h>
 #include "include/modbus_transport.h"
 #include "include/runtime_control.h"
+#include "include/command_metrics.h"
 
 using namespace std;
 
@@ -33,8 +34,11 @@ int cls_cmd::cmdescribir_serial(void) {
     int rc = -1;
     int intentosmax = 3;
     int intento = 0;
+    auto &trace = command_metrics::transport_trace();
+    auto started = command_metrics::Clock::now();
     auto lease =
         ModbusLease::rtu(interface1, velocidad, paridad.empty() ? 'N' : paridad[0], 8, bitsparada);
+    trace.link_wait_us = command_metrics::elapsed_us(started);
     ctx_tcp = lease.get();
     if (ctx_tcp == NULL) { // if 1
         fprintf(stderr, "[ ERROR ] Escritura RTU: no se pudo iniciar libmodbus.\n");
@@ -43,7 +47,12 @@ int cls_cmd::cmdescribir_serial(void) {
     if (direccion_esclavo == 0)
         direccion_esclavo = 1;
     modbus_set_slave(ctx_tcp, direccion_esclavo);
-    if (lease.connect(G_modbus_timeout) == -1) { // if 3
+    started = command_metrics::Clock::now();
+    const auto connected = lease.connect(G_modbus_timeout);
+    const int connection_error = connected < 0 ? errno : 0;
+    trace.connect_us = command_metrics::elapsed_us(started);
+    if (connected == -1) { // if 3
+        trace.error = connection_error;
         fprintf(stderr, "[ ERROR ] Escritura RTU: fallo de conexion: %s\n", modbus_strerror(errno));
         lease.invalidate();
         return -1;
@@ -54,7 +63,11 @@ int cls_cmd::cmdescribir_serial(void) {
         if (intento > 1) {
             esperar(0.1);
         };
+        started = command_metrics::Clock::now();
         rc = modbus_write_register(ctx_tcp, registro, clsvalor);
+        trace.error = rc < 0 ? errno : 0;
+        trace.wire_us += command_metrics::elapsed_us(started);
+        ++trace.attempts;
     } // fin del while 1
 
     if (rc < 0)
@@ -74,7 +87,10 @@ int cls_cmd::cmdescribir_tcp(void) {
     int rc = -1;
     int intentosmax = 3;
     int intento = 0;
+    auto &trace = command_metrics::transport_trace();
+    auto started = command_metrics::Clock::now();
     auto lease = ModbusLease::tcp(direccion_ip, puerto);
+    trace.link_wait_us = command_metrics::elapsed_us(started);
     ctx_tcp = lease.get();
     if (ctx_tcp == NULL) { // if 1
         fprintf(stderr, "[ ERROR ] Escritura TCP: no se pudo iniciar libmodbus.\n");
@@ -83,7 +99,12 @@ int cls_cmd::cmdescribir_tcp(void) {
     if (direccion_esclavo == 0)
         direccion_esclavo = 1;
     modbus_set_slave(ctx_tcp, direccion_esclavo);
-    if (lease.connect(G_modbus_timeout) == -1) { // if 3
+    started = command_metrics::Clock::now();
+    const auto connected = lease.connect(G_modbus_timeout);
+    const int connection_error = connected < 0 ? errno : 0;
+    trace.connect_us = command_metrics::elapsed_us(started);
+    if (connected == -1) { // if 3
+        trace.error = connection_error;
         fprintf(stderr, "[ ERROR ] Escritura TCP: fallo de conexion: %s\n", modbus_strerror(errno));
         lease.invalidate();
         return -1;
@@ -94,7 +115,11 @@ int cls_cmd::cmdescribir_tcp(void) {
         if (intento > 1) {
             esperar(0.1);
         };
+        started = command_metrics::Clock::now();
         rc = modbus_write_register(ctx_tcp, registro, clsvalor);
+        trace.error = rc < 0 ? errno : 0;
+        trace.wire_us += command_metrics::elapsed_us(started);
+        ++trace.attempts;
     } // fin del while 1
     if (rc < 0)
         lease.invalidate();
@@ -107,6 +132,7 @@ int cls_cmd::cmdescribir_tcp(void) {
  * Retorno: 0 si la escritura fue aceptada; negativo si falla o no se soporta el protocolo.
  */
 int cls_cmd::ejecutar(void) {
+    command_metrics::transport_trace() = command_metrics::TransportTrace{};
     int res = -1;
     int resultadofinal = 0;
     if (protocolo.compare("MBSERIAL") == 0) {

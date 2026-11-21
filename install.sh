@@ -11,14 +11,16 @@ REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PASO="Inicio"
 OMITIR_PAQUETES=0
 PROBAR_SQL=0
+PROBAR_COMANDOS=0
 for argumento in "$@"; do
     case "$argumento" in
         --skip-packages) OMITIR_PAQUETES=1 ;;
         --test-s7-sql) PROBAR_SQL=1 ;;
-        *) printf 'Uso: bash install.sh [--skip-packages] [--test-s7-sql]\n' >&2; exit 2 ;;
+        --test-command-sql) PROBAR_COMANDOS=1 ;;
+        *) printf 'Uso: bash install.sh [--skip-packages] [--test-s7-sql] [--test-command-sql]\n' >&2; exit 2 ;;
     esac
 done
-ETAPAS_TOTALES=$((8 + PROBAR_SQL))
+ETAPAS_TOTALES=$((8 + PROBAR_SQL + PROBAR_COMANDOS))
 ETAPAS_COMPLETADAS=0
 
 # Dibuja el avance por etapas completadas, no por tiempo estimado.
@@ -86,7 +88,7 @@ completar_paso
 paso "Instalar o actualizar dependencias"
 if (( ! OMITIR_PAQUETES )); then
 paquetes_sql=()
-if (( PROBAR_SQL )); then paquetes_sql=(mariadb-server mariadb-client); fi
+if (( PROBAR_SQL || PROBAR_COMANDOS )); then paquetes_sql=(mariadb-server mariadb-client); fi
 sudo apt-get install -y \
     build-essential git pkg-config \
     libmodbus-dev libmysqlcppconn-dev libcurl4-openssl-dev \
@@ -103,6 +105,11 @@ completar_paso
 if (( PROBAR_SQL )); then
     paso "Probar SQL Siemens/Modbus en base temporal aislada"
     make test-s7-sql
+    completar_paso
+fi
+if (( PROBAR_COMANDOS )); then
+    paso "Probar órdenes Modbus y correos de alarma con SQL/SMTP temporales"
+    make test-command-sql
     completar_paso
 fi
 paso "Verificar versiones"

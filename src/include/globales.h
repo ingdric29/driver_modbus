@@ -130,7 +130,8 @@ int insertardb(time_t fechatiempo, string tag, string valorstr, float valorfloat
 //  leer_tbejecutar, esta funcion se encarga de verificar si hay una orden para leer ejecutar las instrucciones
 //  ubicadas en la tabla tbcmd
 int leer_tbejecutar(int &res_ejecutar, time_t &segundos, string &lote, string direccion_db,
-                    int puerto_db, string nombre_db, string usuario_db, string clave_db);
+                    int puerto_db, string nombre_db, string usuario_db, string clave_db,
+                    int *request_id = nullptr);
 //  leer_tbcmd lee los comandos a ejecutar y los almacena en un array en memoria RAM
 int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usuario_db,
                string clave_db);
