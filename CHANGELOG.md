@@ -12,6 +12,11 @@ protocolo JSON del monitor es independiente de la versión del producto.
 - Prueba aislada SQL → Modbus con alarmas CMD/EMAIL, SMTP TLS, fallos Modbus y
   de confirmación SQL. Disponible con `bash install.sh --test-command-sql`.
 - Alcance y límites: [informe de medición](docs/etapas/11_ordenes_metricas.md).
+- Sondeo de órdenes con plazos monotónicos independientes, períodos fraccionarios,
+  vencimiento exacto y salto de intervalos perdidos. El origen externo deshabilitado
+  no gobierna la espera. Se conservan los períodos configurados y de adquisición.
+- Pruebas de planificación y de órdenes locales/externas con alarmas/correo:
+  [informe de sondeo](docs/etapas/12_ordenes_sondeo.md).
 
 ## 1.3.0 — 2026-11-17
 

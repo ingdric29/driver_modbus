@@ -18,6 +18,11 @@ no son mediciones físicas ni establecen un objetivo universal de latencia.
 `test_command_metrics.cpp` verifica percentiles, ventana de 256 muestras,
 separación por origen, concurrencia y observaciones de transporte por hilo.
 
+`test_command_poll.cpp` comprueba con tiempo simulado la planificación de órdenes:
+vencimientos exactos, 200/370 ms, origen externo deshabilitado y salto de intervalos
+perdidos. La integración SQL se ejecuta con externo deshabilitado y habilitado;
+el segundo perfil también realiza una orden originada en el esquema externo.
+
 ## Dependencia Snap7 (etapa 1)
 
 `make test-snap7` verifica las fuentes fijadas, el enlace C/C++ y el paquete

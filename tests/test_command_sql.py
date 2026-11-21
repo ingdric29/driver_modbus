@@ -5,6 +5,7 @@ from pathlib import Path
 import signal
 import socket
 import statistics
+import re
 import struct
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from smtp_fixture import Server, certificate
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path(sys.argv[1]).resolve(strict=True)
+EXTERNAL = '--external' in sys.argv[2:]
 
 
 class ModbusPeer:
@@ -156,6 +158,8 @@ INSERT INTO tbcmd VALUES
 UPDATE tbdefalarmas SET accionactivar='CMD[90];EMAIL[7];';
 """
         sql(setup)
+        if EXTERNAL:
+            sql(setup.replace('driver_command_fixture', 'driver_external_command_fixture'))
         (base / 'run').mkdir()
         (base / 'html').mkdir()
         (base / 'html/plantilla_emails.html').write_bytes(
@@ -167,9 +171,14 @@ db_nombre=driver_command_fixture
 db_usuario=root
 db_clave=
 nombre_concentrador=startup-test
-habilitar_acceso_externo=0
+habilitar_acceso_externo={int(EXTERNAL)}
+dbext_direccion=127.0.0.1
+dbext_puerto={port}
+dbext_nombre=driver_external_command_fixture
+dbext_usuario=root
+dbext_clave=
 periodo_muestreo_tbejecutar=0.2
-periodoext_muestreo_tbejecutar=0.2
+periodoext_muestreo_tbejecutar=0.37
 periodo_muestreo_tbcambios=1
 periodo_revision_alarmas=0.1
 smtp_from=sender@example.invalid
@@ -231,6 +240,14 @@ DELIMITER ;
         peer.high.set()
         until(lambda: len(smtp.messages) == 3)
         assert peer.count(7) == 2
+        if EXTERNAL:
+            before = peer.count(3)
+            sql("USE driver_external_command_fixture; "
+                "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='manual' WHERE id=1")
+            until(lambda: 'source=externa request=1 command=10 modbus=accepted ack=ok' in logs())
+            assert peer.count(3) == before + 1
+            assert sql('USE driver_external_command_fixture; '
+                       'SELECT cmd_datetime IS NOT NULL FROM tbcmd WHERE id=10') == '1'
         time.sleep(.3)
         assert len(smtp.messages) == 3
         assert smtp.envelopes.count(b'RCPT TO:<alarm7@example.invalid>') == 3
@@ -244,10 +261,17 @@ DELIMITER ;
         assert 'batch="manual" loaded=5 matched=1 status=accepted' in text
         assert 'COMMAND_METRICS units=us window_limit=256' in text
         assert 'local.ack_sql={n=4,fail=1' in text
+        assert 'local.poll_lag=' in text
+        if EXTERNAL:
+            assert int(re.search(r'externa\.poll_sql=\{n=(\d+)', text).group(1)) >= 3
+            assert 'externa.ack_sql={n=1,fail=0' in text
+        else:
+            assert 'externa.poll_sql=' not in text
         assert 'fixture-secret' not in text and 'fixture-user' not in text
         print('PASS SQL -> FC06: order/filtering, 3 retries, SQL ack failure without replay; '
               'alarm CMD + 3 real TLS/SMTP messages (activate/deactivate/reactivate), '
               'acquisition and shutdown; loopback only')
+        print('PASS command scheduler: external=' + str(EXTERNAL) + ', periods=200/370ms')
         print('MEASURE commit SQL -> simulated PLC: samples_ms=' +
               ','.join(f'{value * 1000:.1f}' for value in latencies) +
               f' median_ms={statistics.median(latencies) * 1000:.1f}')

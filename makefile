@@ -114,3 +114,4 @@ test-s7-sql: all $(BUILD_DIR)/tests/local_fixture
 .PHONY: test-command-sql
 test-command-sql: all
 	python3 tests/test_command_sql.py "$(abspath $(TARGET))"
+	python3 tests/test_command_sql.py "$(abspath $(TARGET))" --external

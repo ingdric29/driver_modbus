@@ -15,6 +15,7 @@
 #include <vector>
 #include "include/driver_metrics.h"
 #include "include/command_metrics.h"
+#include "include/command_poll.h"
 
 using namespace std;
 
@@ -147,8 +148,8 @@ int ordenejecucuionexterna() { return execute_commands(true); }
  * Retorno: 1 al finalizar; no equivale a confirmar todas las operaciones subordinadas.
  */
 int ordenejecucionciclico() {
-    double diferencia1 = 0.0;
-    double diferencia2 = 0.0;
+    CommandPollSchedule schedule(GLOBAL_periodo_muestreo_tbejecutar,
+                                 GLOBAL_periodoext_muestreo_tbejecutar);
     PeriodicDeadline metrics_deadline;
     metrics_deadline.defer(60);
     while (driver_running()) {
@@ -158,18 +159,23 @@ int ordenejecucionciclico() {
             cout << DriverMetrics::instance().console_summary() << endl;
             metrics_deadline.advance(60);
         }
-        diferencia1 = difftime(time(NULL), GLOBAL_ultimo_tiempo_tbejecutar_dblocal);
-        if (diferencia1 > GLOBAL_periodo_muestreo_tbejecutar) { // if 1
+        if (schedule.local_due()) {
+            Metrics::instance().record(Source::Local, Stage::PollLag,
+                                       elapsed_us(schedule.next_local()));
+            // Wall timestamps remain available for legacy diagnostics only.
             GLOBAL_ultimo_tiempo_tbejecutar_dblocal = time(NULL);
             ordenejecucuionlocal();
+            schedule.local_finished();
         }
-        diferencia2 = difftime(time(NULL), GLOBAL_ultimo_tiempo_tbejecutar_dbexterna);
-        if (diferencia2 > GLOBAL_periodoext_muestreo_tbejecutar) { // if 1
+        const bool external_enabled = GLOBAL_habilitar_acceso_externo != 0;
+        if (driver_running() && schedule.external_due(external_enabled)) {
+            Metrics::instance().record(Source::External, Stage::PollLag,
+                                       elapsed_us(schedule.next_external()));
             GLOBAL_ultimo_tiempo_tbejecutar_dbexterna = time(NULL);
             ordenejecucuionexterna();
+            schedule.external_finished();
         }
-        esperar(
-            std::min(GLOBAL_periodo_muestreo_tbejecutar, GLOBAL_periodoext_muestreo_tbejecutar));
+        wait_driver_until(std::min(schedule.next(external_enabled), metrics_deadline.next()));
     }
     logger_main.registrarError(Metrics::instance().summary(), false);
     cout << "[ ESTADO ] Lectura de ordenes detenida." << endl;
