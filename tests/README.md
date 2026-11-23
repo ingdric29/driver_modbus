@@ -32,7 +32,7 @@ externa no sustituye las acciones CMD locales. Véase el
 
 La etapa 4 añade `command_integer` al runner con ASan/UBSan y casos enlazados
 de validación sin abrir conexión, TCP unidad 255/dirección 65535 y RTU sobre
-pseudoterminal. La integración SQL rechaza lotes completos con NULL o valores
+pseudoterminal. La integración SQL rechaza grupos del mismo dispositivo con NULL o valores
 fuera de rango antes del primer FC06, comprueba habilitación e INT16/WORD.
 Las pruebas de alarmas evalúan CMD inválido/inexistente junto con EMAIL y
 verifican que los correos aceptados no se repitan. El monitor diferencia las
@@ -228,3 +228,7 @@ bin/ y sbin/ (por defecto /usr; en cloud usar sysroot/usr tras activate.sh).
 Comprueba persistencia simultánea, rastro, DWORD, solocambios/registrable,
 rollback y recuperación de fallo SQL, caída del PLC y cierre. Es independiente
 de la instancia fija utilizada por el antiguo make test-sql.
+
+La prueba de grupos incluye un Ajuste con destino deshabilitado, aislamiento de
+un grupo inválido, mantenimiento del orden A/B/A y continuación después de un
+fallo Modbus en otro grupo. Ver [ajuste de etapa 4](../docs/etapas/15_ordenes_grupos_dispositivo.md).

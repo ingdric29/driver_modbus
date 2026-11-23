@@ -82,6 +82,11 @@ int main() {
         state.event(std::string("COMMAND execution=3 batch=\"test\" ") + failure);
         assert(state.copy().events.back().level == "ERROR");
     }
+    for (const auto &warning : {"validation=skipped", "status=skipped", "status=partial"}) {
+        state.event(std::string("COMMAND execution=4 ") + warning);
+        assert(state.copy().events.back().level == "WARN");
+        assert(state.copy().events.back().component == "ORDENES");
+    }
     assert(quote(std::string("\"\\\n\x1b")) == "\"\\\"\\\\\\u000a\\u001b\"");
     assert(quote("\xc3\xb1") == "\"\xc3\xb1\"");
     assert(quote("\xed\xa0\x80\xff") == "\"\\ufffd\\ufffd\\ufffd\\ufffd\"");

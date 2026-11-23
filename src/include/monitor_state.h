@@ -323,6 +323,10 @@ class State {
                                 fields.find(" status=failed") != std::string::npos ||
                                 fields.find(" status=rejected") != std::string::npos
                             ? "ERROR"
+                        : fields.find(" validation=skipped") != std::string::npos ||
+                                fields.find(" status=skipped") != std::string::npos ||
+                                fields.find(" status=partial") != std::string::npos
+                            ? "WARN"
                             : "INFO";
             } else if (message.find("SQL") != std::string::npos)
                 component = "SQL";

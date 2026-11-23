@@ -21,7 +21,7 @@ EXTERNAL = '--external' in sys.argv[2:]
 
 
 class ModbusPeer:
-    def __init__(self):
+    def __init__(self, writes=None):
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
         self.listener.listen(4)
@@ -29,7 +29,7 @@ class ModbusPeer:
         self.port = self.listener.getsockname()[1]
         self.stop = threading.Event()
         self.high = threading.Event()
-        self.writes = []
+        self.writes = [] if writes is None else writes
         self.errors = []
         self.reads = 0
         self.thread = threading.Thread(target=self.serve)
@@ -114,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix='driver-command-sql-') as temporary:
                            '--bind-address=127.0.0.1', '--port=' + str(port),
                            '--innodb-buffer-pool-size=32M'],
                           env=env, stdout=db_log, stderr=db_log)
-    peer = smtp = driver = output = None
+    peer = peer_other = smtp = driver = output = None
 
     def sql(query):
         return subprocess.check_output([
@@ -139,6 +139,7 @@ with tempfile.TemporaryDirectory(prefix='driver-command-sql-') as temporary:
     try:
         until(lambda: sql('SELECT 1') == '1')
         peer = ModbusPeer()
+        peer_other = ModbusPeer(peer.writes)
         cert, key = certificate(base)
         smtp = Server(cert, key, expected_auth=('fixture-user', 'fixture-secret'))
         setup = (ROOT / 'tests/fixtures/startup_alarm.sql').read_text().replace(
@@ -267,7 +268,7 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
         sql(prefix + f"INSERT INTO tbdispositivos VALUES (2,'disabled','127.0.0.1',{peer.port},1,'',9600,'N',1,'0','','','MBTCP',0,'startup-test'); "
             "INSERT INTO tbcmd VALUES(4900,42,1,NULL,1,'startup-test','disabled-device','disabled'); "
             "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='disabled-device' WHERE id=1")
-        until(lambda: 'batch="disabled-device" loaded=1 matched=0 status=rejected' in logs())
+        until(lambda: 'batch="disabled-device" loaded=1 matched=0 status=skipped' in logs())
         assert peer.count(40) == 0 and peer.count(41) == 0 and peer.count(42) == 0
 
         # Signed INT16 and unsigned WORD encode explicitly, including the last address.
@@ -292,6 +293,39 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
         assert sql(prefix + 'SELECT cmd_datetime IS NULL FROM tbcmd WHERE id=20') == '1'
         peer.high.clear()
         until(lambda: len(smtp.messages) == 2)  # Deactivation email after failed Modbus order.
+
+        # Validate independently by device; skip disabled members even with NULL fields.
+        sql(prefix + f"INSERT INTO tbdispositivos VALUES (3,'other-valid','127.0.0.1',{peer_other.port},1,'',9600,'N',1,'0','','','MBTCP',1,'startup-test'); "
+            "INSERT INTO tbcmd VALUES "
+            "(51000,50,1,NULL,1,'startup-test','mixed','meter'),"
+            "(51001,51,2,NULL,1,'startup-test','mixed','other-valid'),"
+            "(51002,NULL,NULL,NULL,1,'startup-test','mixed','disabled'),"
+            "(51003,65536,3,NULL,1,'startup-test','mixed','meter'),"
+            "(51004,53,4,NULL,1,'startup-test','mixed','other-valid'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='mixed' WHERE id=1")
+        until(lambda: 'batch="mixed" loaded=5 matched=2 status=partial skipped=1 rejected=2' in logs())
+        assert [(address, value) for address, value, _ in peer.writes if 50 <= address <= 53] == [(51, 2), (53, 4)]
+        assert sql(prefix + "SELECT COUNT(*) FROM tbcmd WHERE lote='mixed' AND cmd_datetime IS NOT NULL") == '2'
+        sql(prefix + "INSERT INTO tbcmd VALUES "
+            "(52000,54,1,NULL,1,'startup-test','interleaved','meter'),"
+            "(52001,55,2,NULL,1,'startup-test','interleaved','other-valid'),"
+            "(52002,56,3,NULL,1,'startup-test','interleaved','meter'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='interleaved' WHERE id=1")
+        until(lambda: 'batch="interleaved" loaded=3 matched=3 status=accepted' in logs())
+        assert [(address, value) for address, value, _ in peer.writes if 54 <= address <= 56] == [(54, 1), (55, 2), (56, 3)]
+        # A disabled group must not block a valid command, matching the real Ajuste incident.
+        sql(prefix + "INSERT INTO tbcmd VALUES "
+            "(52500,58,52,NULL,1,'startup-test','adjustment','meter'),"
+            "(52501,59,300,NULL,1,'startup-test','adjustment','disabled'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='adjustment' WHERE id=1")
+        until(lambda: 'batch="adjustment" loaded=2 matched=1 status=accepted skipped=1 rejected=0' in logs())
+        assert peer.count(58) == 1 and peer.count(59) == 0
+        sql(prefix + "INSERT INTO tbcmd VALUES "
+            "(53000,9,1,NULL,1,'startup-test','transport-failure','meter'),"
+            "(53001,57,2,NULL,1,'startup-test','transport-failure','other-valid'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='transport-failure' WHERE id=1")
+        until(lambda: 'batch="transport-failure" loaded=2 matched=2 status=failed' in logs())
+        assert peer.count(9) == 6 and peer.count(57) == 1, (peer.count(9), peer.count(57))
 
         # PLC accepted; SQL confirmation failed. Observe it without resending the order.
         sql(prefix + """
@@ -333,7 +367,7 @@ DELIMITER ;
         assert 'source=local request=1 command=10 modbus=accepted ack=ok attempts=1' in text
         assert 'batch="manual" loaded=1 matched=1 status=accepted' in text
         assert 'COMMAND_METRICS units=us window_limit=256' in text
-        assert 'local.ack_sql={n=139,fail=1' in text
+        assert 'local.ack_sql={n=146,fail=1' in text
         assert 'local.poll_lag=' in text
         if EXTERNAL:
             assert int(re.search(r'externa\.poll_sql=\{n=(\d+)', text).group(1)) >= 3
@@ -344,7 +378,7 @@ DELIMITER ;
         print('PASS SQL -> FC06: order/filtering, 3 retries, SQL ack failure without replay; '
               'alarm CMD + 3 real TLS/SMTP messages (activate/deactivate/reactivate), '
               'acquisition and shutdown; loopback only')
-        print('PASS validation: entire invalid batch blocked, NULL/ranges/enable checked, INT16/WORD boundaries encoded')
+        print('PASS device groups: disabled omitted, invalid group isolated, global ID order and other devices survive transport errors')
         print('PASS private batches: 130 ordered commands, exact/prepared filter, 4097 rejected, local alarm catalog isolated')
         print('PASS command scheduler: external=' + str(EXTERNAL) + ', periods=200/370ms')
         print('MEASURE commit SQL -> simulated PLC: samples_ms=' +
@@ -360,6 +394,8 @@ DELIMITER ;
                 driver.wait()
         if peer is not None:
             peer.close()
+        if peer_other is not None:
+            peer_other.close()
         if smtp is not None:
             smtp.close()
         db.terminate()

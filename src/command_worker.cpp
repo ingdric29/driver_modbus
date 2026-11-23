@@ -1,7 +1,7 @@
 /*
  * Archivo: command_worker.cpp
  * Descripción: Sondea y ejecuta órdenes locales y externas.
- * Necesita: Configuración SQL, períodos, lote y catálogo de comandos; mutex de comandos.
+ * Necesita: Configuración SQL, períodos, lote y listas privadas por dispositivo.
  * Retornos: Resultado de ejecución de la orden o 1 al terminar el ciclo; ver cada función.
  */
 
@@ -13,7 +13,7 @@
 #include <ctime>
 #include <iostream>
 #include <vector>
-#include <set>
+#include <map>
 #include "include/driver_metrics.h"
 #include "include/command_metrics.h"
 #include "include/command_poll.h"
@@ -76,22 +76,48 @@ int execute_commands(bool external) {
     metrics.record(source, Stage::CatalogSql, catalog_us, count < 0);
     bool failed = count < 0;
     started = Clock::now();
-    std::vector<std::pair<int, string>> invalid;
-    std::set<int> ids;
+    struct DeviceGroup {
+        bool disabled = false;
+        string reason;
+    };
+    std::map<string, DeviceGroup> groups;
+    std::map<int, string> ids;
     for (const auto &command : batch_commands) {
-        auto reason = command.validar();
-        if (!ids.insert(command.id).second)
-            reason = "id de comando duplicado en el lote";
-        if (!reason.empty())
-            invalid.emplace_back(command.id, reason);
+        auto &group = groups[command.nombre];
+        group.disabled = group.disabled || !command.habilitar;
+    }
+    for (const auto &command : batch_commands) {
+        auto &group = groups[command.nombre];
+        if (group.disabled)
+            continue;
+        const auto reason = command.validar();
+        if (group.reason.empty() && !reason.empty())
+            group.reason = "comando " + std::to_string(command.id) + ": " + reason;
+        const auto previous = ids.emplace(command.id, command.nombre);
+        if (!previous.second) {
+            group.reason = "id de comando duplicado en el lote";
+            groups[previous.first->second].reason = group.reason;
+        }
+    }
+    std::vector<std::pair<int, string>> invalid;
+    size_t skipped = 0;
+    for (const auto &command : batch_commands) {
+        const auto &group = groups.at(command.nombre);
+        if (group.disabled)
+            ++skipped;
+        else if (!group.reason.empty())
+            invalid.emplace_back(command.id, group.reason);
     }
     const auto validation_us = elapsed_us(started);
     if (count > 0)
         metrics.record(source, Stage::Validation, validation_us, !invalid.empty());
     failed = failed || !invalid.empty();
     std::vector<CommandResult> results;
-    // A configuration error anywhere rejects the whole batch before any FC06.
-    for (int j = 0; invalid.empty() && j < count; ++j) {
+    // Validate by device, but transmit in the original global ID order.
+    for (int j = 0; j < count; ++j) {
+        const auto &group = groups.at(batch_commands[j].nombre);
+        if (group.disabled || !group.reason.empty())
+            continue;
         CommandResult value;
         value.id = batch_commands[j].id;
         started = Clock::now();
@@ -111,11 +137,19 @@ int execute_commands(bool external) {
         results.push_back(value);
     }
     const auto batch_us = elapsed_us(begin);
-    metrics.record(source, Stage::Batch, batch_us, failed || results.empty());
+    metrics.record(source, Stage::Batch, batch_us, failed || (results.empty() && !skipped));
     const auto prefix = "COMMAND run=" + std::to_string(run) +
                         " execution=" + std::to_string(execution) +
                         " source=" + command_metrics::source_name(source) +
                         " request=" + std::to_string(request_id);
+    for (const auto &command : batch_commands) {
+        if (groups.at(command.nombre).disabled)
+            logger_main.registrarError(
+                prefix + " command=" + std::to_string(command.id) +
+                    " device=" + command_metrics::field(command.nombre) +
+                    " validation=skipped reason=\"dispositivo deshabilitado\"",
+                false);
+    }
     for (const auto &entry : invalid) {
         logger_main.registrarError(
             prefix + " command=" + std::to_string(entry.first) +
@@ -139,21 +173,21 @@ int execute_commands(bool external) {
     std::ostringstream log;
     log << prefix << " batch=" << command_metrics::field(batch) << " loaded=" << count
         << " matched=" << results.size() << " status="
-        << (!invalid.empty()  ? "rejected"
+        << (!invalid.empty()  ? (results.empty() ? "rejected" : "partial")
             : failed          ? "failed"
-            : results.empty() ? "empty"
+            : results.empty() ? (skipped ? "skipped" : "empty")
                               : "accepted")
-        << " mutex_wait_us=" << lock_us << " poll_sql_us=" << poll_us
-        << " catalog_sql_us=" << catalog_us << " validation_us=" << validation_us
-        << " batch_us=" << batch_us;
+        << " skipped=" << skipped << " rejected=" << invalid.size() << " mutex_wait_us=" << lock_us
+        << " poll_sql_us=" << poll_us << " catalog_sql_us=" << catalog_us
+        << " validation_us=" << validation_us << " batch_us=" << batch_us;
     logger_main.registrarError(log.str(), false);
-    return result;
+    return failed ? -1 : result;
 }
 } // namespace
 
 /**
  * Consume una solicitud local y ejecuta el lote con diagnóstico por comando.
- * Retorno: último resultado Modbus; -1 sin ejecución o ante fallo de consulta.
+ * Retorno: 0 si las escrituras y confirmaciones terminaron bien; -1 sin ejecución o con errores.
  * Efectos: Conserva consumo anticipado; lote privado, catálogo de alarmas independiente.
  */
 int ordenejecucuionlocal() { return execute_commands(false); }

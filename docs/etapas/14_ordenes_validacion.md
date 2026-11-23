@@ -3,6 +3,10 @@
 Fecha: 2026-11-23 (America/Caracas). Rama: `automonitor-driver-V1.3.0`.
 Base: etapa 3, commit `4a23561`.
 
+Actualización posterior: el usuario aprobó sustituir el rechazo global del lote
+por [grupos independientes de dispositivo](15_ordenes_grupos_dispositivo.md).
+Este informe describe la etapa 4 original; la política vigente está en ese ajuste.
+
 ## Cambios
 
 El lote privado se valida completo antes del primer FC06. Si contiene una

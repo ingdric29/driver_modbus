@@ -6,6 +6,10 @@ protocolo JSON del monitor es independiente de la versión del producto.
 
 ## Desarrollo de órdenes Modbus — 2026-11-23
 
+- Ajuste posterior: validación por dispositivo, omisión de equipos deshabilitados
+  y ejecución de grupos válidos conservando el orden global por ID. Sin cambios SQL.
+  [Informe del ajuste](docs/etapas/15_ordenes_grupos_dispositivo.md).
+
 - Lotes de ejecución privados, filtrados en SQL sin conteo previo; catálogo local
   de acciones de alarma independiente de las órdenes externas.
 - Retirado el truncamiento silencioso a 128 comandos: límite explícito de 4096,
