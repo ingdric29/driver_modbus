@@ -293,7 +293,38 @@ class State {
                 level = "WARN";
             else if (message.compare(0, 6, "DEBUG:") == 0)
                 level = "DEBUG";
-            if (message.find("SQL") != std::string::npos)
+            if (message.compare(0, 16, "COMMAND_METRICS ") == 0) {
+                level = "INFO";
+                component = "METRICAS";
+            } else if (message.compare(0, 8, "COMMAND ") == 0) {
+                component = "ORDENES";
+                // Quoted batch names/reasons are data, not result fields.
+                std::string fields;
+                bool quoted = false, escaped = false;
+                for (const char c : message) {
+                    if (escaped) {
+                        escaped = false;
+                        continue;
+                    }
+                    if (quoted && c == '\\') {
+                        escaped = true;
+                        continue;
+                    }
+                    if (c == '"') {
+                        quoted = !quoted;
+                        fields += ' ';
+                    } else if (!quoted) {
+                        fields += c;
+                    }
+                }
+                level = fields.find(" modbus=failed") != std::string::npos ||
+                                fields.find(" ack=failed") != std::string::npos ||
+                                fields.find(" validation=rejected") != std::string::npos ||
+                                fields.find(" status=failed") != std::string::npos ||
+                                fields.find(" status=rejected") != std::string::npos
+                            ? "ERROR"
+                            : "INFO";
+            } else if (message.find("SQL") != std::string::npos)
                 component = "SQL";
             else if (message.find("Modbus") != std::string::npos)
                 component = "MODBUS";

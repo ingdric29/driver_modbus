@@ -30,6 +30,14 @@ coinciden con locales pero apuntan a otros registros: se comprueba que una orden
 externa no sustituye las acciones CMD locales. Véase el
 [informe de etapa 3](../docs/etapas/13_ordenes_catalogo.md).
 
+La etapa 4 añade `command_integer` al runner con ASan/UBSan y casos enlazados
+de validación sin abrir conexión, TCP unidad 255/dirección 65535 y RTU sobre
+pseudoterminal. La integración SQL rechaza lotes completos con NULL o valores
+fuera de rango antes del primer FC06, comprueba habilitación e INT16/WORD.
+Las pruebas de alarmas evalúan CMD inválido/inexistente junto con EMAIL y
+verifican que los correos aceptados no se repitan. El monitor diferencia las
+métricas informativas de los fallos. Ver [etapa 4](../docs/etapas/14_ordenes_validacion.md).
+
 ## Dependencia Snap7 (etapa 1)
 
 `make test-snap7` verifica las fuentes fijadas, el enlace C/C++ y el paquete

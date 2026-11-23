@@ -14,6 +14,14 @@ protocolo JSON del monitor es independiente de la versión del producto.
 - Pruebas de 130 comandos ordenados, catálogo de alarmas con ID alto, límites y
   aislamiento de definiciones locales/externas con correo SMTP temporal.
 - Informe: [etapa 3](docs/etapas/13_ordenes_catalogo.md).
+- Validación completa del lote antes de FC06: NULL/rangos, habilitación del
+  dispositivo, protocolo y parámetros TCP/RTU. Conversión explícita INT16/WORD.
+- Acción CMD inexistente permanece pendiente y permite su EMAIL. Pruebas de
+  comandos inválidos sin conexión, límites TCP/RTU y continuidad del correo.
+- Corregida la clasificación de COMMAND_METRICS como INFO y diferenciados los
+  fallos reales de las órdenes en el monitor.
+- Informe: [etapa 4](docs/etapas/14_ordenes_validacion.md). Seguimiento persistente
+  de la etapa 5 pendiente por decisión del usuario; no hay migraciones SQL.
 
 ## Desarrollo de órdenes Modbus — 2026-11-21
 

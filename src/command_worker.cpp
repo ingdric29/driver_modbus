@@ -13,6 +13,7 @@
 #include <ctime>
 #include <iostream>
 #include <vector>
+#include <set>
 #include "include/driver_metrics.h"
 #include "include/command_metrics.h"
 #include "include/command_poll.h"
@@ -74,8 +75,23 @@ int execute_commands(bool external) {
     const auto catalog_us = elapsed_us(started);
     metrics.record(source, Stage::CatalogSql, catalog_us, count < 0);
     bool failed = count < 0;
+    started = Clock::now();
+    std::vector<std::pair<int, string>> invalid;
+    std::set<int> ids;
+    for (const auto &command : batch_commands) {
+        auto reason = command.validar();
+        if (!ids.insert(command.id).second)
+            reason = "id de comando duplicado en el lote";
+        if (!reason.empty())
+            invalid.emplace_back(command.id, reason);
+    }
+    const auto validation_us = elapsed_us(started);
+    if (count > 0)
+        metrics.record(source, Stage::Validation, validation_us, !invalid.empty());
+    failed = failed || !invalid.empty();
     std::vector<CommandResult> results;
-    for (int j = 0; j < count; ++j) {
+    // A configuration error anywhere rejects the whole batch before any FC06.
+    for (int j = 0; invalid.empty() && j < count; ++j) {
         CommandResult value;
         value.id = batch_commands[j].id;
         started = Clock::now();
@@ -100,6 +116,12 @@ int execute_commands(bool external) {
                         " execution=" + std::to_string(execution) +
                         " source=" + command_metrics::source_name(source) +
                         " request=" + std::to_string(request_id);
+    for (const auto &entry : invalid) {
+        logger_main.registrarError(
+            prefix + " command=" + std::to_string(entry.first) +
+                " validation=rejected reason=" + command_metrics::field(entry.second),
+            false);
+    }
     for (const auto &value : results) {
         std::ostringstream log;
         log << prefix << " command=" << value.id
@@ -117,11 +139,13 @@ int execute_commands(bool external) {
     std::ostringstream log;
     log << prefix << " batch=" << command_metrics::field(batch) << " loaded=" << count
         << " matched=" << results.size() << " status="
-        << (failed            ? "failed"
+        << (!invalid.empty()  ? "rejected"
+            : failed          ? "failed"
             : results.empty() ? "empty"
                               : "accepted")
         << " mutex_wait_us=" << lock_us << " poll_sql_us=" << poll_us
-        << " catalog_sql_us=" << catalog_us << " batch_us=" << batch_us;
+        << " catalog_sql_us=" << catalog_us << " validation_us=" << validation_us
+        << " batch_us=" << batch_us;
     logger_main.registrarError(log.str(), false);
     return result;
 }

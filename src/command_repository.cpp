@@ -10,6 +10,7 @@
 #include "include/repository_support.h"
 #include "include/sql_session.h"
 #include "include/command_repository.h"
+#include "include/command_integer.h"
 #include <cppconn/exception.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
@@ -71,6 +72,15 @@ int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, 
 }
 
 namespace {
+int integer_field(sql::ResultSet &row, const char *field, cls_cmd &command) {
+    int value = 0;
+    if (row.isNull(field) || !command_integer(row.getString(field), value)) {
+        if (command.configuration_error.empty())
+            command.configuration_error = string(field) + ": nulo o entero invalido";
+    }
+    return value;
+}
+
 // One prepared query, no COUNT and no mutation of the alarm catalog.
 std::vector<cls_cmd> load_commands(const string &host, int port, const string &schema,
                                    const string &user, const string &password,
@@ -107,17 +117,21 @@ std::vector<cls_cmd> load_commands(const string &host, int port, const string &s
         value.id = rows->getInt("id");
         value.nombre = rows->getString("nombre");
         value.direccion_ip = rows->getString("direccion_ip");
-        value.puerto = rows->getInt("puerto");
-        value.direccion_esclavo = rows->getInt("direccion_esclavo");
         value.interface1 = rows->getString("interface");
-        value.velocidad = rows->getInt("velocidad");
         value.paridad = rows->getString("paridad");
-        value.bitsparada = rows->getInt("bitsparada");
         value.equipo = rows->getString("equipo");
         value.protocolo = rows->getString("protocolo");
         value.habilitar = rows->getInt("habilitar") != 0;
-        value.registro = rows->getInt("registro");
-        value.clsvalor = rows->getInt("valor");
+        value.registro = integer_field(*rows, "registro", value);
+        value.clsvalor = integer_field(*rows, "valor", value);
+        if (value.protocolo == "MBTCP" || value.protocolo == "MBSERIAL")
+            value.direccion_esclavo = integer_field(*rows, "direccion_esclavo", value);
+        if (value.protocolo == "MBTCP")
+            value.puerto = integer_field(*rows, "puerto", value);
+        else if (value.protocolo == "MBSERIAL") {
+            value.velocidad = integer_field(*rows, "velocidad", value);
+            value.bitsparada = integer_field(*rows, "bitsparada", value);
+        }
         value.datetime = rows->getString("cmd_datetime");
         value.hab_ejecutar = rows->getInt("hab_ejecutar") != 0;
         value.lote = rows->getString("lote");

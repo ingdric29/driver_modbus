@@ -23,7 +23,17 @@ inline uint64_t elapsed_us(Clock::time_point start) {
     return std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start).count();
 }
 enum class Source { Local, External };
-enum class Stage { MutexWait, PollSql, CatalogSql, Execute, AckSql, Batch, PollLag, Count };
+enum class Stage {
+    MutexWait,
+    PollSql,
+    CatalogSql,
+    Execute,
+    AckSql,
+    Batch,
+    PollLag,
+    Validation,
+    Count
+};
 inline const char *source_name(Source source) {
     return source == Source::Local ? "local" : "externa";
 }
@@ -73,7 +83,7 @@ class Metrics {
     }
     std::string summary() {
         static const char *names[] = {"mutex",   "poll_sql", "catalog_sql", "execute",
-                                      "ack_sql", "batch",    "poll_lag"};
+                                      "ack_sql", "batch",    "poll_lag",    "validation"};
         std::ostringstream out;
         out << "COMMAND_METRICS units=us window_limit=256";
         for (auto source : {Source::Local, Source::External}) {

@@ -248,6 +248,36 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
         assert [(address, value) for address, value, _ in peer.writes if 30 <= address <= 32] == [
             (30, 1), (31, 2), (32, 3)]
 
+        # Reject the whole batch before its first valid command if any entry is invalid.
+        bad_values = [("-1", "1"), ("65536", "1"), ("NULL", "1"),
+                      ("41", "NULL"), ("41", "65536"), ("41", "-32769"),
+                      ("41", "2147483647"), ("41", "-2147483648")]
+        for index, (register, value) in enumerate(bad_values):
+            batch = f'invalid-{index}'
+            first_id = 4000 + index * 2
+            before = len(peer.writes)
+            sql(prefix + "INSERT INTO tbcmd VALUES "
+                f"({first_id},40,123,NULL,1,'startup-test','{batch}','meter'),"
+                f"({first_id+1},{register},{value},NULL,1,'startup-test','{batch}','meter'); "
+                f"UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='{batch}' WHERE id=1")
+            until(lambda: f'batch="{batch}" loaded=2 matched=0 status=rejected' in logs())
+            assert len(peer.writes) == before
+            assert sql(prefix + f"SELECT COUNT(*) FROM tbcmd WHERE lote='{batch}' AND cmd_datetime IS NOT NULL") == '0'
+        # Device enable is checked from the fresh SQL batch too.
+        sql(prefix + f"INSERT INTO tbdispositivos VALUES (2,'disabled','127.0.0.1',{peer.port},1,'',9600,'N',1,'0','','','MBTCP',0,'startup-test'); "
+            "INSERT INTO tbcmd VALUES(4900,42,1,NULL,1,'startup-test','disabled-device','disabled'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='disabled-device' WHERE id=1")
+        until(lambda: 'batch="disabled-device" loaded=1 matched=0 status=rejected' in logs())
+        assert peer.count(40) == 0 and peer.count(41) == 0 and peer.count(42) == 0
+
+        # Signed INT16 and unsigned WORD encode explicitly, including the last address.
+        sql(prefix + "INSERT INTO tbcmd VALUES "
+            "(50000,65535,-32768,NULL,1,'startup-test','boundaries','meter'),"
+            "(50001,65535,65535,NULL,1,'startup-test','boundaries','meter'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='boundaries' WHERE id=1")
+        until(lambda: 'batch="boundaries" loaded=2 matched=2 status=accepted' in logs())
+        assert [value for address, value, _ in peer.writes if address == 65535] == [32768, 65535]
+
         # Bounded query must reject the entire oversized batch, never execute a prefix.
         sql(prefix + "INSERT INTO tbcmd SELECT 20000+seq,300,1,NULL,1,'startup-test','oversized','meter' FROM seq_1_to_4097; "
             "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='oversized' WHERE id=1")
@@ -303,7 +333,7 @@ DELIMITER ;
         assert 'source=local request=1 command=10 modbus=accepted ack=ok attempts=1' in text
         assert 'batch="manual" loaded=1 matched=1 status=accepted' in text
         assert 'COMMAND_METRICS units=us window_limit=256' in text
-        assert 'local.ack_sql={n=137,fail=1' in text
+        assert 'local.ack_sql={n=139,fail=1' in text
         assert 'local.poll_lag=' in text
         if EXTERNAL:
             assert int(re.search(r'externa\.poll_sql=\{n=(\d+)', text).group(1)) >= 3
@@ -314,6 +344,7 @@ DELIMITER ;
         print('PASS SQL -> FC06: order/filtering, 3 retries, SQL ack failure without replay; '
               'alarm CMD + 3 real TLS/SMTP messages (activate/deactivate/reactivate), '
               'acquisition and shutdown; loopback only')
+        print('PASS validation: entire invalid batch blocked, NULL/ranges/enable checked, INT16/WORD boundaries encoded')
         print('PASS private batches: 130 ordered commands, exact/prepared filter, 4097 rejected, local alarm catalog isolated')
         print('PASS command scheduler: external=' + str(EXTERNAL) + ', periods=200/370ms')
         print('MEASURE commit SQL -> simulated PLC: samples_ms=' +

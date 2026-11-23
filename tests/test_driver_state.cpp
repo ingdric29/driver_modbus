@@ -18,6 +18,9 @@
 #include "runtime_control.h"
 #include "cls_defalarmas.h"
 #include "fake_email.h"
+#include "command_metrics.h"
+#include <poll.h>
+#include <fcntl.h>
 void serial_test() {
     cls_equipos tag;
     tag.protocolo = "RS232";
@@ -281,6 +284,128 @@ void alarm_directory_test() {
     delete[] emaillist; emaillist = nullptr;
     GLOBAL_contador_directorio = 0;
 }
+void command_validation_test() {
+    auto server = modbus_new_tcp("127.0.0.1", 0);
+    assert(server);
+    int listener = modbus_tcp_listen(server, 1);
+    assert(listener >= 0);
+    sockaddr_in address{}; socklen_t length = sizeof(address);
+    assert(getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length) == 0);
+    auto mapping = modbus_mapping_new_start_address(0, 0, 0, 0, 65535, 1, 0, 0);
+    assert(mapping);
+    cls_cmd command;
+    command.id = 123; command.habilitar = true; command.protocolo = "MBTCP";
+    command.direccion_ip = "127.0.0.1"; command.puerto = ntohs(address.sin_port);
+    command.direccion_esclavo = 255; command.registro = 65535; command.clsvalor = 128;
+    assert(command.validar().empty());
+    auto reject = [&](cls_cmd invalid) {
+        assert(!invalid.validar().empty());
+        assert(invalid.ejecutar() == -1);
+        assert(command_metrics::transport_trace().attempts == 0);
+        assert(command_metrics::transport_trace().error == EINVAL);
+        pollfd descriptor{listener, POLLIN, 0};
+        assert(poll(&descriptor, 1, 0) == 0); // Validation never creates a connection.
+    };
+    auto invalid = command;
+    invalid.habilitar = false; reject(invalid);
+    invalid = command; invalid.registro = -1; reject(invalid);
+    invalid = command; invalid.registro = 65536; reject(invalid);
+    invalid = command; invalid.clsvalor = -32769; reject(invalid);
+    invalid = command; invalid.clsvalor = 65536; reject(invalid);
+    invalid = command; invalid.direccion_ip = "not-an-ip"; reject(invalid);
+    invalid = command; invalid.puerto = 0; reject(invalid);
+    invalid = command; invalid.puerto = 65536; reject(invalid);
+    invalid = command; invalid.direccion_esclavo = 256; reject(invalid);
+    invalid = command; invalid.protocolo = "SIEMENS_S7"; reject(invalid);
+    invalid = command; invalid.configuration_error = "valor: nulo"; reject(invalid);
+    invalid = command; invalid.registro = -1;
+    assert(invalid.cmdescribir_tcp() == -1); // Direct public helper is guarded too.
+    assert(command.cmdescribir_serial() == -1); // Wrong transport must not open a link.
+
+    std::thread peer([&] {
+        assert(modbus_tcp_accept(server, &listener) >= 0);
+        for (int expected : {128, 65535, 32768}) {
+            uint8_t request[MODBUS_TCP_MAX_ADU_LENGTH];
+            const auto received = modbus_receive(server, request);
+            assert(received == 12 && request[6] == 255 && request[7] == 6);
+            assert(modbus_reply(server, request, received, mapping) > 0);
+            assert(mapping->tab_registers[0] == expected);
+        }
+    });
+    // Preserve explicit alarm CMD usage even when excluded from manually triggered batches.
+    command.hab_ejecutar = false;
+    for (int value : {128, -1, -32768}) {
+        command.clsvalor = value;
+        assert(command.ejecutar() == 0);
+        assert(command_metrics::transport_trace().attempts == 1);
+    }
+    peer.join(); ModbusLease::clear(); modbus_close(server); close(listener);
+    modbus_mapping_free(mapping); modbus_free(server);
+
+    cls_cmd rtu;
+    rtu.id = 124; rtu.habilitar = true; rtu.protocolo = "MBSERIAL";
+    rtu.interface1 = "/dev/fixture"; rtu.velocidad = 9600; rtu.bitsparada = 1;
+    rtu.direccion_esclavo = 247;
+    assert(rtu.validar().empty());
+    rtu.paridad = "n"; assert(rtu.validar().empty());
+    rtu.direccion_esclavo = 0; assert(rtu.validar().empty()); // Legacy normalization to 1.
+    rtu.direccion_esclavo = 248; assert(!rtu.validar().empty());
+    rtu.direccion_esclavo = 1; rtu.paridad = "X"; assert(!rtu.validar().empty());
+    rtu.paridad = "N"; rtu.bitsparada = 3; assert(!rtu.validar().empty());
+    rtu.bitsparada = 1; rtu.velocidad = 0; assert(!rtu.validar().empty());
+    rtu.velocidad = 9600; rtu.interface1.clear(); assert(!rtu.validar().empty());
+
+    const int master = posix_openpt(O_RDWR | O_NOCTTY);
+    assert(master >= 0 && grantpt(master) == 0 && unlockpt(master) == 0);
+    rtu.interface1 = ptsname(master); rtu.paridad = "n";
+    rtu.direccion_esclavo = 0; rtu.clsvalor = -32768;
+    server = modbus_new_rtu(rtu.interface1.c_str(), 9600, 'N', 8, 1);
+    assert(server && modbus_set_socket(server, master) == 0);
+    assert(modbus_set_slave(server, 1) == 0);
+    mapping = modbus_mapping_new(0, 0, 1, 0);
+    assert(mapping);
+    std::thread serial_peer([&] {
+        uint8_t request[MODBUS_RTU_MAX_ADU_LENGTH];
+        const auto received = modbus_receive(server, request);
+        assert(received > 0 && request[0] == 1 && request[1] == 6);
+        assert(modbus_reply(server, request, received, mapping) > 0);
+        assert(mapping->tab_registers[0] == 32768);
+    });
+    assert(rtu.ejecutar() == 0 && rtu.direccion_esclavo == 1);
+    assert(command_metrics::transport_trace().attempts == 1);
+    serial_peer.join(); ModbusLease::clear();
+    modbus_close(server); modbus_mapping_free(mapping); modbus_free(server);
+}
+
+void invalid_alarm_command_email_test() {
+    cls_equipos tag;
+    tag.nombre = "meter"; tag.tag = "voltage";
+    tag.clsvalorfloat = 280; tag.clsvalor = 280; tag.clsvalorstr = "280";
+    tag.resultado_leer = true; tag.ultimo_muestreo = time(nullptr); tag.unidad = "V";
+    cls_cmd disabled;
+    disabled.id = 404; // Device disabled: no FC06, but email must still be attempted.
+    cmd = &disabled; GLOBAL_contador_cmd = 1;
+    cls_email recipient;
+    recipient.id = 7; recipient.to = "alarm-validation@example.invalid";
+    emaillist = &recipient; GLOBAL_contador_directorio = 1;
+    test_email::deliveries.clear(); test_email::result = 0;
+    for (int id : {404, 999}) {
+        cls_defalarmas alarm;
+        const auto action = "CMD[" + std::to_string(id) + "];EMAIL[7];";
+        alarm.clsdispositivo = "meter"; alarm.clstag = alarm.clsvalorAlarma = "voltage";
+        alarm.clsequipo_mbtcp = &tag; alarm.clscantidad_equipo_mbtcp = 1;
+        alarm.expresionactivar = "$(meter.voltage)>250";
+        alarm.expresiondesactivar = "$(meter.voltage)<240";
+        alarm.accionactivar = action; alarm.ejecutado_activar_bd = true;
+        assert(alarm.evaluarcompleto() == 1);
+        assert(!alarm.ejecutado_activar_cmd && alarm.ejecutado_activar_email);
+        assert(alarm.evaluarcompleto() == 1);
+    }
+    assert(test_email::deliveries.size() == 2); // Each accepted email is sent only once.
+    cmd = nullptr; GLOBAL_contador_cmd = 0;
+    emaillist = nullptr; GLOBAL_contador_directorio = 0;
+}
+
 void shutdown_test() {
     install_driver_signals(); GLOBAL_EJECUTARHILOS = true; GLOBAL_stop_requested = false;
     const auto begin = std::chrono::steady_clock::now();
@@ -292,7 +417,7 @@ void shutdown_test() {
     GLOBAL_stop_requested = false; GLOBAL_EJECUTARHILOS = true;
 }
 int main() { shutdown_test();
-    serial_test(); serial_window_test(); directory_lookup_test(); batch_period_test(); event_lookup_test(); alarm_directory_test();
+    serial_test(); serial_window_test(); directory_lookup_test(); batch_period_test(); event_lookup_test(); alarm_directory_test(); command_validation_test(); invalid_alarm_command_email_test();
     cls_sms disabled_sms; assert(disabled_sms.enviar() == CURLE_FAILED_INIT);
     if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); command_sql_test(); }
 }

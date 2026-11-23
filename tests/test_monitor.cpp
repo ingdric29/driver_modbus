@@ -70,6 +70,18 @@ int main() {
     state.event("INFO: event 199");
     assert(state.copy().events.size() == 128 && state.copy().events.back().repeats == 2);
     state.event("METRICS reads=100"); assert(state.copy().events.size() == 128);
+    state.event("COMMAND_METRICS units=us local.ack_sql={n=3,fail=1}");
+    assert(state.copy().events.back().level == "INFO");
+    assert(state.copy().events.back().component == "METRICAS");
+    state.event("COMMAND execution=1 modbus=accepted ack=ok");
+    assert(state.copy().events.back().level == "INFO");
+    assert(state.copy().events.back().component == "ORDENES");
+    state.event("COMMAND execution=2 batch=\"SQL status=failed ack=failed\" status=accepted");
+    assert(state.copy().events.back().level == "INFO");
+    for (const auto &failure : {"modbus=failed", "ack=failed", "validation=rejected", "status=failed", "status=rejected"}) {
+        state.event(std::string("COMMAND execution=3 batch=\"test\" ") + failure);
+        assert(state.copy().events.back().level == "ERROR");
+    }
     assert(quote(std::string("\"\\\n\x1b")) == "\"\\\"\\\\\\u000a\\u001b\"");
     assert(quote("\xc3\xb1") == "\"\xc3\xb1\"");
     assert(quote("\xed\xa0\x80\xff") == "\"\\ufffd\\ufffd\\ufffd\\ufffd\"");

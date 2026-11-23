@@ -74,6 +74,9 @@ int cls_defalarmas::ejecutar_accion(const string &accionstr, bool alarmaactivada
                                 res_cmd = cmd[indice].ejecutar();
                             }
                         }
+                    } else {
+                        // A missing CMD must remain pending; EMAIL is still attempted below.
+                        res_cmd = -1;
                     }
                 } // fin del cierre del corechete
 

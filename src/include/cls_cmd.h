@@ -26,29 +26,32 @@ class cls_cmd {
   public:
     //propiedades
 
-    int id;
+    int id = 0;
     string nombre; //nombre
     string direccion_ip;
-    int puerto;
-    int direccion_esclavo;
+    int puerto = 0;
+    int direccion_esclavo = 0;
     string interface1;
-    int velocidad;
+    int velocidad = 0;
     string paridad;
-    int bitsparada;
+    int bitsparada = 0;
     string equipo;
     string usuario;
     string password;
-    bool habilitar;
+    bool habilitar = false;
     string protocolo;
 
-    int registro;
-    int clsvalor;
+    int registro = 0;
+    int clsvalor = 0;
     string datetime;
-    bool hab_ejecutar;
+    bool hab_ejecutar = false;
     string lote;
+    string configuration_error;
 
     // metodos
 
+    // Empty means valid. hab_ejecutar filters manual batches; alarm CMD[id] is explicit.
+    string validar() const;
     int ejecutar(void);
     int cmdescribir_serial(void);
     int cmdescribir_tcp(void);
