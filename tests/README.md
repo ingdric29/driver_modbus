@@ -23,6 +23,13 @@ vencimientos exactos, 200/370 ms, origen externo deshabilitado y salto de interv
 perdidos. La integración SQL se ejecuta con externo deshabilitado y habilitado;
 el segundo perfil también realiza una orden originada en el esquema externo.
 
+La integración de comandos incluye un lote de 130 entradas, nombres de lote
+exactos y Latin-1, NULL/vacío, rechazo sin tráfico al exceder 4096 filas y una
+acción de alarma situada fuera del antiguo límite de 128. Los IDs externos
+coinciden con locales pero apuntan a otros registros: se comprueba que una orden
+externa no sustituye las acciones CMD locales. Véase el
+[informe de etapa 3](../docs/etapas/13_ordenes_catalogo.md).
+
 ## Dependencia Snap7 (etapa 1)
 
 `make test-snap7` verifica las fuentes fijadas, el enlace C/C++ y el paquete

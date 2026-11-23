@@ -4,6 +4,17 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Desarrollo de órdenes Modbus — 2026-11-23
+
+- Lotes de ejecución privados, filtrados en SQL sin conteo previo; catálogo local
+  de acciones de alarma independiente de las órdenes externas.
+- Retirado el truncamiento silencioso a 128 comandos: límite explícito de 4096,
+  sin ejecución parcial cuando se excede. Comparación de lotes exacta, incluidos
+  NULL/vacío y columnas Latin-1.
+- Pruebas de 130 comandos ordenados, catálogo de alarmas con ID alto, límites y
+  aislamiento de definiciones locales/externas con correo SMTP temporal.
+- Informe: [etapa 3](docs/etapas/13_ordenes_catalogo.md).
+
 ## Desarrollo de órdenes Modbus — 2026-11-21
 
 - Medición monotónica por recorrido local/externo: bloqueo, SQL, ejecución y

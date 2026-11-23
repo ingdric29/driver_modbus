@@ -16,6 +16,7 @@
 #include "include/driver_metrics.h"
 #include "include/command_metrics.h"
 #include "include/command_poll.h"
+#include "include/command_repository.h"
 
 using namespace std;
 
@@ -32,8 +33,7 @@ struct CommandResult {
     command_metrics::TransportTrace transport;
 };
 
-// Preserve the existing consume/load/execute order; publish diagnostics after releasing
-// the catalog lock so file I/O does not extend the critical section used by alarms.
+// A batch owns its commands. SQL, PLC and logging do not lock the alarm catalog.
 int execute_commands(bool external) {
     const auto source = external ? Source::External : Source::Local;
     const auto &host = external ? GLOBAL_dbext_direccion : GLOBAL_db_direccion;
@@ -44,8 +44,7 @@ int execute_commands(bool external) {
     auto &count = external ? GLOBAL_contadorext_comandos : GLOBAL_contador_comandos;
     auto &metrics = Metrics::instance();
     const auto begin = Clock::now();
-    std::unique_lock<std::recursive_mutex> commands(GLOBAL_command_mutex);
-    const auto lock_us = elapsed_us(begin);
+    const uint64_t lock_us = 0; // Private batch: no global command/catalog lock.
     metrics.record(source, Stage::MutexWait, lock_us);
     int requested = 0, request_id = 0, result = -1;
     time_t seconds = 0;
@@ -69,18 +68,18 @@ int execute_commands(bool external) {
                                 .count();
     const auto execution = metrics.next_execution();
     started = Clock::now();
-    count = leer_tbcmd(host, getVal(port), schema, user, password);
+    std::vector<cls_cmd> batch_commands;
+    count = command_repository::load_batch(host, getVal(port), schema, user, password, batch,
+                                           batch_commands);
     const auto catalog_us = elapsed_us(started);
     metrics.record(source, Stage::CatalogSql, catalog_us, count < 0);
     bool failed = count < 0;
     std::vector<CommandResult> results;
     for (int j = 0; j < count; ++j) {
-        if (!cmd[j].hab_ejecutar || cmd[j].lote != batch)
-            continue;
         CommandResult value;
-        value.id = cmd[j].id;
+        value.id = batch_commands[j].id;
         started = Clock::now();
-        value.result = cmd[j].ejecutar();
+        value.result = batch_commands[j].ejecutar();
         value.execute_us = elapsed_us(started);
         value.transport = command_metrics::transport_trace();
         result = value.result;
@@ -97,7 +96,6 @@ int execute_commands(bool external) {
     }
     const auto batch_us = elapsed_us(begin);
     metrics.record(source, Stage::Batch, batch_us, failed || results.empty());
-    commands.unlock();
     const auto prefix = "COMMAND run=" + std::to_string(run) +
                         " execution=" + std::to_string(execution) +
                         " source=" + command_metrics::source_name(source) +
@@ -132,7 +130,7 @@ int execute_commands(bool external) {
 /**
  * Consume una solicitud local y ejecuta el lote con diagnóstico por comando.
  * Retorno: último resultado Modbus; -1 sin ejecución o ante fallo de consulta.
- * Efectos: Conserva consumo anticipado y catálogo global; un fallo de ack se registra.
+ * Efectos: Conserva consumo anticipado; lote privado, catálogo de alarmas independiente.
  */
 int ordenejecucuionlocal() { return execute_commands(false); }
 

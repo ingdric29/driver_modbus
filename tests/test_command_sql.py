@@ -154,12 +154,21 @@ INSERT INTO tbcmd VALUES
  (11,4,999,NULL,0,'startup-test','manual','meter'),
  (12,5,888,NULL,1,'startup-test','other','meter'),
  (20,9,444,NULL,1,'startup-test','rejected','meter'),
- (90,7,77,NULL,1,'startup-test','alarm','meter');
-UPDATE tbdefalarmas SET accionactivar='CMD[90];EMAIL[7];';
+ (9000,7,77,NULL,1,'startup-test','alarm','meter'),
+ (13,6,999,NULL,1,'startup-test','Manual','meter');
+UPDATE tbdefalarmas SET accionactivar='CMD[9000];EMAIL[7];';
+ALTER TABLE tbcmd MODIFY lote VARCHAR(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci;
+ALTER TABLE tbejecutar MODIFY lote VARCHAR(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci;
 """
+        setup += "INSERT INTO tbcmd VALUES " + ','.join(
+            f"({1000+i},{100+i},{i},NULL,1,'startup-test','bulk','meter')"
+            for i in range(130)) + ';\n'
         sql(setup)
         if EXTERNAL:
             sql(setup.replace('driver_command_fixture', 'driver_external_command_fixture'))
+            sql("USE driver_external_command_fixture; "
+                "UPDATE tbcmd SET registro=8,valor=88 WHERE id=9000; "
+                "UPDATE tbcmd SET registro=6,valor=654 WHERE id=10")
         (base / 'run').mkdir()
         (base / 'html').mkdir()
         (base / 'html/plantilla_emails.html').write_bytes(
@@ -210,8 +219,41 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
                              'SELECT cmd_datetime IS NOT NULL FROM tbcmd WHERE id=10') == '1')
         until(lambda: len(smtp.messages) == 1)
         assert peer.count(7) == 1  # Alarm CMD[id] stayed available after manual catalog reloads.
-        assert peer.count(4) == 0 and peer.count(5) == 0
+        assert peer.count(4) == 0 and peer.count(5) == 0 and peer.count(6) == 0
         assert all(item[1] == 321 for item in peer.writes if item[0] == 3)
+
+        # More than 128 entries, ordered and complete; the alarm CMD is last in the full catalog.
+        sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='bulk' WHERE id=1")
+        until(lambda: 'batch="bulk" loaded=130 matched=130 status=accepted' in logs())
+        bulk = [(address, value) for address, value, _ in peer.writes if 100 <= address < 230]
+        assert bulk == [(100+i, i) for i in range(130)]
+        assert sql(prefix + 'SELECT COUNT(*) FROM tbcmd WHERE lote=\'bulk\' AND cmd_datetime IS NOT NULL') == '130'
+
+        # Prepared, case-sensitive batch selection; no matching command means no traffic.
+        for batch in ("missing", "manual' OR 1=1 --"):
+            escaped = batch.replace("'", "''")
+            sql(prefix + f"UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='{escaped}' WHERE id=1")
+            until(lambda: f'batch="{batch}" loaded=0 matched=0 status=empty' in logs())
+        assert peer.count(6) == 0
+
+        # Preserve legacy NULL/empty batches and Latin-1 lot names used by the real schema.
+        sql(prefix + "INSERT INTO tbcmd VALUES "
+            "(14,30,1,NULL,1,'startup-test',NULL,'meter'),"
+            "(15,31,2,NULL,1,'startup-test','','meter'),"
+            "(16,32,3,NULL,1,'startup-test','pruéba','meter'); "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote=NULL WHERE id=1")
+        until(lambda: 'batch="" loaded=2 matched=2 status=accepted' in logs())
+        sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='pruéba' WHERE id=1")
+        until(lambda: 'batch="pruéba" loaded=1 matched=1 status=accepted' in logs())
+        assert [(address, value) for address, value, _ in peer.writes if 30 <= address <= 32] == [
+            (30, 1), (31, 2), (32, 3)]
+
+        # Bounded query must reject the entire oversized batch, never execute a prefix.
+        sql(prefix + "INSERT INTO tbcmd SELECT 20000+seq,300,1,NULL,1,'startup-test','oversized','meter' FROM seq_1_to_4097; "
+            "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='oversized' WHERE id=1")
+        until(lambda: 'batch="oversized" loaded=-1 matched=0 status=failed' in logs())
+        assert peer.count(300) == 0
+        sql(prefix + "DELETE FROM tbcmd WHERE lote='oversized'")
 
         # Remote Modbus exception: three legacy attempts; no SQL acceptance.
         sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='rejected' WHERE id=1")
@@ -236,18 +278,19 @@ DELIMITER ;
         assert peer.count(3) == before + 1
         sql(prefix + 'DROP TRIGGER reject_ack')
 
-        # Another activation must still send CMD and email after the SQL failure.
-        peer.high.set()
-        until(lambda: len(smtp.messages) == 3)
-        assert peer.count(7) == 2
         if EXTERNAL:
-            before = peer.count(3)
+            before = peer.count(6)
             sql("USE driver_external_command_fixture; "
                 "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='manual' WHERE id=1")
             until(lambda: 'source=externa request=1 command=10 modbus=accepted ack=ok' in logs())
-            assert peer.count(3) == before + 1
+            assert peer.count(6) == before + 1
+            assert [value for address, value, _ in peer.writes if address == 6] == [654]
             assert sql('USE driver_external_command_fixture; '
                        'SELECT cmd_datetime IS NOT NULL FROM tbcmd WHERE id=10') == '1'
+        # External command IDs must not replace local CMD definitions (same ID, different register).
+        peer.high.set()
+        until(lambda: len(smtp.messages) == 3)
+        assert peer.count(7) == 2 and peer.count(8) == 0
         time.sleep(.3)
         assert len(smtp.messages) == 3
         assert smtp.envelopes.count(b'RCPT TO:<alarm7@example.invalid>') == 3
@@ -258,9 +301,9 @@ DELIMITER ;
         assert time.monotonic() - shutdown < 3
         text = logs()
         assert 'source=local request=1 command=10 modbus=accepted ack=ok attempts=1' in text
-        assert 'batch="manual" loaded=5 matched=1 status=accepted' in text
+        assert 'batch="manual" loaded=1 matched=1 status=accepted' in text
         assert 'COMMAND_METRICS units=us window_limit=256' in text
-        assert 'local.ack_sql={n=4,fail=1' in text
+        assert 'local.ack_sql={n=137,fail=1' in text
         assert 'local.poll_lag=' in text
         if EXTERNAL:
             assert int(re.search(r'externa\.poll_sql=\{n=(\d+)', text).group(1)) >= 3
@@ -271,6 +314,7 @@ DELIMITER ;
         print('PASS SQL -> FC06: order/filtering, 3 retries, SQL ack failure without replay; '
               'alarm CMD + 3 real TLS/SMTP messages (activate/deactivate/reactivate), '
               'acquisition and shutdown; loopback only')
+        print('PASS private batches: 130 ordered commands, exact/prepared filter, 4097 rejected, local alarm catalog isolated')
         print('PASS command scheduler: external=' + str(EXTERNAL) + ', periods=200/370ms')
         print('MEASURE commit SQL -> simulated PLC: samples_ms=' +
               ','.join(f'{value * 1000:.1f}' for value in latencies) +

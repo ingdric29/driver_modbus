@@ -9,10 +9,13 @@
 #include "include/conversiones.h"
 #include "include/repository_support.h"
 #include "include/sql_session.h"
+#include "include/command_repository.h"
 #include <cppconn/exception.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
+#include <algorithm>
+#include <stdexcept>
 
 using namespace std;
 
@@ -67,131 +70,107 @@ int leer_tbejecutar(int &ejecutar, time_t &segundos, string &lote, string host, 
     }
 }
 
-/**
- * Carga el catálogo correspondiente desde SQL.
- * Parámetros: string direccion_db, int puerto_db, string nombre_db, string usuario_db, string
- * clave_db
- * Retorno: Cantidad cargada, 0 si se omite la operación o -1 ante error.
- * Efectos: Actualiza el arreglo global y su contador; requiere coordinar su ciclo de vida.
- */
-int leer_tbcmd(string direccion_db, int puerto_db, string nombre_db, string usuario_db,
-               string clave_db) {
-    std::lock_guard<std::recursive_mutex> commands(GLOBAL_command_mutex);
-
-    if (is_external_target(direccion_db, puerto_db, nombre_db)) {
-
-        if (GLOBAL_habilitar_acceso_externo == 0) {
-            imprimir_mensaje("en la configuracion configdb esta desactivado el acceso a internet",
-                             negro);
-            return 0;
-        }
-
-        if (GLOBAL_ACCESO_EXTERNO == false) {
-            imprimir_mensaje("se desactivo momentaneamente el acceso al servidor mysql externo",
-                             negro);
-            return 0;
-        }
+namespace {
+// One prepared query, no COUNT and no mutation of the alarm catalog.
+std::vector<cls_cmd> load_commands(const string &host, int port, const string &schema,
+                                   const string &user, const string &password,
+                                   const string *batch) {
+    auto connection =
+        sql_connection("tcp://" + host + ":" + std::to_string(port), user, password, schema);
+    string query = "SELECT c.id,d.nombre,d.direccion_ip,d.puerto,d.direccion_esclavo,d.interface,"
+                   "d.velocidad,d.paridad,d.bitsparada,d.modelo AS equipo,d.protocolo,d.habilitar,"
+                   "c.registro,c.valor,c.cmd_datetime,c.hab_ejecutar,c.lote "
+                   "FROM tbcmd c JOIN tbdispositivos d ON d.nombre=c.nombredispositivo "
+                   "AND d.concentrador=c.concentrador WHERE c.concentrador=?";
+    if (batch)
+        // Keep an indexable prefilter, NULL/empty legacy equivalence and exact matching
+        // after converting Latin-1 catalogs and parameters to the same character set.
+        query += " AND (c.lote=? OR (c.lote IS NULL AND ?=''))"
+                 " AND BINARY CONVERT(COALESCE(c.lote,'') USING utf8mb4)="
+                 "BINARY CONVERT(? USING utf8mb4) AND c.hab_ejecutar<>0";
+    query += " ORDER BY c.id ASC,d.id ASC LIMIT " +
+             std::to_string(command_repository::maximum_commands + 1);
+    std::unique_ptr<sql::PreparedStatement> statement(connection->prepareStatement(query));
+    statement->setString(1, GLOBAL_nombre_concentrador);
+    if (batch) {
+        statement->setString(2, *batch);
+        statement->setString(3, *batch);
+        statement->setString(4, *batch);
     }
+    std::unique_ptr<sql::ResultSet> rows(statement->executeQuery());
+    std::vector<cls_cmd> commands;
+    while (rows->next()) {
+        if (commands.size() == command_repository::maximum_commands)
+            throw std::runtime_error("Command catalog/batch exceeds limit of " +
+                                     std::to_string(command_repository::maximum_commands));
+        cls_cmd value{};
+        value.id = rows->getInt("id");
+        value.nombre = rows->getString("nombre");
+        value.direccion_ip = rows->getString("direccion_ip");
+        value.puerto = rows->getInt("puerto");
+        value.direccion_esclavo = rows->getInt("direccion_esclavo");
+        value.interface1 = rows->getString("interface");
+        value.velocidad = rows->getInt("velocidad");
+        value.paridad = rows->getString("paridad");
+        value.bitsparada = rows->getInt("bitsparada");
+        value.equipo = rows->getString("equipo");
+        value.protocolo = rows->getString("protocolo");
+        value.habilitar = rows->getInt("habilitar") != 0;
+        value.registro = rows->getInt("registro");
+        value.clsvalor = rows->getInt("valor");
+        value.datetime = rows->getString("cmd_datetime");
+        value.hab_ejecutar = rows->getInt("hab_ejecutar") != 0;
+        value.lote = rows->getString("lote");
+        commands.push_back(value);
+    }
+    return commands;
+}
 
-    int pending_count = 0;
-    int ind = 0; // contador de comandos a ejecutar
-    string cadena;
-    string direccionpuerto;
-    direccionpuerto = "tcp://" + direccion_db + ":" + cast_int_to_string(puerto_db);
+bool commands_allowed(const string &host, int port, const string &schema) {
+    return !is_external_target(host, port, schema) ||
+           (GLOBAL_habilitar_acceso_externo && GLOBAL_ACCESO_EXTERNO);
+}
+} // namespace
 
-    string cadenaquerycmd = "select `tbcmd`.`id` AS `id`,";
-    cadenaquerycmd += "`tbdispositivos`.`nombre` AS `nombre`,";
-    cadenaquerycmd += "`tbdispositivos`.`direccion_ip` AS `direccion_ip`,";
-    cadenaquerycmd += "`tbdispositivos`.`puerto` AS `puerto`,";
-    cadenaquerycmd += "`tbdispositivos`.`direccion_esclavo` AS `direccion_esclavo`,";
-    cadenaquerycmd += "`tbdispositivos`.`interface` AS `interface`,";
-    cadenaquerycmd += "`tbdispositivos`.`velocidad` AS `velocidad`,";
-    cadenaquerycmd += "`tbdispositivos`.`paridad` AS `paridad`,";
-    cadenaquerycmd += "`tbdispositivos`.`bitsparada` AS `bitsparada`,";
-    cadenaquerycmd += "`tbdispositivos`.`modelo` AS `equipo`,";
-    cadenaquerycmd += "`tbdispositivos`.`usuario` AS `usuario`,";
-    cadenaquerycmd += "`tbdispositivos`.`password` AS `password`,";
-    cadenaquerycmd += "`tbdispositivos`.`protocolo` AS `protocolo`,";
-    cadenaquerycmd += "`tbdispositivos`.`habilitar` AS `habilitar`,";
-    cadenaquerycmd += "`tbcmd`.`registro` AS `registro`,";
-    cadenaquerycmd += "`tbcmd`.`valor` AS `valor`,";
-    cadenaquerycmd += "`tbcmd`.`cmd_datetime` AS `datetime`,";
-    cadenaquerycmd += "`tbcmd`.`hab_ejecutar` AS `hab_ejecutar`,";
-    cadenaquerycmd += "`tbcmd`.`concentrador` AS `concentrador`, ";
-    cadenaquerycmd += "`tbcmd`.`lote` AS `lote` ";
-    cadenaquerycmd += "from (`tbdispositivos` join `tbcmd` ";
-    cadenaquerycmd += "on((`tbdispositivos`.`nombre` = `tbcmd`.`nombredispositivo`) and";
-    cadenaquerycmd += "(`tbdispositivos`.`concentrador` = `tbcmd`.`concentrador`) )) ";
-    cadenaquerycmd += "order by `tbdispositivos`.`id`";
-
+/**
+ * Carga el catálogo local completo para acciones CMD de alarmas de la generación.
+ * Retorno: cantidad, 0 omitido o -1 error; conserva el catálogo anterior ante fallo.
+ * Efectos: Sustituye el arreglo solo tras cargar todas las filas. No usar para lotes.
+ */
+int leer_tbcmd(string host, int port, string schema, string user, string password) {
+    if (!commands_allowed(host, port, schema))
+        return 0;
     try {
-        std::shared_ptr<sql::Connection> con;
-        std::unique_ptr<sql::PreparedStatement> stmt;
-        std::unique_ptr<sql::ResultSet> res;
-
-        /* Crea una conexion */
-        con = sql_connection(direccionpuerto, usuario_db, clave_db, nombre_db);
-        /* Conecta con la base de datos */
-        con->setSchema(nombre_db.c_str());
-
-        stmt.reset(con->prepareStatement("SELECT COUNT(id) AS contador FROM (" + cadenaquerycmd +
-                                         ") AS vistacmd WHERE concentrador=?"));
-        stmt->setString(1, GLOBAL_nombre_concentrador);
-        res.reset(stmt->executeQuery());
-        while (res->next()) {
-            pending_count = res->getInt("contador");
-        }
-
-        std::unique_ptr<cls_cmd[]> pending(new cls_cmd[pending_count + 1]());
-        res.reset();
-        stmt.reset(con->prepareStatement("SELECT * FROM (" + cadenaquerycmd +
-                                         ") AS vistacmd WHERE concentrador=? ORDER BY id ASC"));
-        stmt->setString(1, GLOBAL_nombre_concentrador);
-        res.reset(stmt->executeQuery());
-        while (res->next() && (ind < 128)) {
-            pending[ind].id = res->getInt("id");
-            pending[ind].nombre = res->getString("nombre");                    //
-            pending[ind].direccion_ip = res->getString("direccion_ip");        //
-            pending[ind].puerto = res->getInt("puerto");                       //
-            pending[ind].direccion_esclavo = res->getInt("direccion_esclavo"); //
-            pending[ind].interface1 = res->getString("interface");             //
-            pending[ind].velocidad = res->getInt("velocidad");                 //
-            pending[ind].paridad = res->getString("paridad");                  //
-            pending[ind].bitsparada = res->getInt("bitsparada");               //
-            pending[ind].equipo = res->getString("equipo");                    //
-
-            pending[ind].usuario = res->getString("usuario");                 //
-            pending[ind].password = res->getString("password");               //
-            pending[ind].habilitar = ((res->getInt("habilitar")) != 0);       //
-            pending[ind].protocolo = res->getString("protocolo");             //
-            pending[ind].registro = res->getInt("registro");                  //
-            pending[ind].clsvalor = res->getInt("valor");                     //
-            pending[ind].datetime = res->getString("datetime");               //
-            pending[ind].hab_ejecutar = ((res->getInt("hab_ejecutar")) != 0); //
-            pending[ind].lote = res->getString("lote");                       //
-            ind++;
-        }
-
+        const auto loaded = load_commands(host, port, schema, user, password, nullptr);
+        std::unique_ptr<cls_cmd[]> pending(new cls_cmd[loaded.size()]());
+        std::copy(loaded.begin(), loaded.end(), pending.get());
+        std::lock_guard<std::recursive_mutex> lock(GLOBAL_command_mutex);
         delete[] cmd;
         cmd = pending.release();
-        GLOBAL_contador_cmd = ind;
-        return (ind);
+        GLOBAL_contador_cmd = static_cast<int>(loaded.size());
+        return GLOBAL_contador_cmd;
+    } catch (const std::exception &error) {
+        database_failure(error);
+        return -1;
+    }
+}
 
-    } catch (sql::SQLException &e) {
-        sql_sessions().invalidate();
-        GLOBAL_ACCESO_EXTERNO = false;
-        imprimir_mensaje("falla en mysql: ", rojo);
-        imprimir_mensaje("se deshabilito lectura mysql externo por " +
-                             cast_int_to_string(GLOBAL_periodo_reseteo_mysqlexterno) + " seg ",
-                         amarillo);
-        std::string mensajeError = "ERROR: SQLException in " + std::string(__FILE__) + "(" +
-                                   std::string(__FUNCTION__) + ") on line " +
-                                   std::to_string(__LINE__) + ".# Error description: " + e.what() +
-                                   " (MySQL error code: " + std::to_string(e.getErrorCode()) +
-                                   ", SQLState: " + e.getSQLState() + " )";
-
-        std::cout << mensajeError << std::endl;
-        logger_loadconfig.registrarError(mensajeError);
+/**
+ * Selecciona solo los comandos habilitados del lote en orden de ID.
+ * Retorno: cantidad, 0 vacío/omitido o -1 error; deja salida vacía ante fallo.
+ * Efectos: Lista privada independiente del catálogo local de alarmas.
+ */
+int command_repository::load_batch(const string &host, int port, const string &schema,
+                                   const string &user, const string &password, const string &batch,
+                                   std::vector<cls_cmd> &commands) {
+    commands.clear();
+    if (!commands_allowed(host, port, schema))
+        return 0;
+    try {
+        commands = load_commands(host, port, schema, user, password, &batch);
+        return static_cast<int>(commands.size());
+    } catch (const std::exception &error) {
+        database_failure(error);
         return -1;
     }
 }
