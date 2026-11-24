@@ -324,12 +324,12 @@ void command_validation_test() {
 
     std::thread peer([&] {
         assert(modbus_tcp_accept(server, &listener) >= 0);
-        for (int expected : {128, 65535, 32768}) {
+        for (int expected : {128, 65535, 32768, -1, 77, -2, -3}) {
             uint8_t request[MODBUS_TCP_MAX_ADU_LENGTH];
             const auto received = modbus_receive(server, request);
-            assert(received == 12 && request[6] == 255 && request[7] == 6);
+            assert(received == 12 && request[6] == 255 && request[7] == (expected <= -2 ? 3 : 6));
             assert(modbus_reply(server, request, received, mapping) > 0);
-            assert(mapping->tab_registers[0] == expected);
+            if (expected >= 0) assert(mapping->tab_registers[0] == expected);
         }
     });
     // Preserve explicit alarm CMD usage even when excluded from manually triggered batches.
@@ -339,6 +339,23 @@ void command_validation_test() {
         assert(command.ejecutar() == 0);
         assert(command_metrics::transport_trace().attempts == 1);
     }
+    command.registro = 0;
+    assert(command.ejecutar() < 0);
+    assert(command_metrics::transport_trace().attempts == 1);
+    assert(command_metrics::transport_trace().error == EMBXILADD);
+    command.registro = 65535; command.clsvalor = 77;
+    assert(command.ejecutar() == 0); // Same accepted socket; peer never accepts a second one.
+    cls_equipos reader;
+    reader.nombre = "fixture"; reader.tag = "read-exception"; reader.protocolo = "MBTCP";
+    reader.direccion_ip = command.direccion_ip; reader.puerto = command.puerto;
+    reader.direccion_esclavo = 255; reader.funcion = "hr"; reader.interpretacion = "word";
+    reader.registro = 0;
+    assert(reader.leer() == -1); // Illegal address: one response, no reconnect.
+    reader.registro = 65535;
+    assert(reader.leer() > 0 && reader.clsvalor == 77);
+    const auto link_stats = ModbusLinkMetrics::instance().copy().at("tcp:127.0.0.1:" + std::to_string(command.puerto));
+    assert(link_stats.connections == 1 && link_stats.reconnections == 0);
+    assert(link_stats.writes == 5 && link_stats.write_failures == 1);
     peer.join(); ModbusLease::clear(); modbus_close(server); close(listener);
     modbus_mapping_free(mapping); modbus_free(server);
 
@@ -365,14 +382,31 @@ void command_validation_test() {
     mapping = modbus_mapping_new(0, 0, 1, 0);
     assert(mapping);
     std::thread serial_peer([&] {
+      for (int i = 0; i < 5; ++i) {
         uint8_t request[MODBUS_RTU_MAX_ADU_LENGTH];
         const auto received = modbus_receive(server, request);
-        assert(received > 0 && request[0] == 1 && request[1] == 6);
+        assert(received > 0 && request[0] == 1 && request[1] == (i >= 3 ? 3 : 6));
         assert(modbus_reply(server, request, received, mapping) > 0);
         assert(mapping->tab_registers[0] == 32768);
+      }
     });
     assert(rtu.ejecutar() == 0 && rtu.direccion_esclavo == 1);
     assert(command_metrics::transport_trace().attempts == 1);
+    rtu.registro = 10;
+    assert(rtu.ejecutar() < 0 && command_metrics::transport_trace().attempts == 1);
+    assert(command_metrics::transport_trace().error == EMBXILADD);
+    rtu.registro = 0;
+    assert(rtu.ejecutar() == 0);
+    reader.protocolo = "MBSERIAL"; reader.interface1 = rtu.interface1;
+    reader.velocidad = 9600; reader.paridad = "N"; reader.numerodebits = 8;
+    reader.bitsparada = 1; reader.direccion_esclavo = 1;
+    reader.registro = 10;
+    assert(reader.leer() == -1);
+    reader.registro = 0;
+    assert(reader.leer() > 0 && reader.clsvalor == 32768);
+    const auto serial_stats = ModbusLinkMetrics::instance().copy().at("rtu:" + rtu.interface1);
+    assert(serial_stats.connections == 1 && serial_stats.reconnections == 0);
+    assert(serial_stats.write_failures == 1 && serial_stats.writes == 3);
     serial_peer.join(); ModbusLease::clear();
     modbus_close(server); modbus_mapping_free(mapping); modbus_free(server);
 }

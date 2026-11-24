@@ -54,6 +54,18 @@ int main() {
     assert(snapshot.tags[0].failures == 1 && snapshot.tags[0].consecutive_failures == 1);
     state.publish(voltage, -2, "bad", 0, 100, now);
     assert(state.copy().tags[0].quality(now) == "REINTENTANDO");
+    state.publish(voltage, -3, "bad", 0, 100, now);
+    snapshot = state.copy();
+    assert(snapshot.tags[0].reads == 2 && snapshot.tags[0].deferred_reads == 2);
+    assert(snapshot.tags[0].failures == 1 && snapshot.tags[0].consecutive_failures == 1);
+    assert(snapshot.tags[0].text == "230" && snapshot.tags[0].acquired == 100);
+    assert(snapshot.tags[0].quality(now) == "REINTENTANDO");
+    assert(snapshot_json(snapshot, now).find("\"deferred_reads\":2") != std::string::npos);
+    auto &metrics = DriverMetrics::instance();
+    const auto failures_before = metrics.read_failures.load(), reads_before = metrics.reads.load();
+    metrics.record_read(-2, 10); metrics.record_read(-3, 10);
+    assert(metrics.read_failures == failures_before && metrics.reads == reads_before);
+    assert(metrics.deferred_reads == 2);
     state.publish(voltage, 1, "231", 101, 55, now);
     assert(state.copy().tags[0].consecutive_failures == 0);
     state.sql("tcp://other", "fixture", true);

@@ -104,13 +104,42 @@ Modbus si la lectura procede de caché. Si falla un intento, se conserva el
 último valor válido con su edad y la calidad cambia inmediatamente. Una conexión
 TCP abierta por sí sola no basta para mostrar ONLINE.
 
-Los contadores de errores son intentos de lectura de **tags**, incluidos los
-suspendidos; no son paquetes TCP ni transacciones Modbus. Se reinician al recargar
-el catálogo. `Lecturas tags/s` deriva del contador de llamadas a `leer()` del
-proceso y se calcula entre instantáneas. `TAG.ms` mide la ejecución de `leer()`;
-si se usa un bloque ya adquirido, no incluye la transacción previa del bloque.
-Por eso no representa un RTT de red. Las métricas generales conservan sus
-contadores durante toda la vida del proceso.
+Los contadores distinguen:
+
+- `E`: fallos de lectura de tags al intentar adquirir/conectar; incluye excepciones
+  Modbus y fallos de conexión, no las esperas sin intento. No cuenta paquetes ni
+  transacciones: una lectura puede usar caché o los reintentos existentes.
+- `P`: lecturas pospuestas (`rc=-2`, suspensión; `rc=-3`, espera de recuperación).
+  No incrementan `E`, las lecturas intentadas ni los errores consecutivos. Conservan
+  el último valor y su edad; muestran REINTENTANDO, nunca ACTUAL por una omisión.
+- `W`: escrituras intentadas con resultado final fallido, una por llamada al
+  ejecutor, aunque haya hasta tres intentos de transporte. No incluye validación,
+  confirmación SQL ni órdenes que no llegaron a llamar FC06.
+- `R`: reconexiones exitosas después de una conexión previa. La primera conexión
+  y los intentos fallidos de conexión no incrementan `R`.
+
+`E`/`P` pertenecen a los tags y se reinician al recargar el catálogo. `W`/`R`
+pertenecen al enlace físico TCP IP:puerto o RTU interfaz y se reinician al limpiar
+el registro de enlaces tras detener los trabajadores. Si varios dispositivos
+comparten un enlace, muestran el mismo `W`/`R`: no deben sumarse entre ellos.
+JSON agrega `deferred_reads` en métricas, dispositivos y tags; por dispositivo
+agrega `link_key`, `write_failures`, `reconnections` y `connection_attempts`.
+Los campos anteriores y el protocolo JSON versión 1 se conservan.
+
+`Lecturas tags/s` deriva ahora de lecturas no pospuestas; incluye fallos y uso de
+caché, no mide exclusivamente muestras válidas ni transacciones Modbus. `TAG.ms`
+mide la ejecución de `leer()`; si se usa un bloque ya adquirido, no incluye la
+transacción previa del bloque. No representa un RTT de red. Las métricas generales
+conservan sus contadores durante toda la vida del proceso.
+
+Una excepción Modbus válida termina ese intento de lectura/escritura sin repetirlo
+ni cerrar el enlace. Se conserva el error y no se confirma la orden en SQL. Un
+código de reconocimiento/ocupado tampoco se trata como escritura confirmada.
+Timeouts, desconexiones y errores de protocolo conservan la invalidación y espera
+existentes, incluyendo los tres intentos heredados: no se agrega una política
+nueva de reenvío de escrituras inciertas. Una orden que responde por timeout puede
+haber sido aplicada por el PLC. Las reglas existentes de repetición de acciones
+de alarma no cambian.
 
 MariaDB indica el resultado de la última operación local observada (operaciones
 comunes de consulta/actualización/inserción y transacciones históricas), junto

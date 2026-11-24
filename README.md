@@ -166,7 +166,9 @@ Para una consulta puntual sin interfaz interactiva:
 ```
 
 Verificar comunicación, actualización y antigüedad de tags, errores y alarmas.
-La tasa tags/s incluye fallos y omisiones; comprobar también la vigencia del dato.
+La tasa tags/s incluye fallos y caché, pero excluye lecturas pospuestas; comprobar
+también la vigencia del dato. El monitor separa E (fallos de lectura), P (pospuestas),
+W (escrituras fallidas por enlace) y R (reconexiones); ver [detalle](docs/monitor.md).
 Probar una notificación mediante una alarma prevista o una condición de prueba
 segura: el envío debe registrar `codigo=0 smtp=250` y confirmar recepción aparte.
 No provocar cambios peligrosos en el proceso industrial para probar alarmas.
@@ -324,14 +326,14 @@ errores, alarmas y eventos.
 ### Qué significa «Lecturas tags/s»
 
 Es el incremento del contador de llamadas completadas a lectura de tags dividido
-por los segundos entre instantáneas del monitor. Incluye llamadas exitosas,
-fallidas y omitidas por suspensión/espera de reconexión. No mide exclusivamente
+por los segundos entre instantáneas del monitor. Incluye llamadas exitosas y
+fallidas; excluye las omitidas por suspensión/espera de reconexión. No mide exclusivamente
 datos válidos ni peticiones físicas Modbus.
 
 - Un tag es una variable; leer el mismo valor otra vez también cuenta.
 - Los reintentos internos no cuentan como llamadas independientes del tag.
 - Un bloque Modbus puede abastecer varios tags y contabilizar varias lecturas.
-- Omitir rápidamente equipos suspendidos puede elevar la cifra sin adquirir datos.
+- Las omisiones por suspensión o recuperación se contabilizan aparte en P.
 - El período configurado condiciona la tasa: 100 tags cada 10 s representan
   aproximadamente 10 lecturas/s de promedio si se cumplen sus períodos.
 

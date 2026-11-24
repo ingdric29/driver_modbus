@@ -4,6 +4,18 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Contadores de lectura y recuperación Modbus — 2026-11-24
+
+- `E` excluye lecturas pospuestas por suspensión o espera de reconexión. Nuevos
+  contadores `P` (pospuestas), `W` (escrituras fallidas por enlace) y `R`
+  (reconexiones exitosas), en visor y JSON compatible.
+- Excepciones Modbus válidas en TCP/RTU: sin repetir automáticamente la solicitud
+  ni cerrar el enlace; se conserva el error y la continuación del lote.
+- Timeouts conservan recuperación y reintentos heredados. Sin cambios SQL,
+  configuración, sitio PHP ni reglas de alarmas/correo.
+- Pruebas de monitor, excepciones TCP/RTU de lectura/escritura, recuperación,
+  SQL y alarmas/correos. [Informe](docs/etapas/17_contadores_recuperacion_modbus.md).
+
 ## Corrección de recuperación de escrituras — 2026-11-24
 
 - Comparación reproducible `25a1371`/`2bbe930`: timeout en un comando dejaba los

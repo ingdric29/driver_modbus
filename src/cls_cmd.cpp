@@ -132,9 +132,12 @@ int cls_cmd::cmdescribir_serial(void) {
         trace.error = rc < 0 ? errno : 0;
         trace.wire_us += command_metrics::elapsed_us(started);
         ++trace.attempts;
+        if (rc < 0 && modbus_exception(trace.error))
+            break; // A valid exception completes this exchange; do not replay or close the link.
     } // fin del while 1
 
-    if (rc < 0)
+    lease.record_write(trace.attempts, rc > 0);
+    if (rc < 0 && !modbus_exception(trace.error))
         lease.invalidate();
     return rc;
 }
@@ -188,8 +191,11 @@ int cls_cmd::cmdescribir_tcp(void) {
         trace.error = rc < 0 ? errno : 0;
         trace.wire_us += command_metrics::elapsed_us(started);
         ++trace.attempts;
+        if (rc < 0 && modbus_exception(trace.error))
+            break; // A valid exception completes this exchange; do not replay or close the link.
     } // fin del while 1
-    if (rc < 0)
+    lease.record_write(trace.attempts, rc > 0);
+    if (rc < 0 && !modbus_exception(trace.error))
         lease.invalidate();
     return rc;
 }

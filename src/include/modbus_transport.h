@@ -17,6 +17,10 @@
 #include <cerrno>
 #include "retry_backoff.h"
 #include "driver_metrics.h"
+#include "modbus_link_metrics.h"
+
+// Only a well-formed Modbus exception preserves request/response synchronization.
+inline bool modbus_exception(int error) { return error >= EMBXILFUN && error <= EMBXGTAR; }
 
 // Exclusive lease per physical endpoint. Reads and writes use the same registry.
 class ModbusLease {
@@ -50,11 +54,12 @@ class ModbusLease {
             link = std::make_shared<Link>();
         return link;
     }
+    std::string key_;
     std::shared_ptr<Link> link_;
     std::unique_lock<std::mutex> lock_;
     ModbusLease(const std::string &key, const std::string &signature,
                 const std::function<modbus_t *()> &create)
-        : link_(find(key)), lock_(link_->mutex) {
+        : key_(key), link_(find(key)), lock_(link_->mutex) {
         if (link_->signature != signature || !link_->context) {
             if (link_->context) {
                 if (link_->connected)
@@ -97,14 +102,31 @@ class ModbusLease {
             return -1;
         }
         ++DriverMetrics::instance().connections;
+        ModbusLinkMetrics::instance().update(
+            key_, [](ModbusLinkCounters &m) { ++m.connection_attempts; });
         link_->connected = modbus_connect(get()) == 0;
         if (link_->connected) {
             static std::atomic<uint64_t> next{0};
+            const bool reconnect = link_->session != 0;
             link_->session = ++next;
+            ModbusLinkMetrics::instance().update(key_, [=](ModbusLinkCounters &m) {
+                ++m.connections;
+                if (reconnect)
+                    ++m.reconnections;
+            });
             link_->retry.succeeded();
         } else
             link_->retry.failed();
         return link_->connected ? 0 : -1;
+    }
+    void record_write(unsigned attempts, bool success) {
+        ModbusLinkMetrics::instance().update(key_, [=](ModbusLinkCounters &m) {
+            if (!attempts)
+                return;
+            ++m.writes;
+            if (!success)
+                ++m.write_failures;
+        });
     }
     void invalidate() {
         if (link_->connected) {
@@ -117,6 +139,7 @@ class ModbusLease {
     static void clear() {
         std::lock_guard<std::mutex> lock(registry_mutex());
         registry().clear();
+        ModbusLinkMetrics::instance().clear();
     }
 };
 #endif

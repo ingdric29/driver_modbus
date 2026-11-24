@@ -39,6 +39,7 @@ void cls_equipos::leer_mbtcp(void) {
     char buffer[32];
     stringstream ssdatos;
     int rc = -1;
+    int read_error = 0;
 
     static_clsnombre_mbtcp = nombre;
     auto lease = ModbusLease::tcp(direccion_ip, puerto);
@@ -294,6 +295,9 @@ void cls_equipos::leer_mbtcp(void) {
             memcpy(datos, datos8b, 4);
         }
 
+        read_error = rc < 0 ? errno : 0;
+        if (rc < 0 && modbus_exception(read_error))
+            break;
     } // fin del while
 
     // ================================================================
@@ -338,7 +342,7 @@ void cls_equipos::leer_mbtcp(void) {
         imprimir_mensaje(descripcionerror, rojo);
     }
 
-    if (rc < 0)
+    if (rc < 0 && !modbus_exception(read_error))
         lease.invalidate();
 
     resultadoleer_rc = rc;

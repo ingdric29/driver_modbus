@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Driver real: SQL -> FC06 + alarmas CMD/EMAIL; solo servidores temporales loopback."""
 import os
+import json
 from pathlib import Path
 import signal
 import socket
@@ -33,6 +34,7 @@ class ModbusPeer:
         self.writes = [] if writes is None else writes
         self.errors = []
         self.reads = 0
+        self.connections = 0
         self.drop_addresses = set()
         self.thread = threading.Thread(target=self.serve)
         self.thread.start()
@@ -53,6 +55,7 @@ class ModbusPeer:
         while not self.stop.is_set():
             try:
                 connection, _ = self.listener.accept()
+                self.connections += 1
             except socket.timeout:
                 continue
             except OSError:
@@ -216,6 +219,17 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
         def logs():
             return log_path.read_text() if log_path.exists() else ''
 
+        def monitor_device():
+            with socket.socket(socket.AF_UNIX) as client:
+                client.settimeout(2)
+                client.connect(str(base / '.runtime/automonitor.sock'))
+                data = b''
+                while True:
+                    block = client.recv(65536)
+                    if not block: break
+                    data += block
+            return json.loads(data)['devices'][0]
+
         if RECOVERY_PROBE:
             sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='Ajuste' WHERE id=1")
             until(lambda: 'batch="Ajuste" loaded=3 matched=3 status=failed' in logs())
@@ -232,12 +246,26 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
             assert peer.count(16404) == 3 and peer.count(16503) == 1 and peer.count(16504) == 1
             assert 'command=26 modbus=failed ack=skipped attempts=3' in logs()
             print('PASS same-link recovery: failed ID26 remains unconfirmed, IDs56/57 each sent once and confirmed; 2024 timestamps retained only for the failed command')
+            before_exception = monitor_device()
+            assert before_exception['write_failures'] == 1
+            assert before_exception['reconnections'] >= 1
+            assert before_exception['failures'] == 0
+            assert all(t['consecutive_failures'] == 0 for t in before_exception['tags'])
+            connections_before = peer.connections
             sql(prefix + "INSERT INTO tbcmd VALUES "
                 "(3000,9,1,'2024-03-18 00:00:00',1,'startup-test','exception','meter'),"
                 "(3001,61,7,'2024-03-18 00:00:00',1,'startup-test','exception','meter'); "
                 "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='exception' WHERE id=1")
             until(lambda: 'batch="exception" loaded=2 matched=2 status=failed' in logs())
-            assert peer.count(9) == 3 and peer.count(61) == 1
+            assert peer.count(9) == 1 and peer.count(61) == 1
+            # Viewer snapshots are cached for one second; wait for the new sample.
+            until(lambda: monitor_device()['write_failures'] == before_exception['write_failures'] + 1)
+            after_exception = monitor_device()
+            assert peer.connections == connections_before
+            assert after_exception['reconnections'] == before_exception['reconnections']
+            assert after_exception['write_failures'] == before_exception['write_failures'] + 1
+            assert after_exception['failures'] == before_exception['failures']
+            assert 'command=3000 modbus=failed ack=skipped attempts=1' in logs()
             assert sql(prefix + "SELECT cmd_datetime FROM tbcmd WHERE id=3000") == '2024-03-18 00:00:00'
             assert sql(prefix + "SELECT cmd_datetime>'2024-03-18' FROM tbcmd WHERE id=3001") == '1'
             assert 'delivery=exception' in logs() and 'error_text=' in logs()
@@ -356,10 +384,10 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
         assert peer.count(300) == 0
         sql(prefix + "DELETE FROM tbcmd WHERE lote='oversized'")
 
-        # Remote Modbus exception: three legacy attempts; no SQL acceptance.
+        # Definitive Modbus exception: one attempt, no SQL acceptance, email continues.
         sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='rejected' WHERE id=1")
-        until(lambda: 'command=20 modbus=failed ack=skipped attempts=3' in logs())
-        assert peer.count(9) == 3
+        until(lambda: 'command=20 modbus=failed ack=skipped attempts=1' in logs())
+        assert peer.count(9) == 1
         assert sql(prefix + 'SELECT cmd_datetime IS NULL FROM tbcmd WHERE id=20') == '1'
         peer.high.clear()
         until(lambda: len(smtp.messages) == 2)  # Deactivation email after failed Modbus order.
@@ -395,7 +423,7 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
             "(53001,57,2,NULL,1,'startup-test','transport-failure','other-valid'); "
             "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='transport-failure' WHERE id=1")
         until(lambda: 'batch="transport-failure" loaded=2 matched=2 status=failed' in logs())
-        assert peer.count(9) == 6 and peer.count(57) == 1, (peer.count(9), peer.count(57))
+        assert peer.count(9) == 2 and peer.count(57) == 1, (peer.count(9), peer.count(57))
 
         # PLC accepted; SQL confirmation failed. Observe it without resending the order.
         sql(prefix + """
@@ -445,7 +473,7 @@ DELIMITER ;
         else:
             assert 'externa.poll_sql=' not in text
         assert 'fixture-secret' not in text and 'fixture-user' not in text
-        print('PASS SQL -> FC06: order/filtering, 3 retries, SQL ack failure without replay; '
+        print('PASS SQL -> FC06: order/filtering, single-attempt exceptions, SQL ack failure without replay; '
               'alarm CMD + 3 real TLS/SMTP messages (activate/deactivate/reactivate), '
               'acquisition and shutdown; loopback only')
         print('PASS device groups: disabled omitted, invalid group isolated, global ID order and other devices survive transport errors')

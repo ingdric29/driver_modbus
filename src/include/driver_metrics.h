@@ -2,8 +2,7 @@
  * Archivo: driver_metrics.h
  * Descripción: Acumula contadores y tiempos de lectura/persistencia.
  * Necesita: Resultados de operaciones y contadores atómicos.
- * Retornos: Resúmenes de texto; las lecturas incluyen fallos y omisiones, no solo muestras
- * válidas.
+ * Retornos: Resúmenes de lecturas y fallos; las omisiones se contabilizan aparte.
  */
 
 #ifndef DRIVER_METRICS_H
@@ -13,7 +12,7 @@
 #include <sstream>
 #include <cstdint>
 struct DriverMetrics {
-    std::atomic<uint64_t> reads{0}, read_failures{0}, maximum_read_us{0};
+    std::atomic<uint64_t> reads{0}, read_failures{0}, deferred_reads{0}, maximum_read_us{0};
     std::atomic<uint64_t> connections{0}, reused_connections{0}, stored_samples{0}, sql_failures{0},
         replicated_samples{0}, pending_windows{0};
     static DriverMetrics &instance() {
@@ -21,6 +20,10 @@ struct DriverMetrics {
         return metrics;
     }
     void record_read(int result, uint64_t elapsed) {
+        if (result == -2 || result == -3) {
+            ++deferred_reads;
+            return;
+        }
         ++reads;
         if (result <= 0)
             ++read_failures;
@@ -31,7 +34,8 @@ struct DriverMetrics {
     std::string console_summary() const {
         std::ostringstream out;
         out << "[ METRICAS ] Totales desde el inicio\n"
-            << "  Llamadas: " << reads.load() << " | Sin lectura: " << read_failures.load()
+            << "  Llamadas: " << reads.load() << " | Fallos de lectura: " << read_failures.load()
+            << " | Pospuestas: " << deferred_reads.load()
             << " | Max. lectura: " << maximum_read_us.load() / 1000.0 << " ms\n"
             << "  Historicos SQL: " << stored_samples.load()
             << " | Fallos SQL: " << sql_failures.load()
@@ -41,6 +45,7 @@ struct DriverMetrics {
     std::string summary() const {
         std::ostringstream out;
         out << "METRICS reads=" << reads.load() << " read_failures=" << read_failures.load()
+            << " deferred_reads=" << deferred_reads.load()
             << " maximum_read_us=" << maximum_read_us.load()
             << " connections=" << connections.load()
             << " reused_connections=" << reused_connections.load()

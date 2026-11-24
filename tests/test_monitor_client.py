@@ -80,6 +80,9 @@ class MonitorTests(unittest.TestCase):
         self.assertIn('periodo 0.1s', client.plain(SNAPSHOT, 'meter'))
         self.assertIn('SMTP timeout (x2)', client.plain(SNAPSHOT))
         self.assertIn('ONLINE', client.compact_device(DEVICE))
+        counters = dict(DEVICE, deferred_reads=15, write_failures=1, reconnections=2)
+        self.assertIn('E=2 P=15 W=1 R=2', client.compact_device(counters))
+        self.assertIn('errores lectura 2 | pospuestas 15 | errores escritura 1 | reconexiones 2', client.device_line(counters))
         self.assertIn('ACTUAL', client.compact_tag(TAG))
         with self.assertRaises(ValueError):
             client.find_device([DEVICE, DEVICE], 'meter')

@@ -23,6 +23,7 @@
 #include <locale>
 #include <unistd.h>
 #include "driver_metrics.h"
+#include "modbus_link_metrics.h"
 namespace monitor {
 using Clock = std::chrono::steady_clock;
 inline long long age_ms(Clock::time_point now, Clock::time_point then) {
@@ -87,7 +88,7 @@ struct Tag {
     double period = 1;
     bool attempted = false, valid = false, has_value = false;
     int result = 0;
-    uint64_t reads = 0, failures = 0, consecutive_failures = 0, latency_us = 0;
+    uint64_t reads = 0, failures = 0, deferred_reads = 0, consecutive_failures = 0, latency_us = 0;
     std::string text;
     time_t acquired = 0;
     Clock::time_point last_success;
@@ -246,7 +247,11 @@ class State {
             t.attempted = true;
             t.valid = result > 0;
             t.result = result;
-            ++t.reads;
+            const bool deferred = result == -2 || result == -3;
+            if (deferred)
+                ++t.deferred_reads;
+            else
+                ++t.reads;
             t.latency_us = latency;
             if (t.valid) {
                 t.has_value = true;
@@ -254,7 +259,7 @@ class State {
                 t.acquired = acquired;
                 t.last_success = now;
                 t.consecutive_failures = 0;
-            } else {
+            } else if (!deferred) {
                 ++t.failures;
                 ++t.consecutive_failures;
             }
@@ -262,8 +267,9 @@ class State {
             if ((!old_attempted && !t.valid) || (old_attempted && old_valid != t.valid))
                 event_locked(t.valid ? "INFO" : "WARN", "DISPOSITIVO",
                              t.device + " / " + t.name +
-                                 (t.valid
-                                      ? ": lectura recuperada"
+                                 (t.valid ? ": lectura recuperada"
+                                  : deferred
+                                      ? ": lectura pospuesta (rc=" + std::to_string(result) + ")"
                                       : ": fallo de lectura (rc=" + std::to_string(result) + ")"));
         } catch (...) {
         } // Monitoring must never break acquisition.
@@ -372,12 +378,14 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
         << ",\"age_ms\":" << (s.db_result ? std::to_string(age_ms(now, s.sql_last)) : "null") << "}"
         << ",\"metrics\":{\"reads\":" << m.reads.load()
         << ",\"read_failures\":" << m.read_failures.load()
+        << ",\"deferred_reads\":" << m.deferred_reads.load()
         << ",\"maximum_read_us\":" << m.maximum_read_us.load()
         << ",\"connections\":" << m.connections.load()
         << ",\"reused_connections\":" << m.reused_connections.load()
         << ",\"stored_samples\":" << m.stored_samples.load()
         << ",\"sql_failures\":" << m.sql_failures.load()
         << ",\"pending_windows\":" << m.pending_windows.load() << "},\"s7_links\":[";
+    const auto modbus_links = ModbusLinkMetrics::instance().copy();
     bool first_link = true;
     for (const auto &item : s.s7_links) {
         if (!first_link)
@@ -399,7 +407,7 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
         first = false;
         const Tag &d = *device.second.front();
         size_t fresh = 0, pending = 0, retry = 0, stale = 0;
-        uint64_t failures = 0, reads = 0;
+        uint64_t failures = 0, reads = 0, deferred_reads = 0;
         for (const auto *t : device.second) {
             auto q = t->quality(now);
             fresh += q == "ACTUAL";
@@ -408,6 +416,7 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
             stale += q == "ANTIGUO";
             failures += t->failures;
             reads += t->reads;
+            deferred_reads += t->deferred_reads;
         }
         std::string status = fresh == device.second.size()     ? "ONLINE"
                              : fresh                           ? "DEGRADADO"
@@ -415,11 +424,19 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
                              : retry                           ? "REINTENTANDO"
                              : stale                           ? "DATOS_ANTIGUOS"
                                                                : "SIN_RESPUESTA";
+        const auto link_key = d.protocol == "MBTCP"      ? "tcp:" + d.endpoint
+                              : d.protocol == "MBSERIAL" ? "rtu:" + d.endpoint
+                                                         : "";
+        const auto found = modbus_links.find(link_key);
+        const auto link = found == modbus_links.end() ? ModbusLinkCounters{} : found->second;
         out << "{\"key\":" << quote(device.first) << ",\"name\":" << quote(d.device)
             << ",\"protocol\":" << quote(d.protocol) << ",\"endpoint\":" << quote(d.endpoint)
             << ",\"slave\":" << d.slave << ",\"status\":" << quote(status)
             << ",\"fresh_tags\":" << fresh << ",\"reads\":" << reads << ",\"failures\":" << failures
-            << ",\"tags\":[";
+            << ",\"deferred_reads\":" << deferred_reads << ",\"link_key\":" << quote(link_key)
+            << ",\"write_failures\":" << link.write_failures
+            << ",\"reconnections\":" << link.reconnections
+            << ",\"connection_attempts\":" << link.connection_attempts << ",\"tags\":[";
         bool first_tag = true;
         for (const auto *t : device.second) {
             if (!first_tag)
@@ -435,7 +452,7 @@ inline std::string snapshot_json(const Snapshot &s, Clock::time_point now = Cloc
                 << ",\"age_ms\":"
                 << (t->has_value ? std::to_string(age_ms(now, t->last_success)) : "null")
                 << ",\"result\":" << t->result << ",\"reads\":" << t->reads
-                << ",\"failures\":" << t->failures
+                << ",\"deferred_reads\":" << t->deferred_reads << ",\"failures\":" << t->failures
                 << ",\"consecutive_failures\":" << t->consecutive_failures
                 << ",\"latency_us\":" << t->latency_us << '}';
         }

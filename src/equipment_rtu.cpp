@@ -39,6 +39,7 @@ void cls_equipos::leer_mbserial(void) {
     char buffer[32];
     stringstream ssdatos;
     int rc = -1;
+    int read_error = 0;
 
     static_clsnombre_mbserial = nombre;
     auto lease = ModbusLease::rtu(interface1, velocidad, paridad.empty() ? 'N' : paridad[0],
@@ -293,6 +294,9 @@ void cls_equipos::leer_mbserial(void) {
             memcpy(datos, datos8b, 4);
         }
 
+        read_error = rc < 0 ? errno : 0;
+        if (rc < 0 && modbus_exception(read_error))
+            break;
     } // fin del while
 
     // ================================================================
@@ -331,7 +335,7 @@ void cls_equipos::leer_mbserial(void) {
         imprimir_mensaje(descripcionerror, rojo);
     }
 
-    if (rc < 0)
+    if (rc < 0 && !modbus_exception(read_error))
         lease.invalidate();
 
     resultadoleer_rc = rc;

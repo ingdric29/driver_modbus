@@ -19,7 +19,8 @@ en puerto loopback libre, sin leer la configuración privada. Admite el prefijo
 `COMMAND_TEST_SYSROOT` o `S7_TEST_SYSROOT` (predeterminado `/usr`). Requiere
 MariaDB servidor/cliente, OpenSSL y las dependencias habituales del driver.
 
-Comprueba SQL → FC06 real, lote/habilitación de comando, tres intentos heredados,
+Comprueba SQL → FC06 real, lote/habilitación de comando, tres intentos heredados
+ante timeout y una sola solicitud por excepción Modbus válida,
 fallo de confirmación SQL sin repetir la escritura, adquisición concurrente,
 acción de alarma CMD y tres correos TLS/AUTH de activación/desactivación/reactivación.
 El SMTP es local y sus destinatarios son `example.invalid`. Publica tiempos
@@ -243,3 +244,9 @@ de la instancia fija utilizada por el antiguo make test-sql.
 La prueba de grupos incluye un Ajuste con destino deshabilitado, aislamiento de
 un grupo inválido, mantenimiento del orden A/B/A y continuación después de un
 fallo Modbus en otro grupo. Ver [ajuste de etapa 4](../docs/etapas/15_ordenes_grupos_dispositivo.md).
+
+La regresión de recuperación comprueba también W/R por enlace y E por tag:
+un timeout de escritura no infla E con lecturas pospuestas; una excepción no
+crea otra conexión. El monitor cachea snapshots durante un segundo y las pruebas
+esperan su actualización antes de comparar contadores. Los tests enlazados
+comprueban excepciones de lectura y escritura TCP/RTU sobre una misma sesión.

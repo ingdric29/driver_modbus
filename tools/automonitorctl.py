@@ -95,9 +95,10 @@ def find_device(devices, name):
 
 
 def device_line(device):
-    return '{} | {} {} esclavo={} | {} | tags {}/{} | errores {}'.format(
+    return '{} | {} {} esclavo={} | {} | tags {}/{} | errores lectura {} | pospuestas {} | errores escritura {} | reconexiones {}'.format(
         device['name'], device['protocol'], device['endpoint'], device['slave'], device['status'],
-        device['fresh_tags'], len(device['tags']), device['failures'])
+        device['fresh_tags'], len(device['tags']), device['failures'],
+        device.get('deferred_reads', 0), device.get('write_failures', 0), device.get('reconnections', 0))
 
 
 def tag_line(tag):
@@ -117,9 +118,10 @@ def compact_tag(tag):
 
 
 def compact_device(device):
-    return '{:<17} {:<8} {:<19} {:<13} {:>5} E={}'.format(
+    return '{:<17} {:<8} {:<19} {:<13} {:>5} E={} P={} W={} R={}'.format(
         clipped(device['name'], 17), device['protocol'], clipped(device['endpoint'], 19),
-        device['status'], '{}/{}'.format(device['fresh_tags'], len(device['tags'])), device['failures'])
+        device['status'], '{}/{}'.format(device['fresh_tags'], len(device['tags'])), device['failures'],
+        device.get('deferred_reads', 0), device.get('write_failures', 0), device.get('reconnections', 0))
 
 
 def event_line(event):
@@ -252,7 +254,7 @@ class View:
                 line(row, ('> ' if current else '  ') + compact_device(dict(device, status='SIN_VIGENCIA') if self.error else device), curses.A_REVERSE if current else 0)
             if not devices:
                 line(body_top, 'Sin dispositivos publicados' if snapshot else 'El driver debe estar iniciado con esta version del monitor.')
-            line(event_top - 1, 'Dispositivo {}/{}'.format(self.selected + 1 if devices else 0, len(devices)))
+            line(event_top - 1, 'Dispositivo {}/{} | E:lectura P:pospuestas W:escritura R:reconexion'.format(self.selected + 1 if devices else 0, len(devices)))
         line(event_top, 'EVENTOS RECIENTES (registro completo en log/devlog.log)', bold)
         events = snapshot['events'][-event_count:] if snapshot else []
         for row, event in enumerate(events, event_top + 1):
