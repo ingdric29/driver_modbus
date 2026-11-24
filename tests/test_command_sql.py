@@ -18,6 +18,7 @@ from smtp_fixture import Server, certificate
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path(sys.argv[1]).resolve(strict=True)
 EXTERNAL = '--external' in sys.argv[2:]
+RECOVERY_PROBE = '--recovery-probe' in sys.argv[2:]
 
 
 class ModbusPeer:
@@ -32,6 +33,7 @@ class ModbusPeer:
         self.writes = [] if writes is None else writes
         self.errors = []
         self.reads = 0
+        self.drop_addresses = set()
         self.thread = threading.Thread(target=self.serve)
         self.thread.start()
 
@@ -75,6 +77,8 @@ class ModbusPeer:
                         else:
                             assert function == 6
                             self.writes.append((address, value, time.monotonic()))
+                            if address in self.drop_addresses:
+                                continue  # PLC received the request, but its response is lost.
                             payload = bytes((0x86, 2)) if address == 9 else request
                         connection.sendall(struct.pack(
                             '>HHHB', transaction, 0, len(payload) + 1, unit) + payload)
@@ -164,6 +168,13 @@ ALTER TABLE tbejecutar MODIFY lote VARCHAR(64) CHARACTER SET latin1 COLLATE lati
         setup += "INSERT INTO tbcmd VALUES " + ','.join(
             f"({1000+i},{100+i},{i},NULL,1,'startup-test','bulk','meter')"
             for i in range(130)) + ';\n'
+        if RECOVERY_PROBE:
+            setup += "DELETE FROM tbdefalarmas; DELETE FROM tbcmd; "
+            setup += "INSERT INTO tbcmd VALUES "
+            setup += "(26,16404,20,'2024-03-18 00:00:00',1,'startup-test','Ajuste','meter'),"
+            setup += "(56,16503,78,'2024-03-18 00:00:00',1,'startup-test','Ajuste','meter'),"
+            setup += "(57,16504,85,'2024-03-18 00:00:00',1,'startup-test','Ajuste','meter');"
+            peer.drop_addresses.add(16404)
         sql(setup)
         if EXTERNAL:
             sql(setup.replace('driver_command_fixture', 'driver_external_command_fixture'))
@@ -204,6 +215,65 @@ smtp_servidor=smtps://127.0.0.1:{smtp.port}
 
         def logs():
             return log_path.read_text() if log_path.exists() else ''
+
+        if RECOVERY_PROBE:
+            sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='Ajuste' WHERE id=1")
+            until(lambda: 'batch="Ajuste" loaded=3 matched=3 status=failed' in logs())
+            print('RECOVERY observed: ID26 sends=' + str(peer.count(16404)) +
+                  ', ID56 sends=' + str(peer.count(16503)) +
+                  ', ID57 sends=' + str(peer.count(16504)), flush=True)
+            assert peer.count(16404) == 3
+            assert peer.count(16503) == 1 and peer.count(16504) == 1, (
+                'Commands after timeout were never transmitted; affected log lines:\n' +
+                '\n'.join(line for line in logs().splitlines() if 'COMMAND ' in line))
+            assert sql(prefix + "SELECT cmd_datetime FROM tbcmd WHERE id=26") == '2024-03-18 00:00:00'
+            assert sql(prefix + "SELECT COUNT(*) FROM tbcmd WHERE id IN (56,57) AND cmd_datetime>'2024-03-18'") == '2'
+            time.sleep(.3)
+            assert peer.count(16404) == 3 and peer.count(16503) == 1 and peer.count(16504) == 1
+            assert 'command=26 modbus=failed ack=skipped attempts=3' in logs()
+            print('PASS same-link recovery: failed ID26 remains unconfirmed, IDs56/57 each sent once and confirmed; 2024 timestamps retained only for the failed command')
+            sql(prefix + "INSERT INTO tbcmd VALUES "
+                "(3000,9,1,'2024-03-18 00:00:00',1,'startup-test','exception','meter'),"
+                "(3001,61,7,'2024-03-18 00:00:00',1,'startup-test','exception','meter'); "
+                "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='exception' WHERE id=1")
+            until(lambda: 'batch="exception" loaded=2 matched=2 status=failed' in logs())
+            assert peer.count(9) == 3 and peer.count(61) == 1
+            assert sql(prefix + "SELECT cmd_datetime FROM tbcmd WHERE id=3000") == '2024-03-18 00:00:00'
+            assert sql(prefix + "SELECT cmd_datetime>'2024-03-18' FROM tbcmd WHERE id=3001") == '1'
+            assert 'delivery=exception' in logs() and 'error_text=' in logs()
+            print('PASS exception reporting and same-link continuation without replaying the failed command')
+            # Entirely unavailable link: share one 500ms cooldown budget, then keep
+            # progressing to a healthy independent device instead of waiting per ID.
+            peer.close()
+            sql(prefix + f"INSERT INTO tbdispositivos VALUES (3,'other-valid','127.0.0.1',{peer_other.port},1,'',9600,'N',1,'0','','','MBTCP',1,'startup-test'); "
+                "INSERT INTO tbcmd VALUES " + ','.join(
+                    f"({1000+i},{16600+i},1,'2024-03-18 00:00:00',1,'startup-test','offline','meter')"
+                    for i in range(24)) +
+                ",(2000,60,99,'2024-03-18 00:00:00',1,'startup-test','offline','other-valid');")
+            submitted = time.monotonic()
+            sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='offline' WHERE id=1")
+            until(lambda: 'batch="offline" loaded=25 matched=25 status=failed' in logs())
+            assert time.monotonic() - submitted < 5
+            assert peer.count(60) == 1
+            assert sql(prefix + "SELECT cmd_datetime>'2024-03-18' FROM tbcmd WHERE id=2000") == '1'
+            assert sql(prefix + "SELECT COUNT(*) FROM tbcmd WHERE lote='offline' AND id<2000 AND cmd_datetime='2024-03-18 00:00:00'") == '24'
+            summary = next(line for line in logs().splitlines() if 'batch="offline"' in line)
+            assert int(re.search(r'recovery_wait_us=(\d+)', summary).group(1)) <= 500000
+            assert 'delivery=not_sent' in logs()
+            assert 'delivery=unknown' in logs()
+            assert 'fallo de conexion: Resource temporarily unavailable' not in (base / 'driver.log').read_text()
+            print('PASS bounded offline recovery: 24 unavailable commands share the budget; independent device succeeds; unsuccessful 2024 timestamps stay unchanged')
+            # A fresh request will encounter the offline link's backoff. Stop while
+            # it is pending: the recovery wait must remain interruptible.
+            sql(prefix + "UPDATE tbejecutar SET ejecutar_tbcmd=1,lote='offline' WHERE id=1")
+            until(lambda: sql(prefix + 'SELECT ejecutar_tbcmd FROM tbejecutar WHERE id=1') == '0')
+            stopping = time.monotonic()
+            driver.terminate()
+            assert driver.wait(timeout=5) == 0
+            assert time.monotonic() - stopping < 2
+            assert peer.count(60) == 1
+            print('PASS shutdown interrupts link recovery without executing later commands')
+            sys.exit(0)  # finally closes every temporary resource.
 
         latencies = []
         for attempt in range(3):

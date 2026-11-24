@@ -4,6 +4,17 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Corrección de recuperación de escrituras — 2026-11-24
+
+- Comparación reproducible `25a1371`/`2bbe930`: timeout en un comando dejaba los
+  siguientes del mismo enlace sin transmitir por la espera de reconexión.
+- Recuperación adicional solo de comandos aún no enviados, con presupuesto de
+  espera compartido de 500 ms por lote y parada interrumpible.
+- Diagnóstico de registro/valor, entrega, texto de error y contadores de envíos;
+  EAGAIN transitorio sin mensajes de consola repetidos.
+- Pruebas de fechas 2024, continuación del mismo enlace, enlace indisponible y
+  cierre. [Informe](docs/etapas/16_recuperacion_escrituras.md).
+
 ## Desarrollo de órdenes Modbus — 2026-11-23
 
 - Ajuste posterior: validación por dispositivo, omisión de equipos deshabilitados

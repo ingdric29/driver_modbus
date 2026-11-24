@@ -115,7 +115,9 @@ int cls_cmd::cmdescribir_serial(void) {
     trace.connect_us = command_metrics::elapsed_us(started);
     if (connected == -1) { // if 3
         trace.error = connection_error;
-        fprintf(stderr, "[ ERROR ] Escritura RTU: fallo de conexion: %s\n", modbus_strerror(errno));
+        if (connection_error != EAGAIN)
+            fprintf(stderr, "[ ERROR ] Escritura RTU: fallo de conexion: %s\n",
+                    modbus_strerror(connection_error));
         lease.invalidate();
         return -1;
     } // fin del if 3
@@ -169,7 +171,9 @@ int cls_cmd::cmdescribir_tcp(void) {
     trace.connect_us = command_metrics::elapsed_us(started);
     if (connected == -1) { // if 3
         trace.error = connection_error;
-        fprintf(stderr, "[ ERROR ] Escritura TCP: fallo de conexion: %s\n", modbus_strerror(errno));
+        if (connection_error != EAGAIN)
+            fprintf(stderr, "[ ERROR ] Escritura TCP: fallo de conexion: %s\n",
+                    modbus_strerror(connection_error));
         lease.invalidate();
         return -1;
     } // fin del if 3

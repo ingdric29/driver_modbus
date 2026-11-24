@@ -27,12 +27,27 @@ using command_metrics::elapsed_us;
 using command_metrics::Metrics;
 using command_metrics::Source;
 using command_metrics::Stage;
+constexpr uint64_t recovery_wait_limit_us = 500000;
 
 struct CommandResult {
     int id = 0, result = -1, ack = -1;
-    uint64_t execute_us = 0, ack_us = 0;
+    int registro = 0, valor = 0;
+    string device;
+    uint64_t execute_us = 0, ack_us = 0, recovery_wait_us = 0;
+    unsigned recovery_polls = 0;
     command_metrics::TransportTrace transport;
 };
+
+const char *delivery(const CommandResult &value) {
+    if (value.result == 0)
+        return "accepted";
+    if (!value.transport.attempts)
+        return "not_sent";
+    if (value.transport.error > MODBUS_ENOBASE &&
+        value.transport.error < MODBUS_ENOBASE + MODBUS_EXCEPTION_MAX)
+        return "exception";
+    return "unknown"; // Request sent, but no conclusive acceptance/rejection was recorded.
+}
 
 // A batch owns its commands. SQL, PLC and logging do not lock the alarm catalog.
 int execute_commands(bool external) {
@@ -113,17 +128,37 @@ int execute_commands(bool external) {
         metrics.record(source, Stage::Validation, validation_us, !invalid.empty());
     failed = failed || !invalid.empty();
     std::vector<CommandResult> results;
+    // Shared by this batch: an unavailable PLC cannot add a wait to every command.
+    // Only EAGAIN before any FC06 is eligible; never replay an already sent command here.
+    uint64_t recovery_budget_us = recovery_wait_limit_us;
     // Validate by device, but transmit in the original global ID order.
-    for (int j = 0; j < count; ++j) {
+    for (int j = 0; j < count && driver_running(); ++j) {
         const auto &group = groups.at(batch_commands[j].nombre);
         if (group.disabled || !group.reason.empty())
             continue;
         CommandResult value;
         value.id = batch_commands[j].id;
+        value.registro = batch_commands[j].registro;
+        value.valor = batch_commands[j].clsvalor;
+        value.device = batch_commands[j].nombre;
         started = Clock::now();
         value.result = batch_commands[j].ejecutar();
-        value.execute_us = elapsed_us(started);
         value.transport = command_metrics::transport_trace();
+        while (value.result != 0 && value.transport.attempts == 0 &&
+               value.transport.error == EAGAIN && recovery_budget_us && driver_running()) {
+            const auto sleeping = Clock::now();
+            // ejecutar released the lease: reads/alarms may recover the link during this wait.
+            wait_driver_seconds(std::min<uint64_t>(20000, recovery_budget_us) / 1000000.0);
+            const auto waited = std::max<uint64_t>(1, elapsed_us(sleeping));
+            value.recovery_wait_us += waited;
+            recovery_budget_us -= std::min(recovery_budget_us, waited);
+            if (!driver_running())
+                break;
+            ++value.recovery_polls;
+            value.result = batch_commands[j].ejecutar();
+            value.transport = command_metrics::transport_trace();
+        }
+        value.execute_us = elapsed_us(started);
         result = value.result;
         metrics.record(source, Stage::Execute, value.execute_us, result != 0);
         if (result == 0) {
@@ -167,8 +202,20 @@ int execute_commands(bool external) {
             << " execute_us=" << value.execute_us
             << " link_wait_us=" << value.transport.link_wait_us
             << " connect_us=" << value.transport.connect_us
-            << " wire_us=" << value.transport.wire_us << " ack_us=" << value.ack_us;
+            << " wire_us=" << value.transport.wire_us << " ack_us=" << value.ack_us
+            << " device=" << command_metrics::field(value.device) << " register=" << value.registro
+            << " value=" << value.valor << " delivery=" << delivery(value) << " error_text="
+            << command_metrics::field(value.result != 0 && !value.transport.error
+                                          ? "operacion no iniciada"
+                                          : modbus_strerror(value.transport.error))
+            << " recovery_wait_us=" << value.recovery_wait_us
+            << " recovery_polls=" << value.recovery_polls;
         logger_main.registrarError(log.str(), false);
+    }
+    size_t sent = 0, accepted = 0;
+    for (const auto &value : results) {
+        sent += value.transport.attempts != 0;
+        accepted += value.result == 0;
     }
     std::ostringstream log;
     log << prefix << " batch=" << command_metrics::field(batch) << " loaded=" << count
@@ -177,9 +224,12 @@ int execute_commands(bool external) {
             : failed          ? "failed"
             : results.empty() ? (skipped ? "skipped" : "empty")
                               : "accepted")
-        << " skipped=" << skipped << " rejected=" << invalid.size() << " mutex_wait_us=" << lock_us
-        << " poll_sql_us=" << poll_us << " catalog_sql_us=" << catalog_us
-        << " validation_us=" << validation_us << " batch_us=" << batch_us;
+        << " skipped=" << skipped << " rejected=" << invalid.size() << " sent=" << sent
+        << " accepted=" << accepted << " not_sent=" << results.size() - sent
+        << " recovery_wait_us=" << recovery_wait_limit_us - recovery_budget_us
+        << " mutex_wait_us=" << lock_us << " poll_sql_us=" << poll_us
+        << " catalog_sql_us=" << catalog_us << " validation_us=" << validation_us
+        << " batch_us=" << batch_us;
     logger_main.registrarError(log.str(), false);
     return failed ? -1 : result;
 }

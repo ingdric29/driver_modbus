@@ -1,5 +1,16 @@
 # Pruebas sin hardware
 
+## Regresión de recuperación de escrituras
+
+`make test-command-sql` añade el perfil `--recovery-probe`: un PLC simulado pierde
+las tres respuestas del ID26, mientras los IDs56/57 del mismo enlace deben enviarse
+una vez y confirmar SQL. Las filas parten con fechas de 2024 para comprobar que
+la fecha no impide escribir y solo cambian las confirmadas. También se verifican
+excepciones, 24 órdenes sobre un enlace indisponible, continuación de otro equipo
+y cierre durante la espera de recuperación. La espera total de recuperación se
+limita por lote; no representa el timeout total de conexión o escritura.
+Ver [comparación y corrección](../docs/etapas/16_recuperacion_escrituras.md).
+
 ## Órdenes Modbus y continuidad de alarmas
 
 `bash install.sh --test-command-sql` compila, ejecuta la regresión ordinaria y
