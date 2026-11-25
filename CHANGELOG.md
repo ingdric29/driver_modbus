@@ -4,6 +4,16 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## 1.4.0 — 2026-11-25
+
+- Nueva rama de trabajo `automonitor-driver-V1.4.0`, creada desde `e70d2bd`.
+  La rama `automonitor-driver-V1.3.0` se conserva.
+- Versión del driver y visor actualizada a 1.4.0. Incluye las mejoras de órdenes
+  Modbus, contadores/recuperación y alarmas/eventos Siemens descritas abajo.
+- Sin cambios de esquema, configuración ni nombres de ejecutables. La validación
+  final de alarmas Siemens en hardware sigue pendiente de confirmación del usuario.
+- [Informe de transición](docs/etapas/19_version_140.md).
+
 ## Alarmas y eventos Siemens — 2026-11-25
 
 - Muestras Snap7 disponibles para alarmas, históricos y correo mediante las
