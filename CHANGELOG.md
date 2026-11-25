@@ -4,6 +4,18 @@ Este historial distingue funciones disponibles de propuestas pendientes.
 La versión de producto sigue el formato MAYOR.MENOR.PARCHE. La versión 1 del
 protocolo JSON del monitor es independiente de la versión del producto.
 
+## Alarmas y eventos Siemens — 2026-11-25
+
+- Muestras Snap7 disponibles para alarmas, históricos y correo mediante las
+  definiciones existentes; expresiones mixtas Siemens/Modbus.
+- Eventos BOOL, enteros de 8/16/32 bits y REAL, bits hasta 31 y valores completos
+  sin truncamiento. Primera muestra como referencia, sin evento de arranque.
+- Lecturas fallidas/pospuestas/antiguas no provocan falsas transiciones; registro
+  compartido por generación, sin SQL ni I/O PLC en la búsqueda de muestras.
+- Sin cambios de esquema, página, períodos ni escrituras Siemens. Pruebas de
+  transiciones, correo, acciones Modbus, caída/recuperación y recarga.
+  [Informe](docs/etapas/18_alarmas_eventos_siemens.md).
+
 ## Contadores de lectura y recuperación Modbus — 2026-11-24
 
 - `E` excluye lecturas pospuestas por suspensión o espera de reconexión. Nuevos

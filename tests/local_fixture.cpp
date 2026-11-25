@@ -6,6 +6,7 @@
 #include <iostream>
 #include <poll.h>
 #include <cerrno>
+#include <mutex>
 int main() {
     try {
         S7Fixture fixture;
@@ -28,6 +29,7 @@ int main() {
             throw std::runtime_error("modbus mapping");
         mapping->tab_registers[0] = 1234;
         modbus_set_indication_timeout(ctx, 0, 100000);
+        std::mutex mapping_mutex;
         std::atomic<bool> stop{false};
         std::thread mb([&] {
             int peer = -1;
@@ -42,7 +44,8 @@ int main() {
                 }
                 int count = modbus_receive(ctx, query);
                 if (count > 0) {
-                    if (query[7] == 3 || query[7] == 4)
+                    std::lock_guard<std::mutex> lock(mapping_mutex);
+                    if (query[7] == 3 || query[7] == 4 || query[7] == 6)
                         modbus_reply(ctx, query, count, mapping);
                     else
                         modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
@@ -58,6 +61,27 @@ int main() {
                   << std::endl;
         char command;
         while (std::cin.get(command)) {
+            if (command == 'm') {
+                std::lock_guard<std::mutex> lock(mapping_mutex);
+                mapping->tab_registers[0] = 1400;
+            }
+            if (command == 'b' || command == 'B') {
+                fixture.server.LockArea(srvAreaDB, 100);
+                fixture.data[0] = command == 'B' ? 1 : 0;
+                fixture.server.UnlockArea(srvAreaDB, 100);
+            }
+            if (command == 'h' || command == 'H') {
+                fixture.server.LockArea(srvAreaDB, 100);
+                fixture.data[12] = 0; fixture.data[13] = command == 'h' ? 1 : 2;
+                fixture.data[14] = fixture.data[15] = 0;
+                fixture.server.UnlockArea(srvAreaDB, 100);
+            }
+            if (command == 'l') {
+                fixture.server.LockArea(srvAreaDB, 100);
+                fixture.data[8] = 0x41; fixture.data[9] = 0xc0;
+                fixture.data[10] = fixture.data[11] = 0;
+                fixture.server.UnlockArea(srvAreaDB, 100);
+            }
             if (command == 'r') {
                 fixture.server.LockArea(srvAreaDB, 100);
                 fixture.data[8] = 0x41;

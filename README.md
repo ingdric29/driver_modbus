@@ -33,7 +33,9 @@ No ejecutar pruebas SQL de integración sobre producción.
 La incorporación Siemens S7 permite adquisición local de DB sin SQL:
 [configuración, estado y pruebas](docs/siemens_s7.md). Snap7 se incluye en la
 distribución. El arranque habitual también admite catálogo y persistencia SQL Siemens;
-ver [informe de integración SQL](docs/etapas/07_sql_siemens.md).
+ver [informe de integración SQL](docs/etapas/07_sql_siemens.md). Las muestras S7
+alimentan también las alarmas, correos y eventos existentes, incluso expresiones
+mixtas con Modbus: [alcance y configuración](docs/siemens_s7.md#alarmas-y-eventos-siemens-modo-sql).
 
 | Rama | Uso y diferencias |
 |---|---|

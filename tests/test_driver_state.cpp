@@ -440,6 +440,29 @@ void invalid_alarm_command_email_test() {
     emaillist = nullptr; GLOBAL_contador_directorio = 0;
 }
 
+void siemens_alarm_test() {
+    auto source = std::make_shared<s7_runtime::Sample>();
+    source->valid = true; source->latest.acquired = time(nullptr);
+    source->latest.value = 1e-7; source->latest.text = "1e-7";
+    source->completed = s7_runtime::Clock::now();
+    source->type = s7::Type::Real; source->unit = "C";
+    source->address = "DB100.DBD8"; source->origin = "127.0.0.1:102";
+    s7_runtime::Registry::instance().replace({{{"siemens", "tiny"}, source}});
+    cls_defalarmas alarm;
+    alarm.clsdispositivo = "siemens"; alarm.clstag = alarm.clsvalorAlarma = "tiny";
+    alarm.expresionactivar = "$(siemens.tiny)>0.00000005";
+    alarm.expresiondesactivar = "$(siemens.tiny)<0.00000001";
+    alarm.ejecutado_activar_bd = true;
+    assert(alarm.evaluarcompleto() == 1 && alarm.activa);
+    assert(alarm.clsregistro == "DB100.DBD8" && alarm.clsorigen == "127.0.0.1:102");
+    source->valid = false;
+    assert(alarm.evaluarcompleto() == -1 && alarm.activa);
+    source->valid = true; source->completed -= std::chrono::seconds(10);
+    assert(alarm.evaluarcompleto() == -1 && alarm.activa);
+    s7_runtime::Registry::instance().replace({});
+    assert(alarm.evaluarcompleto() == -1);
+}
+
 void shutdown_test() {
     install_driver_signals(); GLOBAL_EJECUTARHILOS = true; GLOBAL_stop_requested = false;
     const auto begin = std::chrono::steady_clock::now();
@@ -451,7 +474,7 @@ void shutdown_test() {
     GLOBAL_stop_requested = false; GLOBAL_EJECUTARHILOS = true;
 }
 int main() { shutdown_test();
-    serial_test(); serial_window_test(); directory_lookup_test(); batch_period_test(); event_lookup_test(); alarm_directory_test(); command_validation_test(); invalid_alarm_command_email_test();
+    serial_test(); serial_window_test(); directory_lookup_test(); batch_period_test(); event_lookup_test(); siemens_alarm_test(); alarm_directory_test(); command_validation_test(); invalid_alarm_command_email_test();
     cls_sms disabled_sms; assert(disabled_sms.enviar() == CURLE_FAILED_INIT);
     if (std::getenv("DRIVER_SQL_TEST")) { generic_sql_test(); replication_test(); command_sql_test(); }
 }

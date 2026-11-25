@@ -4,14 +4,11 @@
 #define AUTOMONITOR_S7_SQL_H
 #include "local_acquisition.h"
 #include "sample_window.h"
+#include "s7_runtime_samples.h"
 #include <mutex>
 class WorkerGroup;
 namespace local_driver {
-struct SqlSample {
-    std::mutex mutex;
-    SampleValue latest;
-    bool valid = false;
-};
+using SqlSample = s7_runtime::Sample;
 struct SqlTag {
     int device_id = 0, register_id = 0;
     std::string device, concentrator, trace;

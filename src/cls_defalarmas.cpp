@@ -15,6 +15,7 @@
 #include "include/estructuras.h"
 #include <sstream>
 #include "include/alarm_expression.h"
+#include "include/s7_runtime_samples.h"
 
 using namespace std;
 
@@ -74,7 +75,8 @@ string cls_defalarmas::reemplazar_simbolos(const string &expression) {
         stres sample{};
         if (leertag2(reference.substr(0, dot), reference.substr(dot + 1), &sample) != 0)
             throw std::invalid_argument("unknown or unavailable alarm tag");
-        output += cast_double_to_string(sample.valorfloat);
+        output += sample.puntero_equipo == nullptr ? s7::value_text(sample.valorfloat)
+                                                   : cast_double_to_string(sample.valorfloat);
         begin = end + 1;
     }
     return output;
@@ -156,6 +158,21 @@ int cls_defalarmas::leertag2(const string &dispositivo, const string &tag, struc
         }
     }
 
+    if (!encontrado) {
+        auto source = s7_runtime::Registry::instance().find(dispositivo, tag);
+        s7_runtime::Snapshot sample;
+        if (!source || !source->read(sample))
+            return -1;
+        local->valorfloat = sample.latest.value;
+        local->valorstr = sample.latest.text;
+        local->unidad = sample.unit;
+        local->indice = -1;
+        local->puntero_equipo = nullptr;
+        local->time_fechatiempo = sample.latest.acquired;
+        clsorigen = sample.origin;
+        clsregistro = sample.address;
+        return 0;
+    }
     if (encontrado) {
         return 0;
     } else {

@@ -15,6 +15,7 @@
 #include <cppconn/resultset.h>
 #include "include/cls_defalarmas.h"
 #include "include/cls_defeventos.h"
+#include "include/s7_runtime_samples.h"
 
 using namespace std;
 
@@ -100,6 +101,7 @@ int lee_tbcambios(void) {
  */
 void liberarmemoria(void) {
     // Called only after all workers have joined (also handles partial startup).
+    s7_runtime::Registry::instance().replace({});
     delete[] equipo_mbtcp;
     equipo_mbtcp = nullptr;
     delete[] equipo_mbserial;

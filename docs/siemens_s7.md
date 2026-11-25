@@ -1,7 +1,8 @@
 # Integración Siemens S7: dependencia y compilación
 
-Estado: etapa 5. Hay adquisición local de DB S7 y MBTCP con el mismo ejecutable,
-monitor y gestión de trabajadores, sin SQL. No se añadieron escrituras ni reglas SQL.
+Estado actual: adquisición de DB S7 y Modbus con monitor y persistencia SQL.
+El modo SQL integra también alarmas y eventos Siemens. La lectura del PLC Siemens
+sigue siendo de solo lectura; el modo local INI no carga reglas SQL.
 El alcance completo está en
 [acuerdos](acuerdos_siemens_s7.md).
 
@@ -161,3 +162,74 @@ sin iniciar SQL temporal. Ambos compilan Snap7, generan distribución y conserva
 configdb.cfg. En ADQUISICION el arranque normal muestra ahora Tags Siemens S7 y
 PLC Siemens S7 con los conteos del catálogo filtrado por concentrador, incluso
 cuando son cero. No cuenta las lecturas ni las filas históricas.
+
+## Alarmas y eventos Siemens (modo SQL)
+
+El arranque habitual también publica las muestras S7 en memoria para los
+mismos evaluadores de alarmas y eventos del driver. No se agregan lecturas PLC
+ni consultas de valores SQL por evaluación. Solo se incluyen dispositivos
+habilitados y tags del concentrador configurado.
+
+En `tbdefalarmas`, usar el nombre de `tbdispositivos` y el tag de `tbregistros`:
+
+```text
+Dispositivo: Siemens_S7_1200
+Tag / valorAlarma: test_real
+Activar:    $(Siemens_S7_1200.test_real)>30
+Desactivar: $(Siemens_S7_1200.test_real)<29
+Acciones:   EMAIL[7];
+```
+
+Los nombres son exactos y las expresiones mantienen la sintaxis existente:
+`=` igualdad, `~` desigualdad, `&` AND, `|` OR, `@` AND de bits. Se pueden
+combinar referencias Siemens y Modbus, por ejemplo:
+
+```text
+$(Siemens_S7_1200.test_bool)=1 & $(PLC_TM172.iCfgSpHR)>50
+```
+
+Se usa el valor con escalamiento, en double y sin pasar por float/int heredados.
+El resultado alimenta `tbhistoalarmas`, las acciones y el estado del monitor.
+EMAIL reutiliza el directorio, plantilla, credenciales y envío actuales. CMD
+puede actuar sobre los destinos Modbus ya soportados; esto no implementa escritura
+Siemens. Un CMD ausente/inválido no debe impedir intentar EMAIL, según las reglas
+actuales. No hay cola persistente nueva ni cambios de política SMTP.
+
+Un fallo, espera de reconexión, muestra ausente/no finita o muestra con edad
+superior a `max(1 segundo, 3 × período del tag)` impide evaluar esa referencia.
+Se conserva el estado previo de la alarma y se muestra sin evaluar; no se
+interpreta como cero ni desactivación. Una alarma independiente de Modbus sigue
+su evaluación. Las expresiones con varios tags toman snapshots por referencia,
+no una captura atómica entre PLC distintos.
+
+En `tbdefeventos` se reutilizan `nombredispositivo`, `tag`, `bit1`, `activado` y
+`desactivado`. `tbhistoeventos` conserva sus ocho campos habituales:
+
+- `bit1=-1`: cambio de valor completo, incluido REAL y DWORD sin truncar a 16 bits.
+- BOOL: se recomienda `bit1=-1`; también admite bit 0 del booleano ya decodificado.
+  Un tag DBX0.7 ya representa ese bit: no se configura otra vez bit1=7.
+- BYTE/SINT: bits 0..7; WORD/INT: 0..15; DWORD/DINT: 0..31. Los bits se extraen
+  del entero original antes del escalamiento; los negativos usan complemento a dos.
+- REAL requiere `bit1=-1`. Un selector incompatible deja ese evento sin referencia
+  y registra un aviso al cargar el catálogo; no detiene los demás.
+- La primera muestra válida fija la referencia sin generar transición. Después,
+  BOOL/bits usan `activado` para 1 y `desactivado` para 0. Para cambios completos
+  numéricos se conserva la convención del camino anterior: texto `desactivado`
+  seguido del nuevo valor. Conviene usar ahí un texto como «Valor actualizado».
+
+Las evaluaciones usan los períodos existentes: `periodo_revision_alarmas`
+(predeterminado 60 s) y `GLOBAL_periodo_revision_eventos` (4 s). No cambia el
+muestreo de tags ni la resolución/planificación heredada de sus revisiones.
+Se comparan últimas muestras: pueden perderse cambios que
+ocurran entre lecturas o revisiones; no es un registro de todas las transiciones
+internas del PLC. Para pulsos breves hace falta retención/contador en el PLC.
+
+No se modifica la estructura SQL ni la página. Sí deben existir las definiciones
+que se quieran habilitar en tbdefalarmas/tbdefeventos y los destinatarios. Reiniciar
+tras configurar o usar la recarga del catálogo existente. No se crea ninguna
+alarma en producción automáticamente. Tras reinicio/recarga se mantienen las
+reglas de inicialización anteriores de alarmas; no hay deduplicación persistente.
+
+`make test-s7-sql` incluye un perfil con Snap7, Modbus, MariaDB y SMTP temporales:
+transiciones, bits altos, precisión, acciones, caída/recuperación y eliminación
+del dispositivo durante recarga. [Informe](etapas/18_alarmas_eventos_siemens.md).

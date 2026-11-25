@@ -250,3 +250,16 @@ un timeout de escritura no infla E con lecturas pospuestas; una excepción no
 crea otra conexión. El monitor cachea snapshots durante un segundo y las pruebas
 esperan su actualización antes de comparar contadores. Los tests enlazados
 comprueban excepciones de lectura y escritura TCP/RTU sobre una misma sesión.
+
+## Alarmas y eventos con muestras Siemens
+
+`make test-s7-sql` ejecuta además `test_s7_sql.py --alarms-events` sobre un
+proceso real y Snap7/Modbus/MariaDB/SMTP TLS temporales. Verifica BOOL, REAL,
+DWORD, bits altos, cambios completos con la misma mitad baja de 16 bits,
+activación/desactivación, correos, CMD hacia Modbus, CMD ausente sin impedir
+correo, expresiones mixtas, muestras inválidas, caída/recuperación y eliminación
+del dispositivo por recarga. No usa credenciales ni esquema de producción.
+`test_s7_runtime.cpp` (ASan/UBSan) cubre snapshots concurrentes, precisión,
+escalamiento de bits, antigüedad, tipos y reemplazo de registro.
+El test enlazado verifica una alarma de REAL pequeño (1e-7), pérdida de validez,
+antigüedad y desaparición de referencias sin cambiar el estado activo.

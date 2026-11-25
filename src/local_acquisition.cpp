@@ -39,12 +39,16 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
     std::string text, diagnostic;
     time_t acquired = 0;
     SampleValue accepted;
+    double raw = 0;
     if (result.ok()) {
         try {
             if (offset > result.bytes.size())
                 throw std::invalid_argument("S7 invalid block offset");
-            double value = s7::decode(t.address, t.type, result.bytes.data() + offset,
-                                      result.bytes.size() - offset, t.scale);
+            raw = s7::decode(t.address, t.type, result.bytes.data() + offset,
+                             result.bytes.size() - offset);
+            const double value = raw * t.scale;
+            if (!std::isfinite(value))
+                throw std::invalid_argument("S7 non-finite scaled sample");
             text = s7::value_text(value);
             acquired = std::chrono::system_clock::to_time_t(result.acquired);
             SampleValue sample;
@@ -65,8 +69,11 @@ void publish_s7(TagState &tag, const s7::ReadResult &result, size_t offset) {
     if (tag.sql_sample) {
         std::lock_guard<std::mutex> lock(tag.sql_sample->mutex);
         tag.sql_sample->valid = rc > 0;
-        if (rc > 0)
+        if (rc > 0) {
             tag.sql_sample->latest = accepted;
+            tag.sql_sample->raw = raw;
+            tag.sql_sample->completed = result.completed;
+        }
     }
     auto &state = monitor::State::instance();
     if (result.kind != s7::ErrorKind::Retry)
@@ -145,6 +152,25 @@ void start_sql_s7(WorkerGroup &workers) {
     startup_row("Tags Siemens S7", std::to_string(catalog.tags.size()));
     startup_row("PLC Siemens S7", std::to_string(catalog.config.devices.size()));
     auto &state = monitor::State::instance();
+    s7_runtime::Registry::Map samples;
+    for (const auto &device : catalog.config.devices)
+        for (const auto &entry : catalog.tags) {
+            if (entry.device != device.name)
+                continue;
+            auto &s = *entry.sample;
+            s.origin = device.endpoint.host + ":" + std::to_string(device.endpoint.port);
+            s.address = entry.tag.address_text;
+            s.unit = entry.tag.unit;
+            s.type = entry.tag.type;
+            s.period = entry.tag.period;
+            if (!samples
+                     .emplace(s7_runtime::Registry::Key{entry.device, entry.tag.name}, entry.sample)
+                     .second)
+                throw std::invalid_argument("Duplicate S7 runtime identity");
+        }
+    s7_runtime::Registry::instance().replace(std::move(samples));
+    // Resolve event references before acquisition/evaluation workers can access them.
+    actualizar_posiciones_clsdefeventos();
     for (const auto &device : catalog.config.devices) {
         std::vector<std::shared_ptr<TagState>> tags;
         for (const auto &entry : catalog.tags) {

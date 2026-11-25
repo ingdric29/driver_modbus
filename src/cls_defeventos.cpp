@@ -7,6 +7,7 @@
 
 #include "include/cls_defeventos.h"
 #include "include/globales.h"
+#include "include/driver_services.h"
 #include "include/conversiones.h"
 
 using namespace std;
@@ -21,6 +22,9 @@ extern stdatabase stdbexterna;
  * Retorno: Sin valor de retorno (constructor).
  */
 cls_defeventos::cls_defeventos() {
+    id = 0;
+    habilitar = true;
+    bit1 = -1;
     valoractual = 0;
     valoranterior = 0;
     tiempoactual = 0;
@@ -43,7 +47,7 @@ int cls_defeventos::cargar_en_memoriaram() {
 // ubica el registro en la tabla de cls_equipos
 // de manera de ubicarlo mas rapido
 /**
- * Resuelve la referencia del evento contra tags TCP/RTU/RS232.
+ * Resuelve la referencia del evento contra tags TCP/RTU/RS232 o muestras Siemens.
  * Parámetros: ninguno; utiliza el contexto descrito en el encabezado.
  * Retorno: Índice encontrado o -1.
  * Efectos: Actualiza el puntero y el valor de referencia del evento.
@@ -51,6 +55,9 @@ int cls_defeventos::cargar_en_memoriaram() {
 int cls_defeventos::cargar_posicion() {
     indiceenram = -1;
     pequipo = nullptr;
+    siemens_sample.reset();
+    siemens_baseline = false;
+    protocolo.clear();
     auto find = [&](cls_equipos *tags, int count, const std::string &protocol) {
         for (int i = 0; i < count; ++i)
             if (tags[i].nombre == nombredispositivo && tags[i].tag == tag) {
@@ -68,6 +75,26 @@ int cls_defeventos::cargar_posicion() {
     if (!find(equipo_mbtcp, GLOBAL_contador_equipos_mbtcp, "MBTCP") &&
         !find(equipo_mbserial, GLOBAL_contador_equipos_mbserial, "MBSERIAL"))
         find(equipo_rs232, GLOBAL_contador_equipos_rs232, "RS232");
+    if (!pequipo) {
+        siemens_sample = s7_runtime::Registry::instance().find(nombredispositivo, tag);
+        if (siemens_sample) {
+            s7_runtime::Snapshot metadata;
+            {
+                std::lock_guard<std::mutex> lock(siemens_sample->mutex);
+                metadata.type = siemens_sample->type;
+            }
+            try {
+                s7_runtime::event_value(metadata, bit1);
+                protocolo = "SIEMENS_S7";
+                indiceenram = 0;
+            } catch (const std::invalid_argument &error) {
+                logger_main.registrarError("WARN: Evento Siemens " + cast_int_to_string(id) +
+                                           " / " + nombredispositivo + "." + tag + ": " +
+                                           error.what());
+                siemens_sample.reset();
+            }
+        }
+    }
     return indiceenram;
 }
 
@@ -81,6 +108,8 @@ int cls_defeventos::cargar_posicion() {
  * Efectos: El retorno no confirma por sí solo una inserción SQL.
  */
 int cls_defeventos::leer_valorenram() {
+    if (siemens_sample)
+        return leer_siemens();
     double diferencia = 0.0;
     uint16_t x1, x2, x3;
     string campost[8];
@@ -146,4 +175,38 @@ int cls_defeventos::leer_valorenram() {
     } else {
         return 0;
     }
+}
+
+// Preserve the legacy Modbus path; Siemens supports full REAL/DWORD and bits 0..31.
+int cls_defeventos::leer_siemens() {
+    s7_runtime::Snapshot sample;
+    if (!siemens_sample->read(sample))
+        return -1;
+    double value;
+    try {
+        value = s7_runtime::event_value(sample, bit1);
+    } catch (const std::invalid_argument &) {
+        return -1;
+    }
+    if (!siemens_baseline) {
+        siemens_baseline = true;
+        siemens_previous = value;
+        return 0; // The first valid sample establishes the baseline, not a transition.
+    }
+    if (value == siemens_previous)
+        return 1;
+    const bool binary = bit1 >= 0 || sample.type == s7::Type::Bool;
+    const auto message =
+        (binary && value != 0 ? activado : desactivado) + " - (" + s7::value_text(value) + ")";
+    std::string fields[] = {"id_defeventos",     "fechatiempo", "tiempo", "concentrador",
+                            "nombredispositivo", "tag",         "bit1",   "mensaje"};
+    const auto now = cast_time_to_datetime(time(nullptr));
+    std::string values[] = {
+        cast_int_to_string(id),   now,    now, GLOBAL_nombre_concentrador, nombredispositivo, tag,
+        cast_int_to_string(bit1), message};
+    // No sample/catalog lock is held across SQL. Retry an unrecorded change on the next poll.
+    if (insertar_valor(&stdblocal, "tbhistoeventos", fields, values, 8) != 0)
+        return -1;
+    siemens_previous = value;
+    return 1;
 }

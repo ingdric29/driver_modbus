@@ -110,6 +110,7 @@ dist: all
 .PHONY: test-s7-sql
 test-s7-sql: all $(BUILD_DIR)/tests/local_fixture
 	python3 tests/test_s7_sql.py "$(abspath $(TARGET))" "$(abspath $(BUILD_DIR)/tests/local_fixture)"
+	python3 tests/test_s7_sql.py "$(abspath $(TARGET))" "$(abspath $(BUILD_DIR)/tests/local_fixture)" --alarms-events
 
 .PHONY: test-command-sql
 test-command-sql: all

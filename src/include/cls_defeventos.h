@@ -10,6 +10,7 @@
 
 #include "cls_equipos.h"
 #include "cls_cmd.h"
+#include "s7_runtime_samples.h"
 
 #include "globales.h"
 #include <time.h>
@@ -40,6 +41,11 @@ class cls_defeventos {
     time_t tiempoactual;
     int *pvaloractual;
     cls_equipos *pequipo; //puntero a equipo
+
+    std::shared_ptr<s7_runtime::Sample> siemens_sample;
+    bool siemens_baseline = false;
+    double siemens_previous = 0;
+    int leer_siemens();
 
     // metodos
     cls_defeventos();
